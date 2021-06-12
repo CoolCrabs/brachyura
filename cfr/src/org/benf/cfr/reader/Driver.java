@@ -97,7 +97,7 @@ class Driver {
             } else {
                 try {
                     for (Method method : c.getMethodByName(methname)) {
-                        method.dump(d, true);
+                        method.dump(dcCommonState, d, true);
                     }
                 } catch (NoSuchMethodException e) {
                     throw new IllegalArgumentException("No such method '" + methname + "'.");

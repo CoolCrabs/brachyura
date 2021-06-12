@@ -30,6 +30,9 @@ import org.benf.cfr.reader.util.collections.SetFactory;
 import org.benf.cfr.reader.util.getopt.OptionsImpl;
 import org.benf.cfr.reader.util.output.Dumper;
 
+import io.github.coolcrabs.cfr.impl.DumperUtil;
+import io.github.coolcrabs.cfr.impl.TypeUtil;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -150,6 +153,11 @@ public class Field implements KnowsRawSize, TypeUsageCollectable {
 
     public void dump(Dumper d, String name, ClassFile owner, boolean asRecordField) {
         JavaTypeInstance type = getJavaTypeInstance();
+
+        if (cp.getDCCommonState() != null && cp.getDCCommonState().javadocProvider != null) {
+            String javadoc = cp.getDCCommonState().javadocProvider.getFieldJavadoc(owner.getClassType().getRawName(), TypeUtil.descriptor(type), name);
+            DumperUtil.writeJavaDoc(d, javadoc);
+        }
 
         List<AnnotationTableEntry> declarationAnnotations = MiscAnnotations.BasicAnnotations(attributes);
         TypeAnnotationHelper tah = TypeAnnotationHelper.create(attributes, TypeAnnotationEntryValue.type_field);

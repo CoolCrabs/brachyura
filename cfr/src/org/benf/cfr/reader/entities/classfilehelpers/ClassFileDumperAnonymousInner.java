@@ -84,7 +84,7 @@ public class ClassFileDumperAnonymousInner extends AbstractClassFileDumper {
                     continue;
                 }
                 d.newln();
-                method.dump(d, true);
+                method.dump(null, d, true);
             }
         }
         classFile.dumpNamedInnerClasses(d);

@@ -26,6 +26,9 @@ import org.benf.cfr.reader.util.getopt.OptionsImpl;
 import org.benf.cfr.reader.util.output.Dumper;
 import org.benf.cfr.reader.util.output.IllegalIdentifierDump;
 
+import io.github.coolcrabs.cfr.impl.DumperUtil;
+import io.github.coolcrabs.cfr.impl.TypeUtil;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -42,7 +45,7 @@ abstract class AbstractClassFileDumper implements ClassFileDumper {
         return sb.toString();
     }
 
-    private final DCCommonState dcCommonState;
+    protected final DCCommonState dcCommonState;
 
     AbstractClassFileDumper(DCCommonState dcCommonState) {
         this.dcCommonState = dcCommonState;
@@ -191,7 +194,7 @@ abstract class AbstractClassFileDumper implements ClassFileDumper {
                     d.newln();
                 }
                 first = false;
-                method.dump(d, asClass);
+                method.dump(dcCommonState, d, asClass);
             }
         }
         /*
@@ -211,8 +214,11 @@ abstract class AbstractClassFileDumper implements ClassFileDumper {
 
     void dumpComments(ClassFile classFile, Dumper d) {
         DecompilerComments comments = classFile.getNullableDecompilerComments();
-        if (comments == null) return;
-        comments.dump(d);
+        if (comments != null) comments.dump(d);
+        if (dcCommonState.javadocProvider != null) {
+            String javadoc = dcCommonState.javadocProvider.getClassJavadoc(classFile.getClassType().getRawName());
+            DumperUtil.writeJavaDoc(d, javadoc);
+        }
     }
 
     void dumpAnnotations(ClassFile classFile, Dumper d) {

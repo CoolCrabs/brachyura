@@ -4,6 +4,8 @@ import org.benf.cfr.reader.CfrDriverImpl;
 import org.benf.cfr.reader.util.getopt.Options;
 import org.benf.cfr.reader.util.getopt.OptionsImpl;
 
+import io.github.coolcrabs.cfr.api.BrachyuraCFRJavadocProvider;
+
 import java.util.List;
 import java.util.Map;
 
@@ -31,6 +33,7 @@ public interface CfrDriver {
         Options builtOptions = null;
         OutputSinkFactory output = null;
         boolean fallbackToDefaultSource = false;
+        BrachyuraCFRJavadocProvider javadocProvider = null;
 
         /**
          * Overrides where CFR searches for bytecode.
@@ -101,6 +104,11 @@ public interface CfrDriver {
             return this;
         }
 
+        public Builder withJavadocProvider(BrachyuraCFRJavadocProvider javadocProvider) {
+            this.javadocProvider = javadocProvider;
+            return this;
+        }
+
         /**
          * Given provided artifacts, build an instance of {@link CfrDriver}.
          * Note that if artifacts are not provided, you will get default CFR behaviour.
@@ -108,7 +116,7 @@ public interface CfrDriver {
          * @return Constructed instance of {@link CfrDriver}
          */
         public CfrDriver build() {
-            return new CfrDriverImpl(source, output, builtOptions, fallbackToDefaultSource);
+            return new CfrDriverImpl(source, output, builtOptions, fallbackToDefaultSource, javadocProvider);
         }
     }
 }

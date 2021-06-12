@@ -16,6 +16,8 @@ import org.benf.cfr.reader.util.output.DumperFactory;
 import org.benf.cfr.reader.util.output.InternalDumperFactoryImpl;
 import org.benf.cfr.reader.util.output.SinkDumperFactory;
 
+import io.github.coolcrabs.cfr.api.BrachyuraCFRJavadocProvider;
+
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -25,8 +27,9 @@ public class CfrDriverImpl implements CfrDriver {
     private final Options options;
     private final ClassFileSource2 classFileSource;
     private final OutputSinkFactory outputSinkFactory;
+    private final BrachyuraCFRJavadocProvider javadocProvider;
 
-    public CfrDriverImpl(ClassFileSource source, OutputSinkFactory outputSinkFactory, Options options, boolean fallbackToDefaultSource) {
+    public CfrDriverImpl(ClassFileSource source, OutputSinkFactory outputSinkFactory, Options options, boolean fallbackToDefaultSource, BrachyuraCFRJavadocProvider javadocProvider) {
         if (options == null) {
             options = new OptionsImpl(new HashMap<String, String>());
         }
@@ -42,6 +45,7 @@ public class CfrDriverImpl implements CfrDriver {
         this.outputSinkFactory = outputSinkFactory;
         this.options = options;
         this.classFileSource = tmpSource;
+        this.javadocProvider = javadocProvider;
     }
 
     @Override
@@ -63,6 +67,7 @@ public class CfrDriverImpl implements CfrDriver {
             classFileSource.informAnalysisRelativePathDetail(null, null);
             // Note - both of these need to be reset, as they have caches.
             DCCommonState dcCommonState = new DCCommonState(options, classFileSource);
+            dcCommonState.javadocProvider = javadocProvider;
             DumperFactory dumperFactory = outputSinkFactory != null ?
                     new SinkDumperFactory(outputSinkFactory, options) :
                     new InternalDumperFactoryImpl(options);

@@ -22,6 +22,8 @@ import org.benf.cfr.reader.util.functors.BinaryFunction;
 import org.benf.cfr.reader.util.functors.UnaryFunction;
 import org.benf.cfr.reader.util.getopt.Options;
 
+import io.github.coolcrabs.cfr.api.BrachyuraCFRJavadocProvider;
+
 import java.io.File;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -40,6 +42,8 @@ public class DCCommonState {
     private transient LinkedHashSet<String> couldNotLoadClasses = new LinkedHashSet<String>();
     private final ObfuscationMapping obfuscationMapping;
     private final OverloadMethodSetCache overloadMethodSetCache;
+
+    public BrachyuraCFRJavadocProvider javadocProvider = null;
 
     public DCCommonState(Options options, ClassFileSource2 classFileSource) {
         this.options = options;
@@ -69,6 +73,7 @@ public class DCCommonState {
         this.versionCollisions = dcCommonState.versionCollisions;
         this.obfuscationMapping = dcCommonState.obfuscationMapping;
         this.overloadMethodSetCache = dcCommonState.overloadMethodSetCache;
+        this.javadocProvider = dcCommonState.javadocProvider;
     }
 
     // TODO : If we have any more of these, refactor to a builder!
@@ -85,6 +90,7 @@ public class DCCommonState {
         this.versionCollisions = dcCommonState.versionCollisions;
         this.obfuscationMapping = mapping;
         this.overloadMethodSetCache = dcCommonState.overloadMethodSetCache;
+        this.javadocProvider = dcCommonState.javadocProvider;
     }
 
     public void setCollisions(Set<JavaTypeInstance> versionCollisions) {

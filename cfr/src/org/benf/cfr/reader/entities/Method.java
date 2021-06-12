@@ -35,6 +35,9 @@ import org.benf.cfr.reader.util.getopt.OptionsImpl;
 import org.benf.cfr.reader.util.output.Dumper;
 import org.benf.cfr.reader.util.output.TypeContext;
 
+import io.github.coolcrabs.cfr.impl.DumperUtil;
+import io.github.coolcrabs.cfr.impl.TypeUtil;
+
 import java.util.*;
 
 /* Too much in common with field - refactor.
@@ -592,10 +595,14 @@ public class Method implements KnowsRawSize, TypeUsageCollectable {
         );
     }
 
-    public void dump(Dumper d, boolean asClass) {
+    public void dump(DCCommonState dcCommonState, Dumper d, boolean asClass) {
         if (codeAttribute != null) {
             // force analysis so we have comments.
             codeAttribute.analyse();
+        }
+        if (dcCommonState != null && dcCommonState.javadocProvider != null) {
+            String javadoc = dcCommonState.javadocProvider.getMethodJavadoc(classFile.getClassType().getRawName(), TypeUtil.getSignature(this.getMethodPrototype()), this.getName());
+            DumperUtil.writeJavaDoc(d, javadoc);
         }
         dumpComments(d);
         dumpSignatureText(asClass, d);

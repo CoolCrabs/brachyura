@@ -107,7 +107,7 @@ public class ClassFileDumperEnum extends AbstractClassFileDumper {
             for (Method method : methods) {
                 if (method.hiddenState() != Method.Visibility.Visible) continue;
                 d.newln();
-                method.dump(d, true);
+                method.dump(dcCommonState, d, true);
             }
         }
         classFile.dumpNamedInnerClasses(d);
