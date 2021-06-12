@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>org.benf</groupId>
+    <artifactId>cfr</artifactId>
+    <version>0.152-SNAPSHOT</version>
+
+    <name>cfr</name>
+    <description>CFR Java decompiler</description>
+    <url>https://www.benf.org/other/cfr</url>
+    <inceptionYear>2011</inceptionYear>
+    <!--<organization><name>Lee Benfield</name><url>https://www.benf.org/other/cfr</url></organization>-->
+    <licenses>
+        <license>
+            <name>MIT</name>
+            <url>https://www.benf.org/other/cfr/license.html</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <name>Lee Benfield</name>
+            <email>lee@benf.org</email>
+        </developer>
+    </developers>
+
+    <profiles>
+        <profile>
+            <id>jdk9plus</id>
+            <activation>
+                <jdk>[9,)</jdk>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <configuration>
+                            <additionalOptions>-html5 -quiet</additionalOptions>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
+    <scm>
+        <connection>scm:git:git://github.com/leibnitz27/cfr_examples.git</connection>
+        <developerConnection>scm:git:ssh://github.com:leibnitz27/cfr.git</developerConnection>
+        <url>https://www.benf.org/other/cfr</url>
+    </scm>
+
+    <build>
+        <sourceDirectory>src</sourceDirectory>
+        <plugins>
+            <!-- For getting Git revision information -->
+            <plugin>
+                <groupId>pl.project13.maven</groupId>
+                <artifactId>git-commit-id-plugin</artifactId>
+                <version>4.0.0</version>
+                <executions>
+                    <execution>
+                        <id>get-the-git-infos</id>
+                        <goals>
+                            <goal>revision</goal>
+                        </goals>
+                        <phase>initialize</phase>
+                        <configuration>
+                            <!-- Only use local Git repository information -->
+                            <offline>true</offline>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- For inserting build information into Java class -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>templating-maven-plugin</artifactId>
+                <version>1.0.0</version>
+                <executions>
+                    <execution>
+                        <id>filter-src</id>
+                        <goals>
+                            <goal>filter-sources</goal>
+                        </goals>
+                        <configuration>
+                            <sourceDirectory>${project.basedir}/src-templates</sourceDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.3</version>
+                <configuration>
+                    <!--<testSource>1.8</testSource>-->
+                    <!--<testTarget>1.8</testTarget>-->
+                    <compilerArgument>-Xlint:none</compilerArgument>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>2.4</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>org.benf.cfr.reader.Main</mainClass>
+                            <!-- Not used by CFR, but maybe useful for other projects depending on CFR -->
+                            <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                            <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>3.0.1</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <version>3.1.1</version>
+                <executions>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <doctitle>CFR API</doctitle>
+                    <title>CFR API</title>
+                    <!-- NB: We don't use -html5, as it requires j9+, which not everyone has -->
+                    <additionalOptions>-quiet</additionalOptions>
+                    <!--<bottom>Copyright &#169; {inceptionYear}&#x2013;{currentYear} Lee Benfield - https://www.benf.org/other/cfr</bottom>-->
+                    <subpackages>
+                        org/benf/cfr/reader/api
+                    </subpackages>
+                    <doclint>none</doclint>
+                    <sourcefileincludes>**\/api\/*.java</sourcefileincludes>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-gpg-plugin</artifactId>
+                <version>1.6</version>
+                <executions>
+                    <execution>
+                        <id>sign-artifacts</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>sign</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+    
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <javaVersion>1.6</javaVersion>
+        <!-- These are also used by javadoc plugin, see MJAVADOC-562 -->
+        <maven.compiler.source>${javaVersion}</maven.compiler.source>
+        <maven.compiler.target>${javaVersion}</maven.compiler.target>
+    </properties>
+</project>
