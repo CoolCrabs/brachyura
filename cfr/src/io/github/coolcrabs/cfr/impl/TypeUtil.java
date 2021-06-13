@@ -1,6 +1,5 @@
 package io.github.coolcrabs.cfr.impl;
 
-import java.util.List;
 import java.util.Map;
 
 import org.benf.cfr.reader.bytecode.analysis.types.JavaTypeInstance;
@@ -34,7 +33,6 @@ public class TypeUtil {
         return result.toString();
     }
 
-    //TODO: inner classes
     public static String descriptor(JavaTypeInstance javaTypeInstance) {
         if (javaTypeInstance == null) return "V"; //void
         StringBuilder result = new StringBuilder();
@@ -43,12 +41,16 @@ public class TypeUtil {
         }
         if (javaTypeInstance.isObject()) {
             result.append('L');
-            result.append(toSlashed(javaTypeInstance.getRawName()));
+            result.append(toInternal(javaTypeInstance));
             result.append(';');
         } else {
             result.append(PRIMATIVE_SIGNATURES.get(javaTypeInstance.getRawName()));
         }
         return result.toString();
+    }
+
+    public static String toInternal(JavaTypeInstance javaTypeInstance) {
+        return toSlashed(javaTypeInstance.getDeGenerifiedType().getRawName());
     }
 
     public static String toSlashed(String clazz) {

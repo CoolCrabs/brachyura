@@ -216,7 +216,7 @@ abstract class AbstractClassFileDumper implements ClassFileDumper {
         DecompilerComments comments = classFile.getNullableDecompilerComments();
         if (comments != null) comments.dump(d);
         if (dcCommonState.javadocProvider != null) {
-            String javadoc = dcCommonState.javadocProvider.getClassJavadoc(classFile.getClassType().getRawName());
+            String javadoc = dcCommonState.javadocProvider.getClassJavadoc(TypeUtil.toInternal(classFile.getClassType()));
             DumperUtil.writeJavaDoc(d, javadoc);
         }
     }

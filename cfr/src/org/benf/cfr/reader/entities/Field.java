@@ -155,7 +155,7 @@ public class Field implements KnowsRawSize, TypeUsageCollectable {
         JavaTypeInstance type = getJavaTypeInstance();
 
         if (cp.getDCCommonState() != null && cp.getDCCommonState().javadocProvider != null) {
-            String javadoc = cp.getDCCommonState().javadocProvider.getFieldJavadoc(owner.getClassType().getRawName(), TypeUtil.descriptor(type), name);
+            String javadoc = cp.getDCCommonState().javadocProvider.getFieldJavadoc(TypeUtil.toInternal(owner.getClassType()), TypeUtil.descriptor(type), name);
             DumperUtil.writeJavaDoc(d, javadoc);
         }
 

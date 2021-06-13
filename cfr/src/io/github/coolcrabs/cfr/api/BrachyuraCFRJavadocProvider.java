@@ -1,6 +1,9 @@
 package io.github.coolcrabs.cfr.api;
 
-//TODO: Classes are requested in qualified names
+/**
+ * Provides javadocs
+ * Classes are in internal format (slashed)
+ */
 public interface BrachyuraCFRJavadocProvider {
     String getClassJavadoc(String clazz);
 

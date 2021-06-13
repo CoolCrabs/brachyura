@@ -601,7 +601,7 @@ public class Method implements KnowsRawSize, TypeUsageCollectable {
             codeAttribute.analyse();
         }
         if (dcCommonState != null && dcCommonState.javadocProvider != null) {
-            String javadoc = dcCommonState.javadocProvider.getMethodJavadoc(classFile.getClassType().getRawName(), TypeUtil.getSignature(this.getMethodPrototype()), this.getName());
+            String javadoc = dcCommonState.javadocProvider.getMethodJavadoc(TypeUtil.toInternal(classFile.getClassType()), TypeUtil.getSignature(this.getMethodPrototype()), this.getName());
             DumperUtil.writeJavaDoc(d, javadoc);
         }
         dumpComments(d);
