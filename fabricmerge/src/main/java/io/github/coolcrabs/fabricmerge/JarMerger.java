@@ -21,7 +21,7 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 
 import java.io.*;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributeView;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -45,23 +45,24 @@ public class JarMerger implements AutoCloseable {
         }
     }
 
-    private static final ClassMerger CLASS_MERGER = new ClassMerger();
-    private final StitchUtil.FileSystemDelegate inputClientFs, inputServerFs, outputFs;
-    private final Path inputClient, inputServer;
-    private final Map<String, Entry> entriesClient, entriesServer;
+    private final StitchUtil.FileSystemDelegate inputClientFs;
+    private final StitchUtil.FileSystemDelegate inputServerFs;
+    private final StitchUtil.FileSystemDelegate outputFs;
+    private final Path inputClient;
+    private final Path inputServer;
+    private final Map<String, Entry> entriesClient;
+    private final Map<String, Entry> entriesServer;
     private final Set<String> entriesAll;
     private boolean removeSnowmen = false;
     private boolean offsetSyntheticsParams = false;
 
     public JarMerger(File inputClient, File inputServer, File output) throws IOException {
-        if (output.exists()) {
-            if (!output.delete()) {
-                throw new IOException("Could not delete " + output.getName());
-            }
-        }
+        Files.deleteIfExists(output.toPath());
 
-        this.inputClient = (inputClientFs = StitchUtil.getJarFileSystem(inputClient, false)).get().getPath("/");
-        this.inputServer = (inputServerFs = StitchUtil.getJarFileSystem(inputServer, false)).get().getPath("/");
+        this.inputClientFs = StitchUtil.getJarFileSystem(inputClient, false);
+        this.inputClient = inputClientFs.get().getPath("/");
+        this.inputServerFs = StitchUtil.getJarFileSystem(inputServer, false);
+        this.inputServer = inputServerFs.get().getPath("/");
         this.outputFs = StitchUtil.getJarFileSystem(output, true);
 
         this.entriesClient = new HashMap<>();
@@ -84,7 +85,7 @@ public class JarMerger implements AutoCloseable {
         outputFs.close();
     }
 
-    private void readToMap(Map<String, Entry> map, Path input, boolean isServer) {
+    private void readToMap(Map<String, Entry> map, Path input) {
         try {
             Files.walkFileTree(input, new SimpleFileVisitor<Path>() {
                 @Override
@@ -96,14 +97,11 @@ public class JarMerger implements AutoCloseable {
                     if (!path.getFileName().toString().endsWith(".class")) {
                         if (path.toString().equals("/META-INF/MANIFEST.MF")) {
                             map.put("META-INF/MANIFEST.MF", new Entry(path, attr,
-                                    "Manifest-Version: 1.0\nMain-Class: net.minecraft.client.Main\n".getBytes(Charset.forName("UTF-8"))));
+                                    "Manifest-Version: 1.0\nMain-Class: net.minecraft.client.Main\n".getBytes(StandardCharsets.UTF_8)));
                         } else {
-                            if (path.toString().startsWith("/META-INF/")) {
-                                if (path.toString().endsWith(".SF") || path.toString().endsWith(".RSA")) {
-                                    return FileVisitResult.CONTINUE;
-                                }
+                            if (path.toString().startsWith("/META-INF/") && (path.toString().endsWith(".SF") || path.toString().endsWith(".RSA"))) {
+                                return FileVisitResult.CONTINUE;
                             }
-
                             map.put(path.toString().substring(1), new Entry(path, attr, null));
                         }
                         
@@ -142,19 +140,19 @@ public class JarMerger implements AutoCloseable {
 
     public void merge() throws IOException {
         ExecutorService service = Executors.newFixedThreadPool(2);
-        service.submit(() -> readToMap(entriesClient, inputClient, false));
-        service.submit(() -> readToMap(entriesServer, inputServer, true));
+        service.submit(() -> readToMap(entriesClient, inputClient));
+        service.submit(() -> readToMap(entriesServer, inputServer));
         service.shutdown();
         try {
             service.awaitTermination(1, TimeUnit.HOURS);
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            Thread.currentThread().interrupt();
         }
 
         entriesAll.addAll(entriesClient.keySet());
         entriesAll.addAll(entriesServer.keySet());
 
-        List<Entry> entries = entriesAll.parallelStream().map((entry) -> {
+        List<Entry> entries = entriesAll.parallelStream().map(entry -> {
             boolean isClass = entry.endsWith(".class");
             boolean isMinecraft = entriesClient.containsKey(entry) || entry.startsWith("net/minecraft") || !entry.contains("/");
             Entry result;
@@ -168,7 +166,7 @@ public class JarMerger implements AutoCloseable {
                     result = entry1;
                 } else {
                     if (isClass) {
-                        result = new Entry(entry1.path, entry1.metadata, CLASS_MERGER.merge(entry1.data, entry2.data));
+                        result = new Entry(entry1.path, entry1.metadata, ClassMerger.merge(entry1.data, entry2.data));
                     } else {
                         // FIXME: More heuristics?
                         result = entry1;

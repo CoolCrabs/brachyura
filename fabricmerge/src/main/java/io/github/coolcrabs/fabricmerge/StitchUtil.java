@@ -29,7 +29,7 @@ import java.util.*;
 
 final class StitchUtil {
 
-    public static int ASM_VERSION = Opcodes.ASM9;
+    public static final int ASM_VERSION = Opcodes.ASM9;
 
     public static class FileSystemDelegate implements AutoCloseable {
         private final FileSystem fileSystem;
@@ -78,23 +78,6 @@ final class StitchUtil {
         }
     }
 
-    public static String join(String joiner, Collection<String> c) {
-        StringBuilder builder = new StringBuilder();
-        int i = 0;
-        for (String s : c) {
-            if ((i++) > 0) {
-                builder.append(joiner);
-            }
-
-            builder.append(s);
-        }
-        return builder.toString();
-    }
-
-    public static <T> Set<T> newIdentityHashSet() {
-        return Collections.newSetFromMap(new IdentityHashMap<>());
-    }
-
     public static List<String> mergePreserveOrder(List<String> first, List<String> second) {
         List<String> out = new ArrayList<>();
         int i = 0;
@@ -120,9 +103,5 @@ final class StitchUtil {
         }
 
         return out;
-    }
-
-    public static long getTime() {
-        return new Date().getTime();
     }
 }

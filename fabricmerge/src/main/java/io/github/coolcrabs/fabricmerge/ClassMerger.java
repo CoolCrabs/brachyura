@@ -21,13 +21,15 @@ import org.objectweb.asm.tree.*;
 
 import java.util.*;
 
-public class ClassMerger {
+class ClassMerger {
+    private ClassMerger() { }
+
     private static final String SIDE_DESCRIPTOR = "Lnet/fabricmc/api/EnvType;";
     private static final String ITF_DESCRIPTOR = "Lnet/fabricmc/api/EnvironmentInterface;";
     private static final String ITF_LIST_DESCRIPTOR = "Lnet/fabricmc/api/EnvironmentInterfaces;";
     private static final String SIDED_DESCRIPTOR = "Lnet/fabricmc/api/Environment;";
 
-    private abstract class Merger<T> {
+    private abstract static class Merger<T> {
         private final Map<String, T> entriesClient, entriesServer;
         private final List<String> entryNames;
 
@@ -102,11 +104,7 @@ public class ClassMerger {
         }
     }
 
-    public ClassMerger() {
-
-    }
-
-    public byte[] merge(byte[] classClient, byte[] classServer) {
+    public static byte[] merge(byte[] classClient, byte[] classServer) {
         ClassReader readerC = new ClassReader(classClient);
         ClassReader readerS = new ClassReader(classServer);
         ClassWriter writer = new ClassWriter(0);
