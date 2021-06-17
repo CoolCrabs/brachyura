@@ -7,7 +7,7 @@ import com.google.gson.Gson;
 import io.github.coolcrabs.brachyura.util.NetUtil;
 import io.github.coolcrabs.brachyura.util.Util;
 
-public class LauncherMetaDownloader {
+class LauncherMetaDownloader {
     private LauncherMetaDownloader() { }
 
     private static LauncherMeta meta;

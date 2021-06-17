@@ -6,6 +6,7 @@ public class MessageDigestUtil {
     private MessageDigestUtil() { }
 
     public static final String SHA1 = "SHA-1";
+    public static final String SHA256 = "SHA-256";
 
     static final String HEXES = "0123456789ABCDEF";
 

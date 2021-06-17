@@ -1,6 +1,6 @@
 package io.github.coolcrabs.brachyura.minecraft;
 
-public class LauncherMeta {
+class LauncherMeta {
     public Latest latest;
     public Version[] versions;
 
