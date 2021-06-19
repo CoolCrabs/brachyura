@@ -86,8 +86,8 @@ public class Minecraft {
                             throw new IncorrectHashException(download.sha1, hash);
                         }
                         PathUtil.moveAtoB(tempPath, downloadPath);
-                        result.add(downloadPath);
                     }
+                    result.add(downloadPath);
                 }
             }
             return result;
@@ -96,11 +96,11 @@ public class Minecraft {
         }
     }
 
-    public static Path mcLibCache() {
+    private static Path mcLibCache() {
         return mcCache().resolve("libraries");
     }
 
-    public static Path mcCache() {
+    private static Path mcCache() {
         return PathUtil.cachePath().resolve("minecraft");
     }
 }

@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 
 public class PathUtil {
     private PathUtil() { }
@@ -42,7 +43,7 @@ public class PathUtil {
 
     public static void moveAtoB(Path a, Path b) {
         try {
-            Files.move(a, b);
+            Files.move(a, b, StandardCopyOption.ATOMIC_MOVE);
         } catch (IOException e) {
             try {
                 Files.delete(b);
