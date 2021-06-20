@@ -29,8 +29,13 @@ public class Minecraft {
                 for (Version metaVersion : LauncherMetaDownloader.getLauncherMeta().versions) {
                     if (metaVersion.id.equals(version)) {
                         Path tempPath = PathUtil.tempFile(versionJsonPath);
-                        try (InputStream inputStream = NetUtil.inputStream(NetUtil.url(metaVersion.url))) {
-                            Files.copy(inputStream, tempPath, StandardCopyOption.REPLACE_EXISTING);
+                        try {
+                            try (InputStream inputStream = NetUtil.inputStream(NetUtil.url(metaVersion.url))) {
+                                Files.copy(inputStream, tempPath, StandardCopyOption.REPLACE_EXISTING);
+                            }
+                        } catch (Exception e) {
+                            Files.delete(tempPath);
+                            throw e;
                         }
                         PathUtil.moveAtoB(tempPath, versionJsonPath);
                         break;
@@ -49,14 +54,18 @@ public class Minecraft {
             if (!Files.isRegularFile(downloadPath)) {
                 Download downloadDownload = meta.getDownload(download);
                 Path tempPath = PathUtil.tempFile(downloadPath);
-                MessageDigest messageDigest = MessageDigestUtil.messageDigest(MessageDigestUtil.SHA1);
-                try (DigestInputStream inputStream = new DigestInputStream(NetUtil.inputStream(NetUtil.url(downloadDownload.url)), messageDigest)) {
-                    Files.copy(inputStream, tempPath, StandardCopyOption.REPLACE_EXISTING);
-                }
-                String hash = MessageDigestUtil.toHexHash(messageDigest.digest());
-                if (!hash.equalsIgnoreCase(downloadDownload.sha1)) {
+                try {
+                    MessageDigest messageDigest = MessageDigestUtil.messageDigest(MessageDigestUtil.SHA1);
+                    try (DigestInputStream inputStream = new DigestInputStream(NetUtil.inputStream(NetUtil.url(downloadDownload.url)), messageDigest)) {
+                        Files.copy(inputStream, tempPath, StandardCopyOption.REPLACE_EXISTING);
+                    }
+                    String hash = MessageDigestUtil.toHexHash(messageDigest.digest());
+                    if (!hash.equalsIgnoreCase(downloadDownload.sha1)) {
+                        throw new IncorrectHashException(downloadDownload.sha1, hash);
+                    }
+                } catch (Exception e) {
                     Files.delete(tempPath);
-                    throw new IncorrectHashException(downloadDownload.sha1, hash);
+                    throw e;
                 }
                 PathUtil.moveAtoB(tempPath, downloadPath);
             }
@@ -76,14 +85,18 @@ public class Minecraft {
                     Path downloadPath = mcLibCache().resolve(download.path);
                     if (!Files.isRegularFile(downloadPath)) {
                         Path tempPath = PathUtil.tempFile(downloadPath);
-                        MessageDigest messageDigest = MessageDigestUtil.messageDigest(MessageDigestUtil.SHA1);
-                        try (DigestInputStream inputStream = new DigestInputStream(NetUtil.inputStream(NetUtil.url(download.url)), messageDigest)) {
-                            Files.copy(inputStream, tempPath, StandardCopyOption.REPLACE_EXISTING);
-                        }
-                        String hash = MessageDigestUtil.toHexHash(messageDigest.digest());
-                        if (!hash.equalsIgnoreCase(download.sha1)) {
+                        try {
+                            MessageDigest messageDigest = MessageDigestUtil.messageDigest(MessageDigestUtil.SHA1);
+                            try (DigestInputStream inputStream = new DigestInputStream(NetUtil.inputStream(NetUtil.url(download.url)), messageDigest)) {
+                                Files.copy(inputStream, tempPath, StandardCopyOption.REPLACE_EXISTING);
+                            }
+                            String hash = MessageDigestUtil.toHexHash(messageDigest.digest());
+                            if (!hash.equalsIgnoreCase(download.sha1)) {
+                                throw new IncorrectHashException(download.sha1, hash);
+                            }
+                        } catch (Exception e) {
                             Files.delete(tempPath);
-                            throw new IncorrectHashException(download.sha1, hash);
+                            throw e;
                         }
                         PathUtil.moveAtoB(tempPath, downloadPath);
                     }

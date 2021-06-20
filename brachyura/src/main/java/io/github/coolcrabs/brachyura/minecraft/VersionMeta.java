@@ -68,20 +68,20 @@ public class VersionMeta {
     }
 
     class Download {
-        public String sha1;
-        public int size;
-        public String url;
+        String sha1;
+        int size;
+        String url;
     }
 
     class DependencyDownload {
-        public String path;
-        public String sha1;
-        public String size;
-        public String url;
+        String path;
+        String sha1;
+        String size;
+        String url;
     }
 
     class Dependency {
-        public String name;
-        public List<DependencyDownload> downloads;
+        String name;
+        List<DependencyDownload> downloads;
     }
 }

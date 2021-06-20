@@ -37,4 +37,9 @@ public class MavenId {
             return false;
         }
     }
+
+    @Override
+    public String toString() {
+        return groupId + ":" + artifactId + ":" + version;
+    }
 }
