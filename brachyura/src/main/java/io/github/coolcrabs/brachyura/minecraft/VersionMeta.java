@@ -11,6 +11,8 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
+import org.jetbrains.annotations.Nullable;
+
 import io.github.coolcrabs.brachyura.util.OsUtil;
 
 import static io.github.coolcrabs.brachyura.util.NetUtil.*;
@@ -26,20 +28,19 @@ public class VersionMeta {
         json = JsonParser.parseReader(new InputStreamReader(stream));
     }
 
-    Download getDownload(String download) {
-        return (new Gson()).fromJson(json.getAsJsonObject().get("downloads").getAsJsonObject().get(download), Download.class);
+    VMDownload getDownload(String download) {
+        return (new Gson()).fromJson(json.getAsJsonObject().get("downloads").getAsJsonObject().get(download), VMDownload.class);
     }
 
-    List<Dependency> getDependencies() {
+    List<VMDependency> getDependencies() {
         Gson gson = new Gson();
-        ArrayList<Dependency> result = new ArrayList<>();
+        ArrayList<VMDependency> result = new ArrayList<>();
         JsonArray libraries = json.getAsJsonObject().get("libraries").getAsJsonArray();
         for (int i = 0; i < libraries.size(); i++) {
             JsonObject library = libraries.get(i).getAsJsonObject();
             if (!Rules.allowed(library.get("rules"))) continue;
-            Dependency dependency = new Dependency();
+            VMDependency dependency = new VMDependency();
             dependency.name = library.get("name").getAsString();
-            dependency.downloads = new ArrayList<>();
             boolean hasNatives = false;
             String natives = null;
             if (library.get("natives") != null) {
@@ -51,15 +52,15 @@ public class VersionMeta {
             }
             JsonObject downloads = library.get("downloads").getAsJsonObject();
             if (downloads.get("artifact") != null) {
-                dependency.downloads.add(gson.fromJson(downloads.get("artifact"), DependencyDownload.class));
+                dependency.artifact = gson.fromJson(downloads.get("artifact"), VMDependencyDownload.class);
             }
             if (downloads.get("classifiers") != null) {
                 JsonObject classifiers = downloads.get("classifiers").getAsJsonObject();
                 if (hasNatives) {
-                    dependency.downloads.add(gson.fromJson(classifiers.get(natives), DependencyDownload.class));
+                    dependency.natives = gson.fromJson(classifiers.get(natives), VMDependencyDownload.class);
                 }
                 if (classifiers.get("sources") != null) {
-                    dependency.downloads.add(gson.fromJson(classifiers.get("sources"), DependencyDownload.class));
+                    dependency.sources = gson.fromJson(classifiers.get("sources"), VMDependencyDownload.class);
                 }
             }
             result.add(dependency);
@@ -67,21 +68,23 @@ public class VersionMeta {
         return result;
     }
 
-    class Download {
+    class VMDownload {
         String sha1;
         int size;
         String url;
     }
 
-    class DependencyDownload {
+    class VMDependencyDownload {
         String path;
         String sha1;
         String size;
         String url;
     }
 
-    class Dependency {
+    class VMDependency {
         String name;
-        List<DependencyDownload> downloads;
+        @Nullable VMDependencyDownload artifact;
+        @Nullable VMDependencyDownload natives;
+        @Nullable VMDependencyDownload sources;
     }
 }

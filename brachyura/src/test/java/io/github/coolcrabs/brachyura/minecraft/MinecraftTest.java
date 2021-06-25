@@ -8,6 +8,10 @@ import java.nio.file.Path;
 
 import org.junit.jupiter.api.Test;
 
+import io.github.coolcrabs.brachyura.dependency.Dependency;
+import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
+import io.github.coolcrabs.brachyura.dependency.NativesJarDependency;
+
 class MinecraftTest {
     @Test
     void mcTest1_6_4() {
@@ -15,8 +19,12 @@ class MinecraftTest {
         assertNotNull(meta);
         Path client = Minecraft.getDownload("1.6.4", meta, "client");
         assertTrue(Files.isRegularFile(client));
-        for (Path lib : Minecraft.getDependencies(meta)) {
-            assertTrue(Files.isRegularFile(lib));
+        for (Dependency lib : Minecraft.getDependencies(meta)) {
+            if (lib instanceof JavaJarDependency) {
+                assertNotNull(((JavaJarDependency)lib).jar);
+            } else if (lib instanceof NativesJarDependency) {
+                assertNotNull(((NativesJarDependency)lib).jar);
+            }
         }
     }
 
@@ -26,8 +34,12 @@ class MinecraftTest {
         assertNotNull(meta);
         Path client = Minecraft.getDownload("1.17", meta, "server");
         assertTrue(Files.isRegularFile(client));
-        for (Path lib : Minecraft.getDependencies(meta)) {
-            assertTrue(Files.isRegularFile(lib));
+        for (Dependency lib : Minecraft.getDependencies(meta)) {
+            if (lib instanceof JavaJarDependency) {
+                assertNotNull(((JavaJarDependency)lib).jar);
+            } else if (lib instanceof NativesJarDependency) {
+                assertNotNull(((NativesJarDependency)lib).jar);
+            }
         }
     }
 }
