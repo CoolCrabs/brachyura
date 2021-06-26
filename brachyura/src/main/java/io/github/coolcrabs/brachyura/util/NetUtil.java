@@ -3,6 +3,8 @@ package io.github.coolcrabs.brachyura.util;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 
 public class NetUtil {
@@ -12,6 +14,14 @@ public class NetUtil {
         try {
             return new URL(url);
         } catch (MalformedURLException e) {
+            throw Util.sneak(e);
+        }
+    }
+
+    public static URI uri(String uri) {
+        try {
+            return new URI(uri);
+        } catch (URISyntaxException e) {
             throw Util.sneak(e);
         }
     }

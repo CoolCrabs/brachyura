@@ -1,7 +1,9 @@
 package io.github.coolcrabs.brachyura.minecraft;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -10,17 +12,19 @@ import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.tinylog.Logger;
+
 import io.github.coolcrabs.brachyura.dependency.Dependency;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 import io.github.coolcrabs.brachyura.dependency.NativesJarDependency;
 import io.github.coolcrabs.brachyura.exception.IncorrectHashException;
 import io.github.coolcrabs.brachyura.minecraft.LauncherMeta.Version;
 import io.github.coolcrabs.brachyura.minecraft.VersionMeta.VMDependency;
-import io.github.coolcrabs.brachyura.minecraft.VersionMeta.VMDependencyDownload;
 import io.github.coolcrabs.brachyura.minecraft.VersionMeta.VMDownload;
 import io.github.coolcrabs.brachyura.util.MessageDigestUtil;
 import io.github.coolcrabs.brachyura.util.NetUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
+import io.github.coolcrabs.brachyura.util.StreamUtil;
 import io.github.coolcrabs.brachyura.util.Util;
 
 public class Minecraft {
@@ -79,7 +83,7 @@ public class Minecraft {
         }
     }
 
-    //TODO Get sources jars not explicitly listed in a way that won't make unneeded network requests
+    //TODO mojank randomly doesn't have sources in their maven for some versions of open source libraries, get sources from maven central?
     public static List<Dependency> getDependencies(VersionMeta meta) {
         try {
             List<VMDependency> dependencyDownloads = meta.getDependencies();
@@ -91,19 +95,32 @@ public class Minecraft {
                 if (dependency.artifact != null) {
                     artifactPath = mcLibCache().resolve(dependency.artifact.path);
                     if (!Files.isRegularFile(artifactPath)) {
-                        downloadDep(artifactPath, dependency.artifact.url, dependency.artifact.sha1);
+                        downloadDep(artifactPath, new URL(dependency.artifact.url), dependency.artifact.sha1);
+                    }
+                    Path noSourcesPath = mcLibCache().resolve(dependency.artifact.path + ".nosources");
+                    if (!Files.isRegularFile(noSourcesPath)) {
+                        try {
+                            String sourcesPath2 = dependency.artifact.path.replace(".jar", "-sources.jar");
+                            String sourcesUrl = dependency.artifact.url.replace(".jar", "-sources.jar");
+                            URL sourcesHashUrl = new URL(sourcesUrl + ".sha1");
+                            String targetHash;
+                            try (InputStream hashStream = sourcesHashUrl.openStream()) {
+                                targetHash = StreamUtil.readFullyAsString(hashStream);
+                            }
+                            // If we got this far sources exist
+                            sourcesPath = mcLibCache().resolve(sourcesPath2);
+                            downloadDep(sourcesPath, new URL(sourcesUrl), targetHash);
+                        } catch (FileNotFoundException e) {
+                            Logger.info("No sources found for " + dependency.name);
+                            Files.createFile(noSourcesPath);
+                        }
+                        
                     }
                 }
                 if (dependency.natives != null) {
                     nativesPath = mcLibCache().resolve(dependency.natives.path);
                     if (!Files.isRegularFile(nativesPath)) {
-                        downloadDep(nativesPath, dependency.natives.url, dependency.natives.sha1);
-                    }
-                }
-                if (dependency.sources != null) {
-                    sourcesPath = mcLibCache().resolve(dependency.sources.path);
-                    if (!Files.isRegularFile(sourcesPath)) {
-                        downloadDep(sourcesPath, dependency.sources.url, dependency.sources.sha1);
+                        downloadDep(nativesPath, new URL(dependency.natives.url), dependency.natives.sha1);
                     }
                 }
                 if (artifactPath != null) {
@@ -119,11 +136,11 @@ public class Minecraft {
         }
     }
 
-    private static void downloadDep(Path downloadPath, String url, String sha1) throws IOException {
+    private static void downloadDep(Path downloadPath, URL url, String sha1) throws IOException {
         Path tempPath = PathUtil.tempFile(downloadPath);
         try {
             MessageDigest messageDigest = MessageDigestUtil.messageDigest(MessageDigestUtil.SHA1);
-            try (DigestInputStream inputStream = new DigestInputStream(NetUtil.inputStream(NetUtil.url(url)), messageDigest)) {
+            try (DigestInputStream inputStream = new DigestInputStream(NetUtil.inputStream(url), messageDigest)) {
                 Files.copy(inputStream, tempPath, StandardCopyOption.REPLACE_EXISTING);
             }
             String hash = MessageDigestUtil.toHexHash(messageDigest.digest());
