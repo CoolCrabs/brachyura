@@ -83,7 +83,6 @@ public class Minecraft {
         }
     }
 
-    //TODO mojank randomly doesn't have sources in their maven for some versions of open source libraries, get sources from maven central?
     public static List<Dependency> getDependencies(VersionMeta meta) {
         try {
             List<VMDependency> dependencyDownloads = meta.getDependencies();
@@ -99,11 +98,11 @@ public class Minecraft {
                     }
                     Path noSourcesPath = mcLibCache().resolve(dependency.artifact.path + ".nosources");
                     if (!Files.isRegularFile(noSourcesPath)) {
+                        String sourcesPath2 = dependency.artifact.path.replace(".jar", "-sources.jar");
+                        String sourcesUrl = dependency.artifact.url.replace(".jar", "-sources.jar");
+                        URL sourcesHashUrl = new URL(sourcesUrl + ".sha1");
+                        String targetHash;
                         try {
-                            String sourcesPath2 = dependency.artifact.path.replace(".jar", "-sources.jar");
-                            String sourcesUrl = dependency.artifact.url.replace(".jar", "-sources.jar");
-                            URL sourcesHashUrl = new URL(sourcesUrl + ".sha1");
-                            String targetHash;
                             try (InputStream hashStream = sourcesHashUrl.openStream()) {
                                 targetHash = StreamUtil.readFullyAsString(hashStream);
                             }
@@ -111,8 +110,19 @@ public class Minecraft {
                             sourcesPath = mcLibCache().resolve(sourcesPath2);
                             downloadDep(sourcesPath, new URL(sourcesUrl), targetHash);
                         } catch (FileNotFoundException e) {
-                            Logger.info("No sources found for " + dependency.name);
-                            Files.createFile(noSourcesPath);
+                            try {
+                                sourcesUrl = sourcesUrl.replace("https://libraries.minecraft.net/", "https://repo.maven.apache.org/maven2/"); // WHY ???
+                                sourcesHashUrl = new URL(sourcesUrl + ".sha1");
+                                try (InputStream hashStream = sourcesHashUrl.openStream()) {
+                                    targetHash = StreamUtil.readFullyAsString(hashStream);
+                                }
+                                // If we got this far sources exist
+                                sourcesPath = mcLibCache().resolve(sourcesPath2);
+                                downloadDep(sourcesPath, new URL(sourcesUrl), targetHash);
+                            } catch (FileNotFoundException e2) {
+                                Logger.info("No sources found for " + dependency.name + " (" + dependency.artifact.url + ")");
+                                Files.createFile(noSourcesPath);
+                            }
                         }
                         
                     }

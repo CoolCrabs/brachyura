@@ -6,11 +6,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import io.github.coolcrabs.brachyura.dependency.Dependency;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 import io.github.coolcrabs.brachyura.dependency.NativesJarDependency;
+import io.github.coolcrabs.brachyura.minecraft.LauncherMeta.Version;
 
 class MinecraftTest {
     @Test
@@ -39,6 +41,23 @@ class MinecraftTest {
                 assertNotNull(((JavaJarDependency)lib).jar);
             } else if (lib instanceof NativesJarDependency) {
                 assertNotNull(((NativesJarDependency)lib).jar);
+            }
+        }
+    }
+
+    @Disabled("Very agresssive")
+    @Test
+    void downloadAllLibs() {
+        LauncherMeta lmeta = LauncherMetaDownloader.getLauncherMeta();
+        for (Version versionMeta : lmeta.versions) {
+            if (versionMeta.type.equals("snapshot")) continue;
+            VersionMeta meta = Minecraft.getVersion(versionMeta.id);
+            for (Dependency lib : Minecraft.getDependencies(meta)) {
+                if (lib instanceof JavaJarDependency) {
+                    assertNotNull(((JavaJarDependency)lib).jar);
+                } else if (lib instanceof NativesJarDependency) {
+                    assertNotNull(((NativesJarDependency)lib).jar);
+                }
             }
         }
     }
