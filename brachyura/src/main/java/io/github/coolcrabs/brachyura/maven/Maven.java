@@ -60,7 +60,7 @@ public class Maven {
                         }
                     }
                 }
-                return new JavaJarDependency(downloadPath, sources ? sourcesPath : null);
+                return new JavaJarDependency(downloadPath, sources ? sourcesPath : null, dep);
             } else {
                 return new FileDependency(downloadPath);
             }

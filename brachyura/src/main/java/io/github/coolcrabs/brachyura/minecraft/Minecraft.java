@@ -18,6 +18,7 @@ import io.github.coolcrabs.brachyura.dependency.Dependency;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 import io.github.coolcrabs.brachyura.dependency.NativesJarDependency;
 import io.github.coolcrabs.brachyura.exception.IncorrectHashException;
+import io.github.coolcrabs.brachyura.maven.MavenId;
 import io.github.coolcrabs.brachyura.minecraft.LauncherMeta.Version;
 import io.github.coolcrabs.brachyura.minecraft.VersionMeta.VMDependency;
 import io.github.coolcrabs.brachyura.minecraft.VersionMeta.VMDownload;
@@ -134,7 +135,7 @@ public class Minecraft {
                     }
                 }
                 if (artifactPath != null) {
-                    result.add(new JavaJarDependency(artifactPath, sourcesPath));
+                    result.add(new JavaJarDependency(artifactPath, sourcesPath, new MavenId(dependency.name)));
                 }
                 if (nativesPath != null) {
                     result.add(new NativesJarDependency(nativesPath));
