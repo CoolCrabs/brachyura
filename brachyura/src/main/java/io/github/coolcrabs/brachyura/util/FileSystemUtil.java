@@ -3,18 +3,17 @@ package io.github.coolcrabs.brachyura.util;
 import java.nio.file.FileSystem;
 import java.nio.file.Path;
 import java.nio.file.spi.FileSystemProvider;
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 
 public class FileSystemUtil {
     private FileSystemUtil() { }
 
-    private static final Map<String, String> createArgs = new HashMap<>();
+    private static final Map<String, String> createArgs =  Collections.singletonMap("create", "true");
     private static final FileSystemProvider jarFileSystemProvider;
 
     static {
-        createArgs.put("create", "true");
         FileSystemProvider jarFileSystemProvider2 = null;
         for (FileSystemProvider fileSystemProvider : FileSystemProvider.installedProviders()) {
             if (fileSystemProvider.getScheme().equals("jar")) {
@@ -25,7 +24,7 @@ public class FileSystemUtil {
         jarFileSystemProvider = jarFileSystemProvider2;
     }
 
-    public static FileSystem newFileSystem(Path path) {
+    public static FileSystem newJarFileSystem(Path path) {
         try {
             return jarFileSystemProvider.newFileSystem(path, createArgs);
         } catch (Exception e) {

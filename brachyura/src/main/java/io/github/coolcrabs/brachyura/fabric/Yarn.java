@@ -3,14 +3,18 @@ package io.github.coolcrabs.brachyura.fabric;
 import java.io.FileNotFoundException;
 import java.nio.file.FileSystem;
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
 
 import io.github.coolcrabs.brachyura.dependency.FileDependency;
 import io.github.coolcrabs.brachyura.exception.UnreachableException;
+import io.github.coolcrabs.brachyura.mappings.Namespaces;
 import io.github.coolcrabs.brachyura.maven.Maven;
 import io.github.coolcrabs.brachyura.maven.MavenId;
 import io.github.coolcrabs.brachyura.util.FileSystemUtil;
 import io.github.coolcrabs.brachyura.util.Util;
 import net.fabricmc.mappingio.MappingReader;
+import net.fabricmc.mappingio.adapter.MappingNsRenamer;
 import net.fabricmc.mappingio.format.MappingFormat;
 import net.fabricmc.mappingio.tree.MappingTree;
 import net.fabricmc.mappingio.tree.MemoryMappingTree;
@@ -19,6 +23,13 @@ public class Yarn {
     // Either obf-named or intermediary-named
     public final MappingTree tree;
 
+    private static final Map<String, String> enigmaYarnNamespaces = new HashMap<>();
+
+    static {
+        enigmaYarnNamespaces.put("source", Namespaces.OBF);
+        enigmaYarnNamespaces.put("target", Namespaces.NAMED);
+    }
+
     private Yarn(MappingTree tree) {
         this.tree = tree;
     }
@@ -26,7 +37,7 @@ public class Yarn {
     public static Yarn ofV2(Path file) {
         try {
             MemoryMappingTree tree = new MemoryMappingTree();
-            try (FileSystem fileSystem = FileSystemUtil.newFileSystem(file)) {
+            try (FileSystem fileSystem = FileSystemUtil.newJarFileSystem(file)) {
                 MappingReader.read(fileSystem.getPath("mappings/mappings.tiny"), MappingFormat.TINY_2, tree);
             }
             return new Yarn(tree);
@@ -36,7 +47,15 @@ public class Yarn {
     }
 
     public static Yarn ofObfEnigmaZip(Path file) {
-        throw new UnsupportedOperationException(); //todo
+        try {
+            MemoryMappingTree tree = new MemoryMappingTree();
+            try (FileSystem fileSystem = FileSystemUtil.newJarFileSystem(file)) {
+                MappingReader.read(fileSystem.getPath("/"), MappingFormat.ENIGMA, new MappingNsRenamer(tree, enigmaYarnNamespaces));
+            }
+            return new Yarn(tree);
+        } catch (Exception e) {
+            throw Util.sneak(e);
+        }
     }
 
     @SuppressWarnings("all")
