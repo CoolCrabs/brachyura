@@ -9,12 +9,13 @@ import org.junit.jupiter.api.Test;
 
 import io.github.coolcrabs.brachyura.dependency.FileDependency;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
+import io.github.coolcrabs.brachyura.fabric.FabricMaven;
 
 class MavenTest {
     @Test
     void downloadFloader() {
-        JavaJarDependency floaderJar = Maven.getMavenJarDep("https://maven.fabricmc.net/", new MavenId("net.fabricmc", "fabric-loader", "0.11.6"));
-        FileDependency floaderJson = Maven.getMavenFileDep("https://maven.fabricmc.net/", new MavenId("net.fabricmc", "fabric-loader", "0.11.6"), ".json");
+        JavaJarDependency floaderJar = Maven.getMavenJarDep(FabricMaven.URL, FabricMaven.loader("0.11.6"));
+        FileDependency floaderJson = Maven.getMavenFileDep(FabricMaven.URL, FabricMaven.loader("0.11.6"), ".json");
         assertTrue(Files.isRegularFile(floaderJar.jar));
         assertTrue(Files.isRegularFile(floaderJar.sourcesJar));
         assertTrue(Files.isRegularFile(floaderJson.file));
@@ -22,7 +23,7 @@ class MavenTest {
 
     @Test
     void noSources() {
-        JavaJarDependency oldtr = Maven.getMavenJarDep("https://maven.fabricmc.net", new MavenId("net.fabricmc", "tiny-remapper", "0.1.0.10"));
+        JavaJarDependency oldtr = Maven.getMavenJarDep(FabricMaven.URL, new MavenId("net.fabricmc", "tiny-remapper", "0.1.0.10"));
         assertTrue(Files.isRegularFile(oldtr.jar));
         assertNull(oldtr.sourcesJar);
     }

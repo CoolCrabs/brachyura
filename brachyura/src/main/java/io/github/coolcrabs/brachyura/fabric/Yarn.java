@@ -37,10 +37,28 @@ public class Yarn {
     public static Yarn ofV2(Path file) {
         try {
             MemoryMappingTree tree = new MemoryMappingTree();
-            try (FileSystem fileSystem = FileSystemUtil.newJarFileSystem(file)) {
-                MappingReader.read(fileSystem.getPath("mappings/mappings.tiny"), MappingFormat.TINY_2, tree);
-            }
+            MappingReader.read(file, MappingFormat.TINY_2, tree);
             return new Yarn(tree);
+        } catch (Exception e) {
+            throw Util.sneak(e);
+        }
+    }
+
+    public static Yarn ofObfEnigma(Path dir) {
+        try {
+            MemoryMappingTree tree = new MemoryMappingTree();
+            MappingReader.read(dir, MappingFormat.ENIGMA, new MappingNsRenamer(tree, enigmaYarnNamespaces));
+            return new Yarn(tree);
+        } catch (Exception e) {
+            throw Util.sneak(e);
+        }
+    }
+
+    public static Yarn ofV2Jar(Path file) {
+        try {
+            try (FileSystem fileSystem = FileSystemUtil.newJarFileSystem(file)) {
+                return ofV2(fileSystem.getPath("mappings/mappings.tiny"));
+            }
         } catch (Exception e) {
             throw Util.sneak(e);
         }
@@ -48,33 +66,28 @@ public class Yarn {
 
     public static Yarn ofObfEnigmaZip(Path file) {
         try {
-            MemoryMappingTree tree = new MemoryMappingTree();
             try (FileSystem fileSystem = FileSystemUtil.newJarFileSystem(file)) {
-                MappingReader.read(fileSystem.getPath("/"), MappingFormat.ENIGMA, new MappingNsRenamer(tree, enigmaYarnNamespaces));
+                return ofObfEnigma(fileSystem.getPath("/"));
             }
-            return new Yarn(tree);
         } catch (Exception e) {
             throw Util.sneak(e);
         }
     }
 
     @SuppressWarnings("all")
-    public static Yarn ofMaven(String maven, MavenId id) {
-        FileDependency v2 = Maven.getMavenFileDep(maven, id, "-v2.jar", false);
-        FileDependency enigma = Maven.getMavenFileDep(maven, id, "-enigma.zip", false);
+    public static Yarn ofMaven(String repo, MavenId id) {
+        FileDependency v2 = Maven.getMavenFileDep(repo, id, "-v2.jar", false);
+        FileDependency enigma = Maven.getMavenFileDep(repo, id, "-enigma.zip", false);
         if (v2 == null && enigma == null) {
             try {
-                v2 = Maven.getMavenFileDep(maven, id, "-v2.jar");
-            } catch (Exception e) {
-                if (e instanceof FileNotFoundException) { // checked exceptions are ir
-                    enigma = Maven.getMavenFileDep(maven, id, "-enigma.zip");
-                } else {
-                    throw e;
-                }
+                v2 = Maven.getMavenFileDep(repo, id, "-v2.jar");
+                Util.<FileNotFoundException>unsneak();
+            } catch (FileNotFoundException e) {
+                enigma = Maven.getMavenFileDep(repo, id, "-enigma.zip");
             }
         }
         if (v2 != null) {
-            return ofV2(v2.file);
+            return ofV2Jar(v2.file);
         }
         if (enigma != null) {
             return ofObfEnigmaZip(enigma.file);

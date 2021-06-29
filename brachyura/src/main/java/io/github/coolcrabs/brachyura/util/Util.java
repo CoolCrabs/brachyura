@@ -7,4 +7,8 @@ public class Util {
     public static <T extends Throwable> RuntimeException sneak(Throwable t) throws T {
         throw (T)t;
     }
+
+    public static <T extends Throwable> void unsneak() throws T {
+        //noop
+    }
 }
