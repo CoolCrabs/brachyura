@@ -27,7 +27,7 @@ class JarMergerTest {
             }
             System.out.println("merging");
             long start = System.currentTimeMillis();
-            try (JarMerger merger = new JarMerger(client.toFile(), server.toFile(), merged.toFile())) {
+            try (JarMerger merger = new JarMerger(client, server, merged)) {
                 merger.enableSyntheticParamsOffset();
                 merger.merge();
             }

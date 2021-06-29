@@ -19,6 +19,7 @@ package io.github.coolcrabs.fabricmerge;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Opcodes;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -33,6 +34,8 @@ import java.util.stream.Collectors;
 
 
 public class JarMerger implements AutoCloseable {
+    public static final int ASM_VERSION = Opcodes.ASM9;
+
     public class Entry {
         public final Path path;
         public final BasicFileAttributes metadata;
@@ -45,9 +48,9 @@ public class JarMerger implements AutoCloseable {
         }
     }
 
-    private final StitchUtil.FileSystemDelegate inputClientFs;
-    private final StitchUtil.FileSystemDelegate inputServerFs;
-    private final StitchUtil.FileSystemDelegate outputFs;
+    private final FileSystem inputClientFs;
+    private final FileSystem inputServerFs;
+    private final FileSystem outputFs;
     private final Path inputClient;
     private final Path inputServer;
     private final Map<String, Entry> entriesClient;
@@ -56,14 +59,16 @@ public class JarMerger implements AutoCloseable {
     private boolean removeSnowmen = false;
     private boolean offsetSyntheticsParams = false;
 
-    public JarMerger(File inputClient, File inputServer, File output) throws IOException {
-        Files.deleteIfExists(output.toPath());
+    public JarMerger(Path inputClient, Path inputServer, Path output) throws IOException {
+        Files.deleteIfExists(output);
+        if (!Files.isRegularFile(inputClient)) throw new RuntimeException("Missing client jar");
+        if (!Files.isRegularFile(inputServer)) throw new RuntimeException("Missing server jar");
 
-        this.inputClientFs = StitchUtil.getJarFileSystem(inputClient, false);
-        this.inputClient = inputClientFs.get().getPath("/");
-        this.inputServerFs = StitchUtil.getJarFileSystem(inputServer, false);
-        this.inputServer = inputServerFs.get().getPath("/");
-        this.outputFs = StitchUtil.getJarFileSystem(output, true);
+        this.inputClientFs = FileSystemUtil.newJarFileSystem(inputClient);
+        this.inputClient = inputClientFs.getPath("/");
+        this.inputServerFs = FileSystemUtil.newJarFileSystem(inputServer);
+        this.inputServer = inputServerFs.getPath("/");
+        this.outputFs = FileSystemUtil.newJarFileSystem(output);
 
         this.entriesClient = new HashMap<>();
         this.entriesServer = new HashMap<>();
@@ -119,7 +124,7 @@ public class JarMerger implements AutoCloseable {
     }
 
     private void add(Entry entry) throws IOException {
-        Path outPath = outputFs.get().getPath(entry.path.toString());
+        Path outPath = outputFs.getPath(entry.path.toString());
         if (outPath.getParent() != null) {
             Files.createDirectories(outPath.getParent());
         }
@@ -191,15 +196,15 @@ public class JarMerger implements AutoCloseable {
                     ClassVisitor visitor = writer;
 
                     if (side != null) {
-                        visitor = new ClassMerger.SidedClassVisitor(StitchUtil.ASM_VERSION, visitor, side);
+                        visitor = new ClassMerger.SidedClassVisitor(ASM_VERSION, visitor, side);
                     }
 
                     if (removeSnowmen) {
-                        visitor = new SnowmanClassVisitor(StitchUtil.ASM_VERSION, visitor);
+                        visitor = new SnowmanClassVisitor(ASM_VERSION, visitor);
                     }
 
                     if (offsetSyntheticsParams) {
-                        visitor = new SyntheticParameterClassVisitor(StitchUtil.ASM_VERSION, visitor);
+                        visitor = new SyntheticParameterClassVisitor(ASM_VERSION, visitor);
                     }
 
                     if (visitor != writer) {
