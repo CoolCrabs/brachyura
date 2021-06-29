@@ -3,7 +3,7 @@ package io.github.coolcrabs.brachyura.maven;
 import java.security.InvalidParameterException;
 import java.util.Objects;
 
-public class MavenId {
+public final class MavenId {
     public final String groupId;
     public final String artifactId;
     public final String version;

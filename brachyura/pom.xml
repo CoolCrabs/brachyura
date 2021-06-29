@@ -13,6 +13,14 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
+    <repositories>
+        <repository>
+          <id>fabricmc</id>
+          <name>FabricMC</name>
+          <url>https://maven.fabricmc.net/</url>
+        </repository>
+      </repositories>
+
     <dependencies>
 
         <dependency>
@@ -39,6 +47,11 @@
             <groupId>io.github.coolcrabs</groupId>
             <artifactId>fabricmerge</artifactId>
             <version>0.1</version>
+        </dependency>
+        <dependency>
+            <groupId>net.fabricmc</groupId>
+            <artifactId>mapping-io</artifactId>
+            <version>0.1.4</version>
         </dependency>
 
         <!-- junit 5 -->

@@ -20,7 +20,7 @@ public class FabricLoader {
     public FabricLoader(String mavenRepo, MavenId id) {
         try {
             this.jar = Maven.getMavenJarDep(mavenRepo, id);
-            FileDependency jsonFile = (FileDependency) Maven.getMavenDep(mavenRepo, id, ".json");
+            FileDependency jsonFile = Maven.getMavenFileDep(mavenRepo, id, ".json");
             FloaderMeta floaderMeta;
             try (Reader jsonReader = Files.newBufferedReader(jsonFile.file)) {
                 floaderMeta = new Gson().fromJson(jsonReader, FloaderMeta.class);

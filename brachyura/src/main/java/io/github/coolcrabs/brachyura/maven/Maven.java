@@ -1,6 +1,7 @@
 package io.github.coolcrabs.brachyura.maven;
 
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -10,6 +11,7 @@ import java.nio.file.StandardCopyOption;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 
+import org.jetbrains.annotations.Nullable;
 import org.tinylog.Logger;
 
 import static io.github.coolcrabs.brachyura.util.MessageDigestUtil.*;
@@ -27,10 +29,18 @@ public class Maven {
     private Maven() { }
 
     public static JavaJarDependency getMavenJarDep(String mavenRepo, MavenId dep) {
-        return (JavaJarDependency) getMavenDep(mavenRepo, dep, ".jar");
+        return (JavaJarDependency) getMavenDep(mavenRepo, dep, ".jar", true, true);
     }
 
-    public static Dependency getMavenDep(String mavenRepo, MavenId dep, String extension) {
+    public static FileDependency getMavenFileDep(String mavenRepo, MavenId dep, String extension) {
+        return getMavenFileDep(mavenRepo, dep, extension, true);
+    }
+
+    public static @Nullable FileDependency getMavenFileDep(String mavenRepo, MavenId dep, String extension, boolean allowDownload) {
+        return (FileDependency) getMavenDep(mavenRepo, dep, extension, false, allowDownload);
+    }
+
+    private static Dependency getMavenDep(String mavenRepo, MavenId dep, String extension, boolean isJavaJar, boolean allowDownload) {
         try {
             URI mavenRepoUri = new URI(addTrailSlash(mavenRepo));
             String mavenRepoHash = toHexHash(messageDigest(SHA256).digest((mavenRepoUri.getHost() + mavenRepoUri.getPath()).getBytes(StandardCharsets.UTF_8)));
@@ -38,9 +48,13 @@ public class Maven {
             String relativeDownload = "./" + dep.groupId.replace('.', '/') + "/" + dep.artifactId + "/" + dep.version + "/" + dep.artifactId + "-" + dep.version + extension;
             Path downloadPath = repoPath.resolve(relativeDownload);
             if (!Files.isRegularFile(downloadPath)) {
-                download(downloadPath, relativeDownload, mavenRepoUri);
+                if (allowDownload) {
+                    download(downloadPath, relativeDownload, mavenRepoUri);
+                } else {
+                    return null;
+                }
             }
-            if (extension.equals(".jar")) {
+            if (isJavaJar) {
                 String nosourcesRelative = "./" + dep.groupId.replace('.', '/') + "/" + dep.artifactId + "/" + dep.version + "/" + dep.artifactId + "-" + dep.version + ".nosources";
                 Path nosources = repoPath.resolve(nosourcesRelative);
                 boolean sources = false;
@@ -51,6 +65,7 @@ public class Maven {
                     if (Files.isRegularFile(sourcesPath)) {
                         sources = true;
                     } else {
+                        if (!allowDownload) return null;
                         try {
                             download(sourcesPath, sourcesRelativeDownload, mavenRepoUri);
                             sources = true;
@@ -69,7 +84,7 @@ public class Maven {
         }
     }
 
-    private static void download(Path path, String relativeDownload, URI mavenRepoUri) throws Exception {
+    private static void download(Path path, String relativeDownload, URI mavenRepoUri) throws IOException {
         Path tempPath = PathUtil.tempFile(path);
         try {
             URI targetUri = mavenRepoUri.resolve(relativeDownload);
