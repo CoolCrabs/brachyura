@@ -99,33 +99,36 @@ public class Minecraft {
                     }
                     Path noSourcesPath = mcLibCache().resolve(dependency.artifact.path + ".nosources");
                     if (!Files.isRegularFile(noSourcesPath)) {
-                        String sourcesPath2 = dependency.artifact.path.replace(".jar", "-sources.jar");
-                        String sourcesUrl = dependency.artifact.url.replace(".jar", "-sources.jar");
-                        URL sourcesHashUrl = new URL(sourcesUrl + ".sha1");
-                        String targetHash;
-                        try {
-                            try (InputStream hashStream = sourcesHashUrl.openStream()) {
-                                targetHash = StreamUtil.readFullyAsString(hashStream);
-                            }
-                            // If we got this far sources exist
-                            sourcesPath = mcLibCache().resolve(sourcesPath2);
-                            downloadDep(sourcesPath, new URL(sourcesUrl), targetHash);
-                        } catch (FileNotFoundException e) {
+                        Path sourcesPath2 = mcLibCache().resolve(dependency.artifact.path.replace(".jar", "-sources.jar"));
+                        if (Files.isRegularFile(sourcesPath2)) {
+                            sourcesPath = sourcesPath2;
+                        } else {
+                            String sourcesUrl = dependency.artifact.url.replace(".jar", "-sources.jar");
+                            URL sourcesHashUrl = new URL(sourcesUrl + ".sha1");
+                            String targetHash;
                             try {
-                                sourcesUrl = sourcesUrl.replace("https://libraries.minecraft.net/", "https://repo.maven.apache.org/maven2/"); // WHY ???
-                                sourcesHashUrl = new URL(sourcesUrl + ".sha1");
                                 try (InputStream hashStream = sourcesHashUrl.openStream()) {
                                     targetHash = StreamUtil.readFullyAsString(hashStream);
                                 }
                                 // If we got this far sources exist
-                                sourcesPath = mcLibCache().resolve(sourcesPath2);
+                                sourcesPath = sourcesPath2;
                                 downloadDep(sourcesPath, new URL(sourcesUrl), targetHash);
-                            } catch (FileNotFoundException e2) {
-                                Logger.info("No sources found for " + dependency.name + " (" + dependency.artifact.url + ")");
-                                Files.createFile(noSourcesPath);
+                            } catch (FileNotFoundException e) {
+                                try {
+                                    sourcesUrl = sourcesUrl.replace("https://libraries.minecraft.net/", "https://repo.maven.apache.org/maven2/"); // WHY ???
+                                    sourcesHashUrl = new URL(sourcesUrl + ".sha1");
+                                    try (InputStream hashStream = sourcesHashUrl.openStream()) {
+                                        targetHash = StreamUtil.readFullyAsString(hashStream);
+                                    }
+                                    // If we got this far sources exist
+                                    sourcesPath = sourcesPath2;
+                                    downloadDep(sourcesPath, new URL(sourcesUrl), targetHash);
+                                } catch (FileNotFoundException e2) {
+                                    Logger.info("No sources found for " + dependency.name + " (" + dependency.artifact.url + ")");
+                                    Files.createFile(noSourcesPath);
+                                }
                             }
                         }
-                        
                     }
                 }
                 if (dependency.natives != null) {

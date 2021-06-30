@@ -46,12 +46,17 @@
         <dependency>
             <groupId>io.github.coolcrabs</groupId>
             <artifactId>fabricmerge</artifactId>
-            <version>0.1</version>
+            <version>0.2</version>
         </dependency>
         <dependency>
             <groupId>net.fabricmc</groupId>
             <artifactId>mapping-io</artifactId>
             <version>0.1.4</version>
+        </dependency>
+        <dependency>
+            <groupId>net.fabricmc</groupId>
+            <artifactId>tiny-remapper</artifactId>
+            <version>0.4.2</version>
         </dependency>
 
         <!-- junit 5 -->

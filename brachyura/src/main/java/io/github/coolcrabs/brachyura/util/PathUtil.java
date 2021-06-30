@@ -1,8 +1,10 @@
 package io.github.coolcrabs.brachyura.util;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -24,6 +26,15 @@ public class PathUtil {
         try {
             Files.createDirectories(path.getParent());
             return new BufferedInputStream(Files.newInputStream(path));
+        } catch (IOException e) {
+            throw Util.sneak(e);
+        }
+    }
+
+    public static OutputStream outputStream(Path path) {
+        try {
+            Files.createDirectories(path.getParent());
+            return new BufferedOutputStream(Files.newOutputStream(path));
         } catch (IOException e) {
             throw Util.sneak(e);
         }
