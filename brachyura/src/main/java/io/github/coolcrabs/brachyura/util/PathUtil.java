@@ -65,4 +65,12 @@ public class PathUtil {
             throw Util.sneak(e);
         }
     }
+
+    public static void deleteIfExists(Path path) {
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException e) {
+            throw Util.sneak(e);
+        }
+    }
 }

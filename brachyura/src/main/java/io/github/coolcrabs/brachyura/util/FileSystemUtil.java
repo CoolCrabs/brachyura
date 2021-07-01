@@ -10,7 +10,7 @@ import java.util.Objects;
 public class FileSystemUtil {
     private FileSystemUtil() { }
 
-    private static final Map<String, String> createArgs =  Collections.singletonMap("create", "true");
+    private static final Map<String, String> createArgs = Collections.singletonMap("create", "true");
     private static final FileSystemProvider jarFileSystemProvider;
 
     static {

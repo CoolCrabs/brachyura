@@ -43,7 +43,6 @@ public class MappingTreeMappingProvider implements IMappingProvider {
                     dstIsSrc ? method.getSrcName() : method.getDstName(dstId)
                 );
                 for (MethodArgMapping methodArgMapping : method.getArgs()) {
-                    if (classSrcName.equals("net/minecraft/class_2586")) Logger.info(classSrcName + " " + method.getSrcName() + " " + methodArgMapping.getLvIndex() + " " + (dstIsSrc ? methodArgMapping.getSrcName() : methodArgMapping.getDstName(dstId)));
                     acceptor.acceptMethodArg(member, methodArgMapping.getLvIndex(), dstIsSrc ? methodArgMapping.getSrcName() : methodArgMapping.getDstName(dstId));
                 }
                 for (MethodVarMapping methodVarMapping : method.getVars()) {

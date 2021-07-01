@@ -7,6 +7,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+import io.github.coolcrabs.brachyura.decompiler.BrachyuraDecompiler;
+import io.github.coolcrabs.brachyura.decompiler.cfr.CfrDecompiler;
 import io.github.coolcrabs.brachyura.dependency.Dependency;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 import io.github.coolcrabs.brachyura.mappings.MappingHasher;
@@ -16,6 +18,7 @@ import io.github.coolcrabs.brachyura.mappings.tinyremapper.MappingTreeMappingPro
 import io.github.coolcrabs.brachyura.mappings.tinyremapper.PathFileConsumer;
 import io.github.coolcrabs.brachyura.mappings.tinyremapper.TinyRemapperHelper;
 import io.github.coolcrabs.brachyura.mappings.tinyremapper.TinyRemapperHelper.JarType;
+import io.github.coolcrabs.brachyura.maven.Maven;
 import io.github.coolcrabs.brachyura.minecraft.Minecraft;
 import io.github.coolcrabs.brachyura.minecraft.VersionMeta;
 import io.github.coolcrabs.brachyura.util.AtomicFile;
@@ -34,8 +37,8 @@ public abstract class FabricProject {
     public final Path vanillaClientJar = Minecraft.getDownload(getMcVersion(), versionMeta, "client");
     public final Path vanillaServerJar = Minecraft.getDownload(getMcVersion(), versionMeta, "server");
 
-    private Path intermediaryJar;
-    private Path namedJar;
+    private RemappedJar intermediaryJar;
+    private RemappedJar namedJar;
 
     public Intermediary getIntermediary() {
         return Intermediary.ofMaven(FabricMaven.URL, FabricMaven.intermediary(getMcVersion()));
@@ -59,14 +62,14 @@ public abstract class FabricProject {
         return result;
     }
 
-    public Path getIntermediaryJar() {
-        Path mergedJar = getMergedJar();
-        Intermediary intermediary = getIntermediary();
-        String intermediaryHash = MappingHasher.hashSha256(intermediary.tree);
-        Path result = fabricCache().resolve("intermediary").resolve(getMcVersion() + "-intermediary-" + intermediaryHash + ".jar");
+    public RemappedJar getIntermediaryJar() {
         if (intermediaryJar == null) {
+            Path mergedJar = getMergedJar();
+            Intermediary intermediary = getIntermediary();
+            String intermediaryHash = MappingHasher.hashSha256(intermediary.tree);
+            Path result = fabricCache().resolve("intermediary").resolve(getMcVersion() + "-intermediary-" + intermediaryHash + ".jar");
             if (Files.isRegularFile(result)) {
-                intermediaryJar = result;
+                intermediaryJar = new RemappedJar(result, intermediaryHash);
                 return intermediaryJar;
             } else {
                 try (AtomicFile atomicFile = new AtomicFile(result)) {
@@ -74,20 +77,20 @@ public abstract class FabricProject {
                     atomicFile.commit();
                 }
             }
-            intermediaryJar = result;
+            intermediaryJar = new RemappedJar(result, intermediaryHash);
         }
         return intermediaryJar;
     }
 
-    public Path getNamedJar() {
-        Path intermediaryJar2 = getIntermediaryJar();
-        MappingTree mappings = getMappings();
-        Intermediary intermediary = getIntermediary();
-        String mappingHash = MappingHasher.hashSha256(intermediary.tree, mappings);
-        Path result = fabricCache().resolve("named").resolve(getMcVersion() + "-named-" + mappingHash + ".jar");
+    public RemappedJar getNamedJar() {
         if (namedJar == null) {
+            Path intermediaryJar2 = getIntermediaryJar().jar;
+            MappingTree mappings = getMappings();
+            Intermediary intermediary = getIntermediary();
+            String mappingHash = MappingHasher.hashSha256(intermediary.tree, mappings);
+            Path result = fabricCache().resolve("named").resolve(getMcVersion() + "-named-" + mappingHash + ".jar");
             if (Files.isRegularFile(result)) {
-                namedJar = result;
+                namedJar = new RemappedJar(result, mappingHash);
                 return namedJar;
             } else {
                 try (AtomicFile atomicFile = new AtomicFile(result)) {
@@ -95,9 +98,25 @@ public abstract class FabricProject {
                     atomicFile.commit();
                 }
             }
-            namedJar = result;
+            namedJar = new RemappedJar(result, mappingHash);
         }
         return namedJar;
+    }
+
+    public Path getDecompiledJar() {
+        RemappedJar named = getNamedJar();
+        MappingTree mappings = getMappings();
+        BrachyuraDecompiler decompiler = decompiler();
+        Path result = fabricCache().resolve("decompiled").resolve(getMcVersion() + "-named-" + named.mappingHash + "-decomp-" + decompiler.getName() + "-" + decompiler.getVersion() + ".jar");
+        if (Files.isRegularFile(result)) {
+            return result;
+        } else {
+            try (AtomicFile atomicFile = new AtomicFile(result)) {
+                decompiler.decompile(named.jar, decompClasspath(), atomicFile.tempPath, null, mappings, mappings.getNamespaceId(Namespaces.NAMED));
+                atomicFile.commit();
+            }
+        }
+        return result;
     }
 
     public void remapJar(MappingTree mappings, String src, String dst, Path inputJar, Path outputJar, List<Path> classpath) {
@@ -129,6 +148,12 @@ public abstract class FabricProject {
         }
     }
 
+    public List<Path> decompClasspath() {
+        List<Path> result = new ArrayList<>(mcRemapClasspath());
+        result.add(Maven.getMavenJarDep(FabricMaven.URL, FabricMaven.loader("0.9.3+build.207")).jar); // Just for the annotations added by fabric-merge
+        return result;
+    }
+
     public List<Path> mcRemapClasspath() {
         List<Dependency> dependencies = Minecraft.getDependencies(versionMeta);
         List<Path> result = new ArrayList<>();
@@ -140,7 +165,21 @@ public abstract class FabricProject {
         return result;
     }
 
+    public BrachyuraDecompiler decompiler() {
+        return CfrDecompiler.INSTANCE;
+    }
+
     public Path fabricCache() {
         return PathUtil.cachePath().resolve("fabric");
+    }
+
+    public class RemappedJar {
+        public final Path jar;
+        public final String mappingHash;
+
+        public RemappedJar(Path jar, String mappingHash) {
+            this.jar = jar;
+            this.mappingHash = mappingHash;
+        }
     }
 }

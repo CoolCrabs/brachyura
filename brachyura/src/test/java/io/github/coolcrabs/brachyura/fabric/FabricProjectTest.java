@@ -23,7 +23,8 @@ class FabricProjectTest {
             }
             
         };
-        assertTrue(Files.isRegularFile(fabricProject.getIntermediaryJar()));
-        assertTrue(Files.isRegularFile(fabricProject.getNamedJar()));
+        assertTrue(Files.isRegularFile(fabricProject.getIntermediaryJar().jar));
+        assertTrue(Files.isRegularFile(fabricProject.getNamedJar().jar));
+        assertTrue(Files.isRegularFile(fabricProject.getDecompiledJar()));
     }
 }
