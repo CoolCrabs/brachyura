@@ -32,7 +32,9 @@ public class MappingHasher implements MappingVisitor {
     }
 
     private void update(String string) {
-        messageDigest.update(string.getBytes(StandardCharsets.UTF_8));
+        if (string != null) {
+            messageDigest.update(string.getBytes(StandardCharsets.UTF_8));
+        }
     }
 
     private void update(List<String> strings) {

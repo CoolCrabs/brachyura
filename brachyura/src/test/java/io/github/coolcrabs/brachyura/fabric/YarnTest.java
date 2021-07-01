@@ -13,7 +13,6 @@ import net.fabricmc.mappingio.tree.MappingTree.MethodArgMapping;
 import net.fabricmc.mappingio.tree.MappingTree.MethodMapping;
 
 class YarnTest {
-    @Disabled("mapping-io bug")
     @Test
     void modernYarn() {
         Yarn yarn = Yarn.ofMaven(FabricMaven.URL, FabricMaven.yarn("1.16.5+build.10"));
