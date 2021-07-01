@@ -7,12 +7,13 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 
 public class PathUtil {
     private PathUtil() { }
 
-    public static final Path HOME = Path.of(System.getProperty("user.home"));
+    public static final Path HOME = Paths.get(System.getProperty("user.home"));
 
     public static Path brachyuraPath() {
         return HOME.resolve(".brachyura");

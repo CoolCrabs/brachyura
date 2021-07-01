@@ -39,9 +39,9 @@ public class TinyRemapperHelper {
             }
         });
         if (type == JarType.CLASSPATH) {
-            tr.readClassPath(inputs.toArray(Path[]::new));
+            tr.readClassPath(inputs.toArray(new Path[inputs.size()]));
         } else {
-            tr.readInputs(inputs.toArray(Path[]::new));
+            tr.readInputs(inputs.toArray(new Path[inputs.size()]));
         }
     }
 

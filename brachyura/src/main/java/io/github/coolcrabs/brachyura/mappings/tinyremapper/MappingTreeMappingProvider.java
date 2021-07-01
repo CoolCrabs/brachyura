@@ -1,9 +1,13 @@
 package io.github.coolcrabs.brachyura.mappings.tinyremapper;
 
+import org.tinylog.Logger;
+
 import net.fabricmc.mappingio.tree.MappingTree;
 import net.fabricmc.mappingio.tree.MappingTree.ClassMapping;
 import net.fabricmc.mappingio.tree.MappingTree.FieldMapping;
+import net.fabricmc.mappingio.tree.MappingTree.MethodArgMapping;
 import net.fabricmc.mappingio.tree.MappingTree.MethodMapping;
+import net.fabricmc.mappingio.tree.MappingTree.MethodVarMapping;
 import net.fabricmc.tinyremapper.IMappingProvider;
 
 public class MappingTreeMappingProvider implements IMappingProvider {
@@ -29,14 +33,22 @@ public class MappingTreeMappingProvider implements IMappingProvider {
             String classSrcName = srcIsSrc ? classMapping.getSrcName() : classMapping.getDstName(srcId);
             acceptor.acceptClass(classSrcName, dstIsSrc ? classMapping.getSrcName() : classMapping.getDstName(dstId));
             for (MethodMapping method : classMapping.getMethods()) {
+                Member member = new Member(
+                    classSrcName,
+                    srcIsSrc ? method.getSrcName() : method.getDstName(dstId),
+                    srcIsSrc ? method.getSrcDesc() : method.getDstDesc(dstId)
+                );
                 acceptor.acceptMethod(
-                    new Member(
-                        classSrcName,
-                        srcIsSrc ? method.getSrcName() : method.getDstName(dstId),
-                        srcIsSrc ? method.getSrcDesc() : method.getDstDesc(dstId)
-                    ),
+                    member,
                     dstIsSrc ? method.getSrcName() : method.getDstName(dstId)
                 );
+                for (MethodArgMapping methodArgMapping : method.getArgs()) {
+                    if (classSrcName.equals("net/minecraft/class_2586")) Logger.info(classSrcName + " " + method.getSrcName() + " " + methodArgMapping.getLvIndex() + " " + (dstIsSrc ? methodArgMapping.getSrcName() : methodArgMapping.getDstName(dstId)));
+                    acceptor.acceptMethodArg(member, methodArgMapping.getLvIndex(), dstIsSrc ? methodArgMapping.getSrcName() : methodArgMapping.getDstName(dstId));
+                }
+                for (MethodVarMapping methodVarMapping : method.getVars()) {
+                    acceptor.acceptMethodVar(member, methodVarMapping.getLvIndex(), methodVarMapping.getStartOpIdx(), methodVarMapping.getLvtRowIndex(), dstIsSrc ? methodVarMapping.getSrcName() : methodVarMapping.getDstName(dstId));
+                }
             }
             for (FieldMapping field : classMapping.getFields()) {
                 acceptor.acceptField(

@@ -24,7 +24,6 @@ import io.github.coolcrabs.brachyura.util.PathUtil;
 import io.github.coolcrabs.brachyura.util.Util;
 import io.github.coolcrabs.fabricmerge.JarMerger;
 import net.fabricmc.mappingio.tree.MappingTree;
-import net.fabricmc.tinyremapper.OutputConsumerPath;
 import net.fabricmc.tinyremapper.TinyRemapper;
 
 public abstract class FabricProject {
@@ -36,6 +35,7 @@ public abstract class FabricProject {
     public final Path vanillaServerJar = Minecraft.getDownload(getMcVersion(), versionMeta, "server");
 
     private Path intermediaryJar;
+    private Path namedJar;
 
     public Intermediary getIntermediary() {
         return Intermediary.ofMaven(FabricMaven.URL, FabricMaven.intermediary(getMcVersion()));
@@ -77,6 +77,27 @@ public abstract class FabricProject {
             intermediaryJar = result;
         }
         return intermediaryJar;
+    }
+
+    public Path getNamedJar() {
+        Path intermediaryJar2 = getIntermediaryJar();
+        MappingTree mappings = getMappings();
+        Intermediary intermediary = getIntermediary();
+        String mappingHash = MappingHasher.hashSha256(intermediary.tree, mappings);
+        Path result = fabricCache().resolve("named").resolve(getMcVersion() + "-named-" + mappingHash + ".jar");
+        if (namedJar == null) {
+            if (Files.isRegularFile(result)) {
+                namedJar = result;
+                return namedJar;
+            } else {
+                try (AtomicFile atomicFile = new AtomicFile(result)) {
+                    remapJar(mappings, Namespaces.INTERMEDIARY, Namespaces.NAMED, intermediaryJar2, atomicFile.tempPath, mcRemapClasspath());
+                    atomicFile.commit();
+                }
+            }
+            namedJar = result;
+        }
+        return namedJar;
     }
 
     public void remapJar(MappingTree mappings, String src, String dst, Path inputJar, Path outputJar, List<Path> classpath) {

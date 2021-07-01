@@ -18,11 +18,13 @@ public class MappingHasher implements MappingVisitor {
         this.messageDigest = messageDigest;
     }
 
-    public static String hashSha256(MappingTree tree) {
+    public static String hashSha256(MappingTree... trees) {
         MessageDigest digest = MessageDigestUtil.messageDigest(MessageDigestUtil.SHA256);
         MappingHasher mappingHasher = new MappingHasher(digest);
         try {
-            tree.accept(mappingHasher);
+            for (MappingTree tree : trees) {
+                tree.accept(mappingHasher);
+            }
         } catch (IOException e) {
             throw Util.sneak(e);
         }

@@ -24,5 +24,6 @@ class FabricProjectTest {
             
         };
         assertTrue(Files.isRegularFile(fabricProject.getIntermediaryJar()));
+        assertTrue(Files.isRegularFile(fabricProject.getNamedJar()));
     }
 }
