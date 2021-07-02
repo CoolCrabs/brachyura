@@ -1,7 +1,5 @@
 package io.github.coolcrabs.brachyura.decompiler.cfr;
 
-import org.tinylog.Logger;
-
 import io.github.coolcrabs.cfr.api.BrachyuraCFRJavadocProvider;
 import net.fabricmc.mappingio.tree.MappingTree;
 import net.fabricmc.mappingio.tree.MappingTree.ClassMapping;

@@ -3,14 +3,17 @@ package io.github.coolcrabs.brachyura.decompiler.cfr;
 import java.io.BufferedWriter;
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-
-import com.google.gson.Gson;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.benf.cfr.reader.api.OutputSinkFactory;
 import org.benf.cfr.reader.api.SinkReturns;
@@ -20,21 +23,31 @@ import org.benf.cfr.reader.api.SinkReturns.LineNumberMapping;
 import org.jetbrains.annotations.Nullable;
 import org.tinylog.Logger;
 
+import io.github.coolcrabs.brachyura.decompiler.ReplaceLineNumberMappings;
+import io.github.coolcrabs.brachyura.decompiler.ReplaceLineNumberMappings.LineNumberMappingEntry;
 import io.github.coolcrabs.brachyura.util.FileSystemUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import io.github.coolcrabs.brachyura.util.Util;
 
 class BrachyuraCfrOutputSinkFactory implements OutputSinkFactory, Closeable {
     private final FileSystem fileSystem;
+    private final Writer lineNumberMappingsWriter;
+    private final Map<String, List<LineNumberMappingEntry>> lineNumberMappings = new ConcurrentHashMap<>();
     private final @Nullable LineNumberMappingSink lineNumberMappingSink;
-    private final DecompiledSink decompiledSink;
+    private final @Nullable DecompiledSink decompiledSink;
     
 
-    public BrachyuraCfrOutputSinkFactory(@Nullable Path outputJar, @Nullable Path lineNumberMappings) {
+    public BrachyuraCfrOutputSinkFactory(@Nullable Path outputJar, @Nullable Path lineNumberMappingsPath) {
         PathUtil.deleteIfExists(outputJar);
         fileSystem = FileSystemUtil.newJarFileSystem(outputJar);
         decompiledSink = outputJar == null ? null : new DecompiledSink(fileSystem);
-        lineNumberMappingSink = lineNumberMappings == null ? null : new LineNumberMappingSink();
+        if (lineNumberMappingsPath != null) {
+            lineNumberMappingsWriter = PathUtil.newGzipBufferedWriter(lineNumberMappingsPath);
+            lineNumberMappingSink = new LineNumberMappingSink(lineNumberMappings);
+        } else {
+            lineNumberMappingsWriter = null;
+            lineNumberMappingSink = null;
+        }
     }
 
     @Override
@@ -84,34 +97,37 @@ class BrachyuraCfrOutputSinkFactory implements OutputSinkFactory, Closeable {
 
         @Override
         public void write(Decompiled sinkable) {
-            try {
-                Path path = fileSystem.getPath("/" + sinkable.getPackageName().replace('.', '/') + "/" + sinkable.getClassName() + ".java");
-                Files.createDirectories(path.getParent());
-                try (BufferedWriter writer = Files.newBufferedWriter(path)) { // implicit utf8
-                    writer.write(sinkable.getJava());
+            if (sinkable.getClassName().indexOf('$') < 0) { // skip inner classes because they are included in the parent source file 
+                try {
+                    Path path = fileSystem.getPath("/" + sinkable.getPackageName().replace('.', '/') + "/" + sinkable.getClassName() + ".java");
+                    Files.createDirectories(path.getParent());
+                    try (BufferedWriter writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8, StandardOpenOption.CREATE)) {
+                        writer.write(sinkable.getJava());
+                    }
+                } catch (IOException e) {
+                    throw Util.sneak(e);
                 }
-            } catch (IOException e) {
-                throw Util.sneak(e);
             }
         }
     }
 
     private static class LineNumberMappingSink implements Sink<SinkReturns.LineNumberMapping> {
-        Gson gson = new Gson();
+        final Map<String, List<LineNumberMappingEntry>> lineNumberMappings;
+        LineNumberMappingSink(Map<String, List<LineNumberMappingEntry>> lineNumberMappings) {
+            this.lineNumberMappings = lineNumberMappings;
+        }
 
         @Override
         public void write(LineNumberMapping sinkable) {
-            LineNumberMappings lineNumberMappings = new LineNumberMappings();
-            lineNumberMappings.methodName = sinkable.methodName();
-            lineNumberMappings.methodDescriptor = sinkable.methodDescriptor();
-            lineNumberMappings.mappings = sinkable.getMappings();
-            Logger.info(gson.toJson(lineNumberMappings));
+            lineNumberMappings.computeIfAbsent(sinkable.className().replace('.', '/'), k -> new ArrayList<>()).add(new LineNumberMappingEntry(sinkable.methodName(), sinkable.methodDescriptor(), sinkable.getMappings()));
         }
     }
 
     @Override
     public void close() throws IOException {
         fileSystem.close();
+        new ReplaceLineNumberMappings(lineNumberMappings).write(lineNumberMappingsWriter);
+        lineNumberMappingsWriter.close();
     }
     
 }

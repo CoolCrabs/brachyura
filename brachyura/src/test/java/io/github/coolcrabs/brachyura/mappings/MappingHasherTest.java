@@ -24,7 +24,7 @@ class MappingHasherTest {
         String hash = MessageDigestUtil.toHexHash(digest.digest());
         long time = System.currentTimeMillis() - start;
         Logger.info("Hashed yarn in " + time + "ms " + hash);
-        assertEquals("5560AFB7DF948C88A79495E6C3098FD6920116F3EDA59CBC662153DBC639F1DB", hash);
+        assertEquals("5FD5BBD59CF36860ABEFF50A73916A981E400A88D2902E4695513B5272387C2D", hash);
     }
 
     @Test
@@ -34,7 +34,7 @@ class MappingHasherTest {
         String hash = MappingHasher.hashSha256(yarn.tree);
         long time = System.currentTimeMillis() - start;
         Logger.info("Hashed yarn (test 2) in " + time + "ms " + hash);
-        assertEquals("5560AFB7DF948C88A79495E6C3098FD6920116F3EDA59CBC662153DBC639F1DB", hash);
+        assertEquals("5FD5BBD59CF36860ABEFF50A73916A981E400A88D2902E4695513B5272387C2D", hash);
     }
 
     @Test

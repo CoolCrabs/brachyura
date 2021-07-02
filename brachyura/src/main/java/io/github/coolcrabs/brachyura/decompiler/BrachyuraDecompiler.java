@@ -11,7 +11,8 @@ public interface BrachyuraDecompiler {
     LineNumberMappingsSupport lineNumberMappingsSupport();
     String getName();
     String getVersion();
-    void decompile(Path jar, List<Path> classpath, @Nullable Path outputJar, @Nullable Path outputLineNumberMappings, @Nullable MappingTree tree, int namespace);
+    int getThreadCount();
+    void decompile(Path jar, List<Path> classpath, @Nullable Path outputJar, Path outputLineNumberMappings, @Nullable MappingTree tree, int namespace);
 
     enum LineNumberMappingsSupport {
         NONE,

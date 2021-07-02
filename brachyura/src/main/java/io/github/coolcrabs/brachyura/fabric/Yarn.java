@@ -67,11 +67,11 @@ public class Yarn {
 
     @SuppressWarnings("all")
     public static Yarn ofMaven(String repo, MavenId id) {
-        FileDependency v2 = Maven.getMavenFileDep(repo, id, "-v2.jar", false);
+        FileDependency v2 = Maven.getMavenFileDep(repo, id, "-mergedv2.jar", false);
         FileDependency enigma = Maven.getMavenFileDep(repo, id, "-enigma.zip", false);
         if (v2 == null && enigma == null) {
             try {
-                v2 = Maven.getMavenFileDep(repo, id, "-v2.jar");
+                v2 = Maven.getMavenFileDep(repo, id, "-mergedv2.jar");
                 Util.<FileNotFoundException>unsneak();
             } catch (FileNotFoundException e) {
                 enigma = Maven.getMavenFileDep(repo, id, "-enigma.zip");

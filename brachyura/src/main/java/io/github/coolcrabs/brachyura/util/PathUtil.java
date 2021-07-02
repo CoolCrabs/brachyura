@@ -2,13 +2,17 @@ package io.github.coolcrabs.brachyura.util;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.zip.GZIPOutputStream;
 
 public class PathUtil {
     private PathUtil() { }
@@ -55,7 +59,7 @@ public class PathUtil {
 
     public static void moveAtoB(Path a, Path b) {
         try {
-            Files.move(a, b, StandardCopyOption.ATOMIC_MOVE);
+            Files.move(a, b, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
             try {
                 Files.delete(b);
@@ -69,6 +73,24 @@ public class PathUtil {
     public static void deleteIfExists(Path path) {
         try {
             Files.deleteIfExists(path);
+        } catch (IOException e) {
+            throw Util.sneak(e);
+        }
+    }
+
+    public static BufferedWriter newBufferedWriter(Path path) {
+        try {
+            Files.createDirectories(path.getParent());
+            return Files.newBufferedWriter(path);
+        } catch (IOException e) {
+            throw Util.sneak(e);
+        }
+    }
+
+    public static BufferedWriter newGzipBufferedWriter(Path path) {
+        try {
+            Files.createDirectories(path.getParent());
+            return new BufferedWriter(new OutputStreamWriter(new GZIPOutputStream(Files.newOutputStream(path)), StandardCharsets.UTF_8));
         } catch (IOException e) {
             throw Util.sneak(e);
         }

@@ -66,6 +66,11 @@ public class SinkDumperFactory implements DumperFactory {
                             for (final Item item : items) {
                                 sink.write(new SinkReturns.LineNumberMapping() {
                                     @Override
+                                    public String className() {
+                                        return item.getMethod().getClassFile().getClassType().getRawName();
+                                    };
+
+                                    @Override
                                     public String methodName() {
                                         return item.getMethod().getName();
                                     }

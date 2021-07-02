@@ -7,6 +7,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.tinylog.Logger;
+
 import io.github.coolcrabs.brachyura.decompiler.BrachyuraDecompiler;
 import io.github.coolcrabs.brachyura.decompiler.cfr.CfrDecompiler;
 import io.github.coolcrabs.brachyura.dependency.Dependency;
@@ -107,13 +109,22 @@ public abstract class FabricProject {
         RemappedJar named = getNamedJar();
         MappingTree mappings = getMappings();
         BrachyuraDecompiler decompiler = decompiler();
-        Path result = fabricCache().resolve("decompiled").resolve(getMcVersion() + "-named-" + named.mappingHash + "-decomp-" + decompiler.getName() + "-" + decompiler.getVersion() + ".jar");
-        if (Files.isRegularFile(result)) {
+        Path result = fabricCache().resolve("decompiled").resolve(getMcVersion() + "-named-" + named.mappingHash + "-decomp-" + decompiler.getName() + "-" + decompiler.getVersion() + "-sources.jar");
+        Path result2 = fabricCache().resolve("decompiled").resolve(getMcVersion() + "-named-" + named.mappingHash + "-decomp-" + decompiler.getName() + "-" + decompiler.getVersion() + ".linemappings");
+        if (Files.isRegularFile(result) && Files.isRegularFile(result2)) {
             return result;
         } else {
-            try (AtomicFile atomicFile = new AtomicFile(result)) {
-                decompiler.decompile(named.jar, decompClasspath(), atomicFile.tempPath, null, mappings, mappings.getNamespaceId(Namespaces.NAMED));
+            try (
+                AtomicFile atomicFile = new AtomicFile(result);
+                AtomicFile atomicFile2 = new AtomicFile(result2);
+            ) {
+                Logger.info("Decompiling " + named.jar.getFileName() + " using " + decompiler.getName() + " " + decompiler.getVersion() + " with " + decompiler.getThreadCount() + " threads"); 
+                long start = System.currentTimeMillis();
+                decompiler.decompile(named.jar, decompClasspath(), atomicFile.tempPath, atomicFile2.tempPath, mappings, mappings.getNamespaceId(Namespaces.NAMED));
+                long end = System.currentTimeMillis();
+                Logger.info("Decompiled " + named.jar.getFileName() + " in " + (end - start) + "ms");
                 atomicFile.commit();
+                atomicFile2.commit();
             }
         }
         return result;
@@ -166,7 +177,7 @@ public abstract class FabricProject {
     }
 
     public BrachyuraDecompiler decompiler() {
-        return CfrDecompiler.INSTANCE;
+        return new CfrDecompiler(Runtime.getRuntime().availableProcessors());
     }
 
     public Path fabricCache() {

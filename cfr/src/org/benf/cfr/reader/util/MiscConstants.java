@@ -3,7 +3,7 @@ package org.benf.cfr.reader.util;
 import java.util.regex.Pattern;
 
 public interface MiscConstants {
-    String CFR_HEADER_BRA = "Decompiled with CFR";
+    String CFR_HEADER_BRA = "Decompiled with BrachyuraCFR";
 
     String INIT_METHOD = "<init>";
     String STATIC_INIT_METHOD = "<clinit>";

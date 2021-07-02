@@ -19,7 +19,8 @@ class FabricProjectTest {
 
             @Override
             MappingTree getMappings() {
-                return Yarn.ofMaven(FabricMaven.URL, FabricMaven.yarn("1.16.5+build.10")).tree;
+                MappingTree tree = Yarn.ofMaven(FabricMaven.URL, FabricMaven.yarn("1.16.5+build.10")).tree;
+                return tree;
             }
             
         };

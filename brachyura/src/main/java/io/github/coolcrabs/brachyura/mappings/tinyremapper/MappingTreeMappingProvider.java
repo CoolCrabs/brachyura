@@ -1,7 +1,5 @@
 package io.github.coolcrabs.brachyura.mappings.tinyremapper;
 
-import org.tinylog.Logger;
-
 import net.fabricmc.mappingio.tree.MappingTree;
 import net.fabricmc.mappingio.tree.MappingTree.ClassMapping;
 import net.fabricmc.mappingio.tree.MappingTree.FieldMapping;
@@ -12,51 +10,45 @@ import net.fabricmc.tinyremapper.IMappingProvider;
 
 public class MappingTreeMappingProvider implements IMappingProvider {
     private final MappingTree tree;
-    private final boolean srcIsSrc;
-    private final String srcNamespace;
-    private final boolean dstIsSrc;
-    private final String dstNamespace;
+    private final int srcId;
+    private final int dstId;
 
     public MappingTreeMappingProvider(MappingTree tree, String srcNamespace, String dstNamespace) {
         this.tree = tree;
-        this.srcNamespace = srcNamespace;
-        this.srcIsSrc = tree.getSrcNamespace().equals(srcNamespace);
-        this.dstNamespace = dstNamespace;
-        this.dstIsSrc = tree.getSrcNamespace().equals(dstNamespace);
+        this.srcId = tree.getNamespaceId(srcNamespace);
+        this.dstId = tree.getNamespaceId(dstNamespace);
     }
 
     @Override
     public void load(MappingAcceptor acceptor) {
-        int srcId = srcIsSrc ? -1 : tree.getDstNamespaces().indexOf(srcNamespace);
-        int dstId = dstIsSrc ? -1 : tree.getDstNamespaces().indexOf(dstNamespace);
         for (ClassMapping classMapping : tree.getClasses()) {
-            String classSrcName = srcIsSrc ? classMapping.getSrcName() : classMapping.getDstName(srcId);
-            acceptor.acceptClass(classSrcName, dstIsSrc ? classMapping.getSrcName() : classMapping.getDstName(dstId));
+            String classSrcName = classMapping.getName(srcId);
+            acceptor.acceptClass(classSrcName, classMapping.getName(dstId));
             for (MethodMapping method : classMapping.getMethods()) {
                 Member member = new Member(
                     classSrcName,
-                    srcIsSrc ? method.getSrcName() : method.getDstName(dstId),
-                    srcIsSrc ? method.getSrcDesc() : method.getDstDesc(dstId)
+                    method.getName(srcId),
+                    method.getDesc(srcId)
                 );
                 acceptor.acceptMethod(
                     member,
-                    dstIsSrc ? method.getSrcName() : method.getDstName(dstId)
+                    method.getName(dstId)
                 );
                 for (MethodArgMapping methodArgMapping : method.getArgs()) {
-                    acceptor.acceptMethodArg(member, methodArgMapping.getLvIndex(), dstIsSrc ? methodArgMapping.getSrcName() : methodArgMapping.getDstName(dstId));
+                    acceptor.acceptMethodArg(member, methodArgMapping.getLvIndex(), methodArgMapping.getName(dstId));
                 }
                 for (MethodVarMapping methodVarMapping : method.getVars()) {
-                    acceptor.acceptMethodVar(member, methodVarMapping.getLvIndex(), methodVarMapping.getStartOpIdx(), methodVarMapping.getLvtRowIndex(), dstIsSrc ? methodVarMapping.getSrcName() : methodVarMapping.getDstName(dstId));
+                    acceptor.acceptMethodVar(member, methodVarMapping.getLvIndex(), methodVarMapping.getStartOpIdx(), methodVarMapping.getLvtRowIndex(), methodVarMapping.getName(dstId));
                 }
             }
             for (FieldMapping field : classMapping.getFields()) {
                 acceptor.acceptField(
                     new Member(
                         classSrcName,
-                        srcIsSrc ? field.getSrcName() : field.getDstName(dstId),
-                        srcIsSrc ? field.getSrcDesc() : field.getDstDesc(dstId)
+                        field.getName(srcId),
+                        field.getDesc(srcId)
                     ),
-                    dstIsSrc ? field.getSrcName() : field.getDstName(dstId)
+                    field.getName(dstId)
                 );
             }
         }
