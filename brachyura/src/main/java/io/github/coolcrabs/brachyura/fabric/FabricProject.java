@@ -13,6 +13,7 @@ import io.github.coolcrabs.brachyura.decompiler.BrachyuraDecompiler;
 import io.github.coolcrabs.brachyura.decompiler.cfr.CfrDecompiler;
 import io.github.coolcrabs.brachyura.dependency.Dependency;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
+import io.github.coolcrabs.brachyura.ide.Vscode;
 import io.github.coolcrabs.brachyura.mappings.MappingHasher;
 import io.github.coolcrabs.brachyura.mappings.Namespaces;
 import io.github.coolcrabs.brachyura.mappings.tinyremapper.Jsr2JetbrainsMappingProvider;
@@ -21,6 +22,7 @@ import io.github.coolcrabs.brachyura.mappings.tinyremapper.PathFileConsumer;
 import io.github.coolcrabs.brachyura.mappings.tinyremapper.TinyRemapperHelper;
 import io.github.coolcrabs.brachyura.mappings.tinyremapper.TinyRemapperHelper.JarType;
 import io.github.coolcrabs.brachyura.maven.Maven;
+import io.github.coolcrabs.brachyura.maven.MavenId;
 import io.github.coolcrabs.brachyura.minecraft.Minecraft;
 import io.github.coolcrabs.brachyura.minecraft.VersionMeta;
 import io.github.coolcrabs.brachyura.util.AtomicFile;
@@ -34,6 +36,8 @@ import net.fabricmc.tinyremapper.TinyRemapper;
 public abstract class FabricProject {
     abstract String getMcVersion();
     abstract MappingTree getMappings();
+    abstract JavaJarDependency getLoader();
+    abstract Path getProjectDir();
 
     public final VersionMeta versionMeta = Minecraft.getVersion(getMcVersion());
     public final Path vanillaClientJar = Minecraft.getDownload(getMcVersion(), versionMeta, "client");
@@ -41,6 +45,22 @@ public abstract class FabricProject {
 
     private RemappedJar intermediaryJar;
     private RemappedJar namedJar;
+
+    public void vscode() {
+        Vscode.updateSettingsJson(getProjectDir().resolve(".vscode").resolve("settings.json"), getIdeDependencies());
+    }
+
+    public List<JavaJarDependency> getIdeDependencies() {
+        List<JavaJarDependency> result = new ArrayList<>();
+        for (Dependency dependency : mcDependencies()) {
+            if (dependency instanceof JavaJarDependency) {
+                result.add((JavaJarDependency) dependency);
+            }
+        }
+        result.add(getLoader());
+        result.add(new JavaJarDependency(getNamedJar().jar, getDecompiledJar(), null)); // TODO: line number mappings
+        return result;
+    }
 
     public Intermediary getIntermediary() {
         return Intermediary.ofMaven(FabricMaven.URL, FabricMaven.intermediary(getMcVersion()));
@@ -75,7 +95,7 @@ public abstract class FabricProject {
                 return intermediaryJar;
             } else {
                 try (AtomicFile atomicFile = new AtomicFile(result)) {
-                    remapJar(intermediary.tree, Namespaces.OBF, Namespaces.INTERMEDIARY, mergedJar, atomicFile.tempPath, mcRemapClasspath());
+                    remapJar(intermediary.tree, Namespaces.OBF, Namespaces.INTERMEDIARY, mergedJar, atomicFile.tempPath, mcClasspath());
                     atomicFile.commit();
                 }
             }
@@ -96,7 +116,7 @@ public abstract class FabricProject {
                 return namedJar;
             } else {
                 try (AtomicFile atomicFile = new AtomicFile(result)) {
-                    remapJar(mappings, Namespaces.INTERMEDIARY, Namespaces.NAMED, intermediaryJar2, atomicFile.tempPath, mcRemapClasspath());
+                    remapJar(mappings, Namespaces.INTERMEDIARY, Namespaces.NAMED, intermediaryJar2, atomicFile.tempPath, mcClasspath());
                     atomicFile.commit();
                 }
             }
@@ -160,19 +180,25 @@ public abstract class FabricProject {
     }
 
     public List<Path> decompClasspath() {
-        List<Path> result = new ArrayList<>(mcRemapClasspath());
+        List<Path> result = new ArrayList<>(mcClasspath());
         result.add(Maven.getMavenJarDep(FabricMaven.URL, FabricMaven.loader("0.9.3+build.207")).jar); // Just for the annotations added by fabric-merge
         return result;
     }
 
-    public List<Path> mcRemapClasspath() {
-        List<Dependency> dependencies = Minecraft.getDependencies(versionMeta);
+    public List<Path> mcClasspath() {
+        List<Dependency> dependencies = mcDependencies();
         List<Path> result = new ArrayList<>();
         for (Dependency dependency : dependencies) {
             if (dependency instanceof JavaJarDependency) {
                 result.add(((JavaJarDependency)dependency).jar);
             }
         }
+        return result;
+    }
+
+    public List<Dependency> mcDependencies() {
+        ArrayList<Dependency> result = new ArrayList<>(Minecraft.getDependencies(versionMeta));
+        result.add(Maven.getMavenJarDep(Maven.MAVEN_CENTRAL, new MavenId("org.jetbrains", "annotations", "19.0.0")));
         return result;
     }
 

@@ -65,6 +65,7 @@ class BrachyuraCfrOutputSinkFactory implements OutputSinkFactory, Closeable {
         return result;
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public <T> Sink<T> getSink(SinkType sinkType, SinkClass sinkClass) {
         if (sinkClass == SinkClass.LINE_NUMBER_MAPPING) {

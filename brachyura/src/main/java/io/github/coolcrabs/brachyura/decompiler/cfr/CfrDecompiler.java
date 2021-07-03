@@ -3,7 +3,9 @@ package io.github.coolcrabs.brachyura.decompiler.cfr;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -18,6 +20,12 @@ import io.github.coolcrabs.brachyura.util.Util;
 import net.fabricmc.mappingio.tree.MappingTree;
 
 public class CfrDecompiler implements BrachyuraDecompiler {
+    private static final Map<String, String> CFR_OPTIONS = new HashMap<>();
+
+    static {
+        CFR_OPTIONS.put("trackbytecodeloc", "true");
+    }
+
     private final int threadCount;
 
     public CfrDecompiler(int threadCount) {
@@ -33,7 +41,7 @@ public class CfrDecompiler implements BrachyuraDecompiler {
             ) {
                 CfrDriver.Builder cfrDriver = new CfrDriver.Builder();
                 if (outputLineNumberMappings != null) {
-                    cfrDriver.withOptions(Collections.singletonMap("trackbytecodeloc", "true"));
+                    cfrDriver.withOptions(CFR_OPTIONS);
                 }
                 cfrDriver.withOverrideClassFileSource(cfrClassFileSource);
                 cfrDriver.withOutputSink(cfrOutputSinkFactory);
@@ -48,7 +56,7 @@ public class CfrDecompiler implements BrachyuraDecompiler {
                         try {
                             cfrDriver2.analyse(Collections.singletonList(className));
                         } catch (Exception e) {
-                            Logger.error("Exception Decompiling" + className);
+                            Logger.error("Exception Decompiling " + className);
                             Logger.error(e);
                         }
                     });

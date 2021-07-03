@@ -15,6 +15,6 @@ buildNumber.properties
 .vscode/
 bin/
 .classpath
-.project 
+.project
 
 settings.xml

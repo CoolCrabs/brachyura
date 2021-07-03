@@ -2,6 +2,7 @@ package io.github.coolcrabs.brachyura.util;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStream;
@@ -9,6 +10,7 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
@@ -18,6 +20,7 @@ public class PathUtil {
     private PathUtil() { }
 
     public static final Path HOME = Paths.get(System.getProperty("user.home"));
+    public static final Path CWD = Paths.get("").toAbsolutePath();
 
     public static Path brachyuraPath() {
         return HOME.resolve(".brachyura");
@@ -82,6 +85,23 @@ public class PathUtil {
         try {
             Files.createDirectories(path.getParent());
             return Files.newBufferedWriter(path);
+        } catch (IOException e) {
+            throw Util.sneak(e);
+        }
+    }
+
+    public static BufferedWriter newBufferedWriter(Path path, OpenOption... options) {
+        try {
+            Files.createDirectories(path.getParent());
+            return Files.newBufferedWriter(path, options);
+        } catch (IOException e) {
+            throw Util.sneak(e);
+        }
+    }
+
+    public static BufferedReader newBufferedReader(Path path) {
+        try {
+            return Files.newBufferedReader(path, StandardCharsets.UTF_8);
         } catch (IOException e) {
             throw Util.sneak(e);
         }

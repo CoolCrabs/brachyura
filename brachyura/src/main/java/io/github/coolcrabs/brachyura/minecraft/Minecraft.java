@@ -18,6 +18,7 @@ import io.github.coolcrabs.brachyura.dependency.Dependency;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 import io.github.coolcrabs.brachyura.dependency.NativesJarDependency;
 import io.github.coolcrabs.brachyura.exception.IncorrectHashException;
+import io.github.coolcrabs.brachyura.maven.Maven;
 import io.github.coolcrabs.brachyura.maven.MavenId;
 import io.github.coolcrabs.brachyura.minecraft.LauncherMeta.Version;
 import io.github.coolcrabs.brachyura.minecraft.VersionMeta.VMDependency;
@@ -115,7 +116,7 @@ public class Minecraft {
                                 downloadDep(sourcesPath, new URL(sourcesUrl), targetHash);
                             } catch (FileNotFoundException e) {
                                 try {
-                                    sourcesUrl = sourcesUrl.replace("https://libraries.minecraft.net/", "https://repo.maven.apache.org/maven2/"); // WHY ???
+                                    sourcesUrl = sourcesUrl.replace("https://libraries.minecraft.net/", Maven.MAVEN_CENTRAL); // WHY ???
                                     sourcesHashUrl = new URL(sourcesUrl + ".sha1");
                                     try (InputStream hashStream = sourcesHashUrl.openStream()) {
                                         targetHash = StreamUtil.readFullyAsString(hashStream);
