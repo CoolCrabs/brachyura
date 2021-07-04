@@ -17,6 +17,16 @@ class FabricProjectTest {
     void testProject() {
         FabricProject fabricProject = new FabricProject() {
             @Override
+            String getModId() {
+                return "brachyuratestmod";
+            }
+
+            @Override
+            String getVersion() {
+                return "1.0.0";
+            }
+
+            @Override
             String getMcVersion() {
                 return "1.16.5";
             }
@@ -44,5 +54,6 @@ class FabricProjectTest {
         assertTrue(Files.isRegularFile(fabricProject.getNamedJar().jar));
         assertTrue(Files.isRegularFile(fabricProject.getDecompiledJar()));
         fabricProject.vscode();
+        fabricProject.compile();
     }
 }

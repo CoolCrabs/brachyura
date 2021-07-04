@@ -2,13 +2,21 @@ package io.github.coolcrabs.brachyura.fabric;
 
 import java.io.IOException;
 import java.nio.file.FileSystem;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.google.gson.stream.JsonWriter;
+
 import org.tinylog.Logger;
 
+import io.github.coolcrabs.brachyura.compiler.java.JavaCompilers;
 import io.github.coolcrabs.brachyura.decompiler.BrachyuraDecompiler;
 import io.github.coolcrabs.brachyura.decompiler.cfr.CfrDecompiler;
 import io.github.coolcrabs.brachyura.dependency.Dependency;
@@ -38,6 +46,8 @@ public abstract class FabricProject {
     abstract MappingTree getMappings();
     abstract JavaJarDependency getLoader();
     abstract Path getProjectDir();
+    abstract String getModId();
+    abstract String getVersion();
 
     public final VersionMeta versionMeta = Minecraft.getVersion(getMcVersion());
     public final Path vanillaClientJar = Minecraft.getDownload(getMcVersion(), versionMeta, "client");
@@ -48,6 +58,73 @@ public abstract class FabricProject {
 
     public void vscode() {
         Vscode.updateSettingsJson(getProjectDir().resolve(".vscode").resolve("settings.json"), getIdeDependencies());
+    }
+
+    public boolean compile() {
+        try {
+            Path buildClassesDir = getBuildClassesDir();
+            Path buildResourcesDir = getBuildResourcesDir();
+            PathUtil.deleteDirectoryChildren(buildResourcesDir);
+            if (!JavaCompilers.compile(getSrcDir(), buildClassesDir, getCompileDependencies())) {
+                return false;
+            }
+        
+            Path resourcesDir = getResourcesDir();
+            Files.walkFileTree(resourcesDir, new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                    processResource(resourcesDir.relativize(file), file, buildResourcesDir);
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+
+            Path target = getBuildJarPath();
+            Files.deleteIfExists(target);
+            try (AtomicFile atomicFile = new AtomicFile(target)) {
+                Files.deleteIfExists(atomicFile.tempPath);
+                TinyRemapper remapper = TinyRemapper.newRemapper().withMappings(new MappingTreeMappingProvider(getMappings(), Namespaces.NAMED, Namespaces.INTERMEDIARY)).build();
+                for (Path path : getCompileDependencies()) {
+                    TinyRemapperHelper.readJar(remapper, path, JarType.CLASSPATH);
+                }
+                TinyRemapperHelper.readDir(remapper, buildClassesDir, JarType.INPUT);
+                try (FileSystem outputFileSystem = FileSystemUtil.newJarFileSystem(atomicFile.tempPath)) {
+                    remapper.apply(new PathFileConsumer(outputFileSystem.getPath("/")));
+                    TinyRemapperHelper.copyNonClassfilesFromDir(buildResourcesDir, outputFileSystem);
+                }
+                atomicFile.commit();
+            }
+
+            return true;
+        } catch (Exception e) {
+            throw Util.sneak(e);
+        }
+    }
+
+    public void processResource(Path relativePath, Path absolutePath, Path targetDir) throws IOException {
+        if (relativePath.toString().equals("fabric.mod.json")) {
+            Gson gson = new Gson();
+            JsonObject fabricModJson = gson.fromJson(PathUtil.newBufferedReader(absolutePath), JsonObject.class);
+            fabricModJson.addProperty("version", getVersion());
+            try (JsonWriter jsonWriter = new JsonWriter(PathUtil.newBufferedWriter(targetDir.resolve(relativePath)))) {
+                gson.toJson(fabricModJson, jsonWriter);
+            }
+        } else {
+            Path target = targetDir.resolve(relativePath);
+            Files.createDirectories(target.getParent());
+            Files.copy(absolutePath, targetDir.resolve(relativePath));
+        }
+    }
+
+    public List<Path> getCompileDependencies() {
+        List<Path> result = new ArrayList<>();
+        for (Dependency dependency : mcDependencies()) {
+            if (dependency instanceof JavaJarDependency) {
+                result.add(((JavaJarDependency) dependency).jar);
+            }
+        }
+        result.add(getLoader().jar);
+        result.add(getNamedJar().jar);
+        return result;
     }
 
     public List<JavaJarDependency> getIdeDependencies() {
@@ -165,11 +242,11 @@ public abstract class FabricProject {
         try (FileSystem outputFileSystem = FileSystemUtil.newJarFileSystem(outputJar)) {
             Path outputRoot = outputFileSystem.getPath("/");
             for (Path path : classpath) {
-                TinyRemapperHelper.read(remapper, path, JarType.CLASSPATH);
+                TinyRemapperHelper.readJar(remapper, path, JarType.CLASSPATH);
             }
             try (FileSystem inputFileSystem = FileSystemUtil.newJarFileSystem(inputJar)) {
-                TinyRemapperHelper.read(remapper, inputFileSystem, JarType.INPUT);
-                TinyRemapperHelper.copyNonClassfiles(inputFileSystem, outputFileSystem);
+                TinyRemapperHelper.readFileSystem(remapper, inputFileSystem, JarType.INPUT);
+                TinyRemapperHelper.copyNonClassfilesFromFileSystem(inputFileSystem, outputFileSystem);
             }
             remapper.apply(new PathFileConsumer(outputRoot));
         } catch (IOException e) {
@@ -204,6 +281,34 @@ public abstract class FabricProject {
 
     public BrachyuraDecompiler decompiler() {
         return new CfrDecompiler(Runtime.getRuntime().availableProcessors());
+    }
+
+    public Path getBuildClassesDir() {
+        return PathUtil.resolveAndCreateDir(getBuildDir(), "classes");
+    }
+
+    public Path getBuildResourcesDir() {
+        return PathUtil.resolveAndCreateDir(getBuildDir(), "resources");
+    }
+
+    public Path getBuildLibsDir() {
+        return PathUtil.resolveAndCreateDir(getBuildDir(), "libs");
+    }
+
+    public Path getBuildJarPath() {
+        return getBuildLibsDir().resolve(getModId() + "-" + getVersion() + ".jar");
+    }
+
+    public Path getBuildDir() {
+        return PathUtil.resolveAndCreateDir(getProjectDir(), "build");
+    }
+
+    public Path getSrcDir() {
+        return getProjectDir().resolve("src").resolve("main").resolve("java");
+    }
+
+    public Path getResourcesDir() {
+        return getProjectDir().resolve("src").resolve("main").resolve("resources");
     }
 
     public Path fabricCache() {

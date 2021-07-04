@@ -21,15 +21,20 @@ public class TinyRemapperHelper {
         INPUT
     }
 
-    public static void read(TinyRemapper tr, Path jar, JarType type) throws IOException {
+    public static void readJar(TinyRemapper tr, Path jar, JarType type) throws IOException {
         try (FileSystem fileSystem = FileSystemUtil.newJarFileSystem(jar)) {
-            read(tr, fileSystem, type);
+            readFileSystem(tr, fileSystem, type);
         }
     }
 
-    public static void read(TinyRemapper tr, FileSystem input, JarType type) throws IOException {
+    public static void readFileSystem(TinyRemapper tr, FileSystem input, JarType type) throws IOException {
+        readDir(tr, input.getPath("/"), type);
+    }
+
+    
+    public static void readDir(TinyRemapper tr, Path inputDir, JarType type) throws IOException {
         List<Path> inputs = new ArrayList<>();
-        Files.walkFileTree(input.getPath("/"), new SimpleFileVisitor<Path>() {
+        Files.walkFileTree(inputDir, new SimpleFileVisitor<Path>() {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                 if (file.toString().endsWith(".class")) {
@@ -45,12 +50,16 @@ public class TinyRemapperHelper {
         }
     }
 
-    public static void copyNonClassfiles(FileSystem input, FileSystem output) throws IOException {
-        Files.walkFileTree(input.getPath("/"), new SimpleFileVisitor<Path>() {
+    public static void copyNonClassfilesFromFileSystem(FileSystem input, FileSystem output) throws IOException {
+        copyNonClassfilesFromDir(input.getPath("/"), output);
+    }
+
+    public static void copyNonClassfilesFromDir(Path dir, FileSystem output) throws IOException {
+        Files.walkFileTree(dir, new SimpleFileVisitor<Path>() {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                 if (!file.toString().endsWith(".class")) {
-                    Path target = output.getPath(file.toString());
+                    Path target = output.getPath("/").resolve(dir.relativize(file).toString());
                     Files.createDirectories(target.getParent());
                     Files.copy(file, target);
                 }

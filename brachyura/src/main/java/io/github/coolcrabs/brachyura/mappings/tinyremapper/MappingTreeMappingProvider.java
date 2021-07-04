@@ -35,10 +35,16 @@ public class MappingTreeMappingProvider implements IMappingProvider {
                     method.getName(dstId)
                 );
                 for (MethodArgMapping methodArgMapping : method.getArgs()) {
-                    acceptor.acceptMethodArg(member, methodArgMapping.getLvIndex(), methodArgMapping.getName(dstId));
+                    String methodArgMappingDstName = methodArgMapping.getName(dstId);
+                    if (methodArgMappingDstName != null) {
+                        acceptor.acceptMethodArg(member, methodArgMapping.getLvIndex(), methodArgMappingDstName);
+                    }
                 }
                 for (MethodVarMapping methodVarMapping : method.getVars()) {
-                    acceptor.acceptMethodVar(member, methodVarMapping.getLvIndex(), methodVarMapping.getStartOpIdx(), methodVarMapping.getLvtRowIndex(), methodVarMapping.getName(dstId));
+                    String methodVarMappingDstName = methodVarMapping.getName(dstId);
+                    if (methodVarMappingDstName != null) {
+                        acceptor.acceptMethodVar(member, methodVarMapping.getLvIndex(), methodVarMapping.getStartOpIdx(), methodVarMapping.getLvtRowIndex(), methodVarMappingDstName);
+                    }
                 }
             }
             for (FieldMapping field : classMapping.getFields()) {

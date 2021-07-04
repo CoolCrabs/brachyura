@@ -9,11 +9,14 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.OpenOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.zip.GZIPOutputStream;
 
 public class PathUtil {
@@ -28,6 +31,30 @@ public class PathUtil {
 
     public static Path cachePath() {
         return brachyuraPath().resolve("cache");
+    }
+
+    public static Path resolveAndCreateDir(Path parent, String child) {
+        try {
+            Path result = parent.resolve(child);
+            Files.createDirectories(result);
+            return result;
+        } catch (IOException e) {
+            throw Util.sneak(e);
+        }
+    }
+
+    public static void deleteDirectoryChildren(Path directory) {
+        try {
+            Files.walkFileTree(directory, new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                    Files.delete(file);
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+        } catch (IOException e) {
+            throw Util.sneak(e);
+        }
     }
 
     public static InputStream inputStream(Path path) {

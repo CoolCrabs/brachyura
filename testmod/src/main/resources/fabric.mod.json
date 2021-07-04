@@ -1,0 +1,12 @@
+{
+    "schemaVersion": 1,
+    "id": "brachyuratestmod",
+    "version": "${version}",
+    "name": "Test Mod",
+    "description": "Test mod for brachyura build tool.",
+    "entrypoints": {
+        "main": [
+            "io.github.coolcrabs.testmod.TestMod"
+        ]
+    }
+}
