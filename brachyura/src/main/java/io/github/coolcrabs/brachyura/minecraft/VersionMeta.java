@@ -68,20 +68,32 @@ public class VersionMeta {
         return result;
     }
 
-    class VMDownload {
+    VMAssets getVmAssets() {
+        return new Gson().fromJson(json.getAsJsonObject().get("assetIndex"), VMAssets.class);
+    }
+
+    static class VMAssets {
+        String id;
+        String sha1;
+        int size;
+        int totalSize;
+        String url;
+    }
+
+    static class VMDownload {
         String sha1;
         int size;
         String url;
     }
 
-    class VMDependencyDownload {
+    static class VMDependencyDownload {
         String path;
         String sha1;
         String size;
         String url;
     }
 
-    class VMDependency {
+    static class VMDependency {
         String name;
         @Nullable VMDependencyDownload artifact;
         @Nullable VMDependencyDownload natives;

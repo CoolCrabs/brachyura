@@ -90,7 +90,11 @@ public abstract class FabricProject extends Project {
                 //TOOD: fabric.remapClasspathFile
                 writer.write("\tlog4j.configurationFile="); writer.write(writeLog4jXml().toAbsolutePath().toString()); writer.write('\n');
                 writer.write("\tfabric.log.disableAnsi=false\n");
-                //TODO: clientArgs (assets)
+                writer.write("clientArgs\n");
+                writer.write("\t--assetIndex\n");
+                writer.write('\t'); writer.write(Minecraft.downloadAssets(versionMeta)); writer.write('\n');
+                writer.write("\t--assetsDir\n");
+                writer.write('\t'); writer.write(Minecraft.assets().toAbsolutePath().toString()); writer.write('\n');
                 writer.write("clientProperties\n");
                 StringBuilder natives = new StringBuilder();
                 for (Path path : getExtractedNatives()) {
