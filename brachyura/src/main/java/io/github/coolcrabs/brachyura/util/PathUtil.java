@@ -87,6 +87,15 @@ public class PathUtil {
         }
     }
 
+    public static Path tempDir(Path target) {
+        try {
+            Files.createDirectories(target.getParent());
+            return Files.createTempDirectory(target.getParent(), target.getFileName().toString());
+        } catch (IOException e) {
+            throw Util.sneak(e);
+        }
+    }
+
     public static void moveAtoB(Path a, Path b) {
         try {
             Files.move(a, b, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
@@ -103,6 +112,26 @@ public class PathUtil {
     public static void deleteIfExists(Path path) {
         try {
             Files.deleteIfExists(path);
+        } catch (IOException e) {
+            throw Util.sneak(e);
+        }
+    }
+
+    public static void deleteDirectory(Path dir) {
+        try {
+            Files.walkFileTree(dir, new SimpleFileVisitor<Path>(){
+                @Override
+                public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                    Files.delete(dir);
+                    return FileVisitResult.CONTINUE;
+                }
+
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                    Files.delete(file);
+                    return FileVisitResult.CONTINUE;
+                }
+            });
         } catch (IOException e) {
             throw Util.sneak(e);
         }

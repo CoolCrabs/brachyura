@@ -169,11 +169,11 @@ public class Minecraft {
         PathUtil.moveAtoB(tempPath, downloadPath);
     }
 
-    private static Path mcLibCache() {
+    public static Path mcLibCache() {
         return mcCache().resolve("libraries");
     }
 
-    private static Path mcCache() {
+    public static Path mcCache() {
         return PathUtil.cachePath().resolve("minecraft");
     }
 }

@@ -1,6 +1,7 @@
 package io.github.coolcrabs.brachyura.fabric;
 
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileVisitResult;
@@ -22,6 +23,7 @@ import io.github.coolcrabs.brachyura.decompiler.BrachyuraDecompiler;
 import io.github.coolcrabs.brachyura.decompiler.cfr.CfrDecompiler;
 import io.github.coolcrabs.brachyura.dependency.Dependency;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
+import io.github.coolcrabs.brachyura.dependency.NativesJarDependency;
 import io.github.coolcrabs.brachyura.ide.Vscode;
 import io.github.coolcrabs.brachyura.mappings.MappingHasher;
 import io.github.coolcrabs.brachyura.mappings.Namespaces;
@@ -35,9 +37,11 @@ import io.github.coolcrabs.brachyura.maven.MavenId;
 import io.github.coolcrabs.brachyura.minecraft.Minecraft;
 import io.github.coolcrabs.brachyura.minecraft.VersionMeta;
 import io.github.coolcrabs.brachyura.project.Project;
+import io.github.coolcrabs.brachyura.util.AtomicDirectory;
 import io.github.coolcrabs.brachyura.util.AtomicFile;
 import io.github.coolcrabs.brachyura.util.FileSystemUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
+import io.github.coolcrabs.brachyura.util.UnzipUtil;
 import io.github.coolcrabs.brachyura.util.Util;
 import io.github.coolcrabs.fabricmerge.JarMerger;
 import net.fabricmc.mappingio.tree.MappingTree;
@@ -66,7 +70,12 @@ public abstract class FabricProject extends Project {
         server.cwd = "${workspaceFolder}/run";
         server.mainClass = "net.fabricmc.devlaunchinjector.Main";
         server.vmArgs = "-Dfabric.dli.config=" + writeLaunchCfg().toAbsolutePath().toString() + " -Dfabric.dli.env=server -Dfabric.dli.main=net.fabricmc.loader.launch.knot.KnotServer";
-        launchJson.configurations = new Vscode.LaunchJson.Configuration[] {server};
+        Vscode.LaunchJson.Configuration client = new Vscode.LaunchJson.Configuration();
+        client.name = "Minecraft Client";
+        client.cwd = "${workspaceFolder}/run";
+        client.mainClass = "net.fabricmc.devlaunchinjector.Main";
+        client.vmArgs = "-Dfabric.dli.config=" + writeLaunchCfg().toAbsolutePath().toString() + " -Dfabric.dli.env=client -Dfabric.dli.main=net.fabricmc.loader.launch.knot.KnotClient";
+        launchJson.configurations = new Vscode.LaunchJson.Configuration[] {client, server};
         Vscode.updateLaunchJson(vscode.resolve("launch.json"), launchJson);
         PathUtil.resolveAndCreateDir(getProjectDir(), "run");
     }
@@ -80,8 +89,18 @@ public abstract class FabricProject extends Project {
                 writer.write("\tfabric.development=true\n");
                 //TOOD: fabric.remapClasspathFile
                 writer.write("\tlog4j.configurationFile="); writer.write(writeLog4jXml().toAbsolutePath().toString()); writer.write('\n');
-                writer.write("\tfabric.log.disableAnsi=false");
-                //TODO: Client stuff
+                writer.write("\tfabric.log.disableAnsi=false\n");
+                //TODO: clientArgs (assets)
+                writer.write("clientProperties\n");
+                StringBuilder natives = new StringBuilder();
+                for (Path path : getExtractedNatives()) {
+                    natives.append(path.toAbsolutePath().toString());
+                    natives.append(File.pathSeparatorChar);
+                }
+                natives.setLength(natives.length() - 1);
+                String natives2 = natives.toString();
+                writer.write("\tjava.library.path="); writer.write(natives2); writer.write('\n');
+                writer.write("\torg.lwjgl.librarypath="); writer.write(natives2); writer.write('\n');
             }
             return result;
         } catch (Exception e) {
@@ -98,6 +117,24 @@ public abstract class FabricProject extends Project {
         } catch (Exception e) {
             throw Util.sneak(e);
         }
+    }
+
+    public List<Path> getExtractedNatives() {
+        List<Path> result = new ArrayList<>();
+        for (Dependency dependency : mcDependencies()) {
+            if (dependency instanceof NativesJarDependency) {
+                NativesJarDependency nativesJarDependency = (NativesJarDependency) dependency;
+                Path target = Minecraft.mcCache().resolve("natives-cache").resolve(Minecraft.mcLibCache().relativize(nativesJarDependency.jar));
+                if (!Files.isDirectory(target)) {
+                    try (AtomicDirectory atomicDirectory = new AtomicDirectory(target)) {
+                        UnzipUtil.unzipToDir(nativesJarDependency.jar, atomicDirectory.tempPath);
+                        atomicDirectory.commit();
+                    }
+                }
+                result.add(target);
+            }
+        }
+        return result;
     }
 
     public boolean compile() {
