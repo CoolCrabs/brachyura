@@ -19,4 +19,8 @@ public class FabricMaven {
     public static MavenId loader(String version) {
         return new MavenId(GROUP_ID, "fabric-loader", version);
     }
+
+    public static MavenId devLaunchInjector(String version) {
+        return new MavenId(GROUP_ID, "dev-launch-injector", version);
+    }
 }

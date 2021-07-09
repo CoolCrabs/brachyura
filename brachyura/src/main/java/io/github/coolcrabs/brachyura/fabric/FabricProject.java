@@ -1,5 +1,6 @@
 package io.github.coolcrabs.brachyura.fabric;
 
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileVisitResult;
@@ -33,6 +34,7 @@ import io.github.coolcrabs.brachyura.maven.Maven;
 import io.github.coolcrabs.brachyura.maven.MavenId;
 import io.github.coolcrabs.brachyura.minecraft.Minecraft;
 import io.github.coolcrabs.brachyura.minecraft.VersionMeta;
+import io.github.coolcrabs.brachyura.project.Project;
 import io.github.coolcrabs.brachyura.util.AtomicFile;
 import io.github.coolcrabs.brachyura.util.FileSystemUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
@@ -41,11 +43,10 @@ import io.github.coolcrabs.fabricmerge.JarMerger;
 import net.fabricmc.mappingio.tree.MappingTree;
 import net.fabricmc.tinyremapper.TinyRemapper;
 
-public abstract class FabricProject {
+public abstract class FabricProject extends Project {
     abstract String getMcVersion();
     abstract MappingTree getMappings();
-    abstract JavaJarDependency getLoader();
-    abstract Path getProjectDir();
+    abstract FabricLoader getLoader();
     abstract String getModId();
     abstract String getVersion();
 
@@ -57,7 +58,46 @@ public abstract class FabricProject {
     private RemappedJar namedJar;
 
     public void vscode() {
-        Vscode.updateSettingsJson(getProjectDir().resolve(".vscode").resolve("settings.json"), getIdeDependencies());
+        Path vscode = getProjectDir().resolve(".vscode");
+        Vscode.updateSettingsJson(vscode.resolve("settings.json"), getIdeDependencies());
+        Vscode.LaunchJson launchJson = new Vscode.LaunchJson();
+        Vscode.LaunchJson.Configuration server = new Vscode.LaunchJson.Configuration();
+        server.name = "Minecraft Server";
+        server.cwd = "${workspaceFolder}/run";
+        server.mainClass = "net.fabricmc.devlaunchinjector.Main";
+        server.vmArgs = "-Dfabric.dli.config=" + writeLaunchCfg().toAbsolutePath().toString() + " -Dfabric.dli.env=server -Dfabric.dli.main=net.fabricmc.loader.launch.knot.KnotServer";
+        launchJson.configurations = new Vscode.LaunchJson.Configuration[] {server};
+        Vscode.updateLaunchJson(vscode.resolve("launch.json"), launchJson);
+        PathUtil.resolveAndCreateDir(getProjectDir(), "run");
+    }
+
+    public Path writeLaunchCfg() {
+        try {
+            Path result = getLocalBrachyuraPath().resolve("launch.cfg");
+            Files.deleteIfExists(result);
+            try (BufferedWriter writer = Files.newBufferedWriter(result)) {
+                writer.write("commonProperties\n");
+                writer.write("\tfabric.development=true\n");
+                //TOOD: fabric.remapClasspathFile
+                writer.write("\tlog4j.configurationFile="); writer.write(writeLog4jXml().toAbsolutePath().toString()); writer.write('\n');
+                writer.write("\tfabric.log.disableAnsi=false");
+                //TODO: Client stuff
+            }
+            return result;
+        } catch (Exception e) {
+            throw Util.sneak(e);
+        }
+    }
+
+    public Path writeLog4jXml() {
+        try {
+            Path result = getLocalBrachyuraPath().resolve("log4j.xml");
+            Files.deleteIfExists(result);
+            Files.copy(this.getClass().getResourceAsStream("/log4j2.fabric.xml"), result);
+            return result;
+        } catch (Exception e) {
+            throw Util.sneak(e);
+        }
     }
 
     public boolean compile() {
@@ -117,25 +157,35 @@ public abstract class FabricProject {
 
     public List<Path> getCompileDependencies() {
         List<Path> result = new ArrayList<>();
-        for (Dependency dependency : mcDependencies()) {
+        for (Dependency dependency : getDependencies()) {
             if (dependency instanceof JavaJarDependency) {
                 result.add(((JavaJarDependency) dependency).jar);
             }
         }
-        result.add(getLoader().jar);
         result.add(getNamedJar().jar);
         return result;
     }
 
     public List<JavaJarDependency> getIdeDependencies() {
         List<JavaJarDependency> result = new ArrayList<>();
-        for (Dependency dependency : mcDependencies()) {
+        for (Dependency dependency : getDependencies()) {
             if (dependency instanceof JavaJarDependency) {
                 result.add((JavaJarDependency) dependency);
             }
         }
-        result.add(getLoader());
+        result.add(Maven.getMavenJarDep(FabricMaven.URL, FabricMaven.devLaunchInjector("0.2.1+build.8")));
+        result.add(Maven.getMavenJarDep(Maven.MAVEN_CENTRAL, new MavenId("net.minecrell", "terminalconsoleappender", "1.2.0")));
         result.add(new JavaJarDependency(getNamedJar().jar, getDecompiledJar(), null)); // TODO: line number mappings
+        return result;
+    }
+
+    public List<Dependency> getDependencies() {
+        List<Dependency> result = new ArrayList<>(mcDependencies());
+        FabricLoader floader = getLoader();
+        result.add(floader.jar);
+        for (JavaJarDependency javaJarDependency : floader.commonDeps) result.add(javaJarDependency);
+        for (JavaJarDependency javaJarDependency : floader.serverDeps) result.add(javaJarDependency);
+        for (JavaJarDependency javaJarDependency : floader.clientDeps) result.add(javaJarDependency);
         return result;
     }
 

@@ -54,4 +54,36 @@ public class Vscode {
             throw Util.sneak(e);
         }
     }
+
+    public static void updateLaunchJson(Path launchJsonFile, LaunchJson launchJson) {
+        PathUtil.deleteIfExists(launchJsonFile);
+        try {
+            try (BufferedWriter writer = PathUtil.newBufferedWriter(launchJsonFile, StandardOpenOption.CREATE)) {
+                new GsonBuilder().setPrettyPrinting().create().toJson(launchJson, writer);
+            }
+        } catch (Exception e) {
+            throw Util.sneak(e);
+        }
+    }
+
+    public static class LaunchJson {
+        public final String version = "0.2.0";
+        public Configuration[] configurations;
+
+        public static class Configuration {
+            public String type = "java";
+            public String name;
+            public String request = "launch";
+            public String cwd;
+            public String console = "internalConsole";
+            public String mainClass;
+            public String vmArgs = "";
+            public String args = "";
+            public boolean stopOnEntry = false;
+            public String[] classPaths = new String[] {
+                "$Auto",
+                "${workspaceFolder}/src/main/resources/"
+            };
+        }
+    }
 }
