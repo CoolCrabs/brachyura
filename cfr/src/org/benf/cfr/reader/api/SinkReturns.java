@@ -67,12 +67,15 @@ public interface SinkReturns {
     interface LineNumberMapping {
         /**
          * @return
+<<<<<<< HEAD
          * Name of class for which these line number mappings apply.
          */
         String className();
 
         /**
          * @return
+=======
+>>>>>>> cfr/master
          * Name of method for which these line number mappings apply.
          */
         String methodName();
