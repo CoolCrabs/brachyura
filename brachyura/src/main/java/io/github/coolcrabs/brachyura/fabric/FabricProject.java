@@ -4,12 +4,10 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileSystem;
-import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import com.google.gson.Gson;
@@ -18,7 +16,7 @@ import com.google.gson.stream.JsonWriter;
 
 import org.tinylog.Logger;
 
-import io.github.coolcrabs.brachyura.compiler.java.JavaCompilers;
+import io.github.coolcrabs.brachyura.compiler.java.JavaCompilationUnitBuilder;
 import io.github.coolcrabs.brachyura.decompiler.BrachyuraDecompiler;
 import io.github.coolcrabs.brachyura.decompiler.cfr.CfrDecompiler;
 import io.github.coolcrabs.brachyura.dependency.Dependency;
@@ -36,18 +34,21 @@ import io.github.coolcrabs.brachyura.maven.Maven;
 import io.github.coolcrabs.brachyura.maven.MavenId;
 import io.github.coolcrabs.brachyura.minecraft.Minecraft;
 import io.github.coolcrabs.brachyura.minecraft.VersionMeta;
-import io.github.coolcrabs.brachyura.project.Project;
+import io.github.coolcrabs.brachyura.project.BaseJavaProject;
 import io.github.coolcrabs.brachyura.util.AtomicDirectory;
 import io.github.coolcrabs.brachyura.util.AtomicFile;
 import io.github.coolcrabs.brachyura.util.FileSystemUtil;
+import io.github.coolcrabs.brachyura.util.JvmUtil;
+import io.github.coolcrabs.brachyura.util.Lazy;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import io.github.coolcrabs.brachyura.util.UnzipUtil;
 import io.github.coolcrabs.brachyura.util.Util;
 import io.github.coolcrabs.fabricmerge.JarMerger;
+import io.github.coolcrabs.javacompilelib.JavaCompilationUnit;
 import net.fabricmc.mappingio.tree.MappingTree;
 import net.fabricmc.tinyremapper.TinyRemapper;
 
-public abstract class FabricProject extends Project {
+public abstract class FabricProject extends BaseJavaProject {
     abstract String getMcVersion();
     abstract MappingTree getMappings();
     abstract FabricLoader getLoader();
@@ -57,9 +58,6 @@ public abstract class FabricProject extends Project {
     public final VersionMeta versionMeta = Minecraft.getVersion(getMcVersion());
     public final Path vanillaClientJar = Minecraft.getDownload(getMcVersion(), versionMeta, "client");
     public final Path vanillaServerJar = Minecraft.getDownload(getMcVersion(), versionMeta, "server");
-
-    private RemappedJar intermediaryJar;
-    private RemappedJar namedJar;
 
     public void vscode() {
         Path vscode = getProjectDir().resolve(".vscode");
@@ -125,7 +123,7 @@ public abstract class FabricProject extends Project {
 
     public List<Path> getExtractedNatives() {
         List<Path> result = new ArrayList<>();
-        for (Dependency dependency : mcDependencies()) {
+        for (Dependency dependency : mcDependencies.get()) {
             if (dependency instanceof NativesJarDependency) {
                 NativesJarDependency nativesJarDependency = (NativesJarDependency) dependency;
                 Path target = Minecraft.mcCache().resolve("natives-cache").resolve(Minecraft.mcLibCache().relativize(nativesJarDependency.jar));
@@ -141,24 +139,16 @@ public abstract class FabricProject extends Project {
         return result;
     }
 
-    public boolean compile() {
+    public boolean build() {
+        String[] compileArgs = JvmUtil.compileArgs(JvmUtil.CURRENT_JAVA_VERSION, 8);
+        JavaCompilationUnit javaCompilationUnit = new JavaCompilationUnitBuilder()
+                .sourceDir(getSrcDir())
+                .outputDir(getBuildClassesDir())
+                .classpath(getCompileDependencies())
+                .options(compileArgs)
+                .build();
+        if (!compile(javaCompilationUnit)) return false;
         try {
-            Path buildClassesDir = getBuildClassesDir();
-            Path buildResourcesDir = getBuildResourcesDir();
-            PathUtil.deleteDirectoryChildren(buildResourcesDir);
-            if (!JavaCompilers.compile(getSrcDir(), buildClassesDir, getCompileDependencies())) {
-                return false;
-            }
-        
-            Path resourcesDir = getResourcesDir();
-            Files.walkFileTree(resourcesDir, new SimpleFileVisitor<Path>() {
-                @Override
-                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                    processResource(resourcesDir.relativize(file), file, buildResourcesDir);
-                    return FileVisitResult.CONTINUE;
-                }
-            });
-
             Path target = getBuildJarPath();
             Files.deleteIfExists(target);
             try (AtomicFile atomicFile = new AtomicFile(target)) {
@@ -167,20 +157,20 @@ public abstract class FabricProject extends Project {
                 for (Path path : getCompileDependencies()) {
                     TinyRemapperHelper.readJar(remapper, path, JarType.CLASSPATH);
                 }
-                TinyRemapperHelper.readDir(remapper, buildClassesDir, JarType.INPUT);
+                TinyRemapperHelper.readDir(remapper, getBuildClassesDir(), JarType.INPUT);
                 try (FileSystem outputFileSystem = FileSystemUtil.newJarFileSystem(atomicFile.tempPath)) {
                     remapper.apply(new PathFileConsumer(outputFileSystem.getPath("/")));
-                    TinyRemapperHelper.copyNonClassfilesFromDir(buildResourcesDir, outputFileSystem);
+                    TinyRemapperHelper.copyNonClassfilesFromDir(getBuildResourcesDir(), outputFileSystem);
                 }
                 atomicFile.commit();
             }
-
             return true;
         } catch (Exception e) {
             throw Util.sneak(e);
         }
     }
 
+    @Override
     public void processResource(Path relativePath, Path absolutePath, Path targetDir) throws IOException {
         if (relativePath.toString().equals("fabric.mod.json")) {
             Gson gson = new Gson();
@@ -190,43 +180,43 @@ public abstract class FabricProject extends Project {
                 gson.toJson(fabricModJson, jsonWriter);
             }
         } else {
-            Path target = targetDir.resolve(relativePath);
-            Files.createDirectories(target.getParent());
-            Files.copy(absolutePath, targetDir.resolve(relativePath));
+            super.processResource(relativePath, absolutePath, targetDir);
         }
     }
 
+    @Override
     public List<Path> getCompileDependencies() {
         List<Path> result = new ArrayList<>();
-        for (Dependency dependency : getDependencies()) {
+        for (Dependency dependency : dependencies.get()) {
             if (dependency instanceof JavaJarDependency) {
                 result.add(((JavaJarDependency) dependency).jar);
             }
         }
-        result.add(getNamedJar().jar);
+        result.add(namedJar.get().jar);
         return result;
     }
 
     public List<JavaJarDependency> getIdeDependencies() {
         List<JavaJarDependency> result = new ArrayList<>();
-        for (Dependency dependency : getDependencies()) {
+        for (Dependency dependency : dependencies.get()) {
             if (dependency instanceof JavaJarDependency) {
                 result.add((JavaJarDependency) dependency);
             }
         }
         result.add(Maven.getMavenJarDep(FabricMaven.URL, FabricMaven.devLaunchInjector("0.2.1+build.8")));
         result.add(Maven.getMavenJarDep(Maven.MAVEN_CENTRAL, new MavenId("net.minecrell", "terminalconsoleappender", "1.2.0")));
-        result.add(new JavaJarDependency(getNamedJar().jar, getDecompiledJar(), null)); // TODO: line number mappings
+        result.add(new JavaJarDependency(namedJar.get().jar, getDecompiledJar(), null)); // TODO: line number mappings
         return result;
     }
 
-    public List<Dependency> getDependencies() {
-        List<Dependency> result = new ArrayList<>(mcDependencies());
+    public final Lazy<List<Dependency>> dependencies = new Lazy<>(this::createDependencies);
+    public List<Dependency> createDependencies() {
+        List<Dependency> result = new ArrayList<>(mcDependencies.get());
         FabricLoader floader = getLoader();
         result.add(floader.jar);
-        for (JavaJarDependency javaJarDependency : floader.commonDeps) result.add(javaJarDependency);
-        for (JavaJarDependency javaJarDependency : floader.serverDeps) result.add(javaJarDependency);
-        for (JavaJarDependency javaJarDependency : floader.clientDeps) result.add(javaJarDependency);
+        Collections.addAll(result, floader.commonDeps);
+        Collections.addAll(result, floader.serverDeps);
+        Collections.addAll(result, floader.clientDeps);
         return result;
     }
 
@@ -252,56 +242,44 @@ public abstract class FabricProject extends Project {
         return result;
     }
 
-    public RemappedJar getIntermediaryJar() {
-        if (intermediaryJar == null) {
+    public final Lazy<RemappedJar> intermediaryjar = new Lazy<>(this::createIntermediaryJar);
+    public RemappedJar createIntermediaryJar() {
             Path mergedJar = getMergedJar();
             Intermediary intermediary = getIntermediary();
             String intermediaryHash = MappingHasher.hashSha256(intermediary.tree);
             Path result = fabricCache().resolve("intermediary").resolve(getMcVersion() + "-intermediary-" + intermediaryHash + ".jar");
-            if (Files.isRegularFile(result)) {
-                intermediaryJar = new RemappedJar(result, intermediaryHash);
-                return intermediaryJar;
-            } else {
+            if (!Files.isRegularFile(result)) {
                 try (AtomicFile atomicFile = new AtomicFile(result)) {
-                    remapJar(intermediary.tree, Namespaces.OBF, Namespaces.INTERMEDIARY, mergedJar, atomicFile.tempPath, mcClasspath());
+                    remapJar(intermediary.tree, Namespaces.OBF, Namespaces.INTERMEDIARY, mergedJar, atomicFile.tempPath, mcClasspath.get());
                     atomicFile.commit();
                 }
             }
-            intermediaryJar = new RemappedJar(result, intermediaryHash);
-        }
-        return intermediaryJar;
+            return new RemappedJar(result, intermediaryHash);
     }
 
-    public RemappedJar getNamedJar() {
-        if (namedJar == null) {
-            Path intermediaryJar2 = getIntermediaryJar().jar;
-            MappingTree mappings = getMappings();
-            Intermediary intermediary = getIntermediary();
-            String mappingHash = MappingHasher.hashSha256(intermediary.tree, mappings);
-            Path result = fabricCache().resolve("named").resolve(getMcVersion() + "-named-" + mappingHash + ".jar");
-            if (Files.isRegularFile(result)) {
-                namedJar = new RemappedJar(result, mappingHash);
-                return namedJar;
-            } else {
-                try (AtomicFile atomicFile = new AtomicFile(result)) {
-                    remapJar(mappings, Namespaces.INTERMEDIARY, Namespaces.NAMED, intermediaryJar2, atomicFile.tempPath, mcClasspath());
-                    atomicFile.commit();
-                }
+    public final Lazy<RemappedJar> namedJar = new Lazy<>(this::createNamedJar);
+    public RemappedJar createNamedJar() {
+        Path intermediaryJar2 = intermediaryjar.get().jar;
+        MappingTree mappings = getMappings();
+        Intermediary intermediary = getIntermediary();
+        String mappingHash = MappingHasher.hashSha256(intermediary.tree, mappings);
+        Path result = fabricCache().resolve("named").resolve(getMcVersion() + "-named-" + mappingHash + ".jar");
+        if (!Files.isRegularFile(result)) {
+            try (AtomicFile atomicFile = new AtomicFile(result)) {
+                remapJar(mappings, Namespaces.INTERMEDIARY, Namespaces.NAMED, intermediaryJar2, atomicFile.tempPath, mcClasspath.get());
+                atomicFile.commit();
             }
-            namedJar = new RemappedJar(result, mappingHash);
         }
-        return namedJar;
+        return new RemappedJar(result, mappingHash);
     }
 
     public Path getDecompiledJar() {
-        RemappedJar named = getNamedJar();
+        RemappedJar named = namedJar.get();
         MappingTree mappings = getMappings();
         BrachyuraDecompiler decompiler = decompiler();
         Path result = fabricCache().resolve("decompiled").resolve(getMcVersion() + "-named-" + named.mappingHash + "-decomp-" + decompiler.getName() + "-" + decompiler.getVersion() + "-sources.jar");
         Path result2 = fabricCache().resolve("decompiled").resolve(getMcVersion() + "-named-" + named.mappingHash + "-decomp-" + decompiler.getName() + "-" + decompiler.getVersion() + ".linemappings");
-        if (Files.isRegularFile(result) && Files.isRegularFile(result2)) {
-            return result;
-        } else {
+        if (!(Files.isRegularFile(result) && Files.isRegularFile(result2))) {
             try (
                 AtomicFile atomicFile = new AtomicFile(result);
                 AtomicFile atomicFile2 = new AtomicFile(result2);
@@ -348,15 +326,16 @@ public abstract class FabricProject extends Project {
     }
 
     public List<Path> decompClasspath() {
-        List<Path> result = new ArrayList<>(mcClasspath());
+        List<Path> result = new ArrayList<>(mcClasspath.get());
         result.add(Maven.getMavenJarDep(FabricMaven.URL, FabricMaven.loader("0.9.3+build.207")).jar); // Just for the annotations added by fabric-merge
         return result;
     }
 
-    public List<Path> mcClasspath() {
-        List<Dependency> dependencies = mcDependencies();
+    public final Lazy<List<Path>> mcClasspath = new Lazy<>(this::createMcClasspath);
+    public List<Path> createMcClasspath() {
+        List<Dependency> deps = mcDependencies.get();
         List<Path> result = new ArrayList<>();
-        for (Dependency dependency : dependencies) {
+        for (Dependency dependency : deps) {
             if (dependency instanceof JavaJarDependency) {
                 result.add(((JavaJarDependency)dependency).jar);
             }
@@ -364,7 +343,8 @@ public abstract class FabricProject extends Project {
         return result;
     }
 
-    public List<Dependency> mcDependencies() {
+    public final Lazy<List<Dependency>> mcDependencies = new Lazy<>(this::createMcDependencies);
+    public List<Dependency> createMcDependencies() {
         ArrayList<Dependency> result = new ArrayList<>(Minecraft.getDependencies(versionMeta));
         result.add(Maven.getMavenJarDep(Maven.MAVEN_CENTRAL, new MavenId("org.jetbrains", "annotations", "19.0.0")));
         return result;
@@ -374,32 +354,8 @@ public abstract class FabricProject extends Project {
         return new CfrDecompiler(Runtime.getRuntime().availableProcessors());
     }
 
-    public Path getBuildClassesDir() {
-        return PathUtil.resolveAndCreateDir(getBuildDir(), "classes");
-    }
-
-    public Path getBuildResourcesDir() {
-        return PathUtil.resolveAndCreateDir(getBuildDir(), "resources");
-    }
-
-    public Path getBuildLibsDir() {
-        return PathUtil.resolveAndCreateDir(getBuildDir(), "libs");
-    }
-
     public Path getBuildJarPath() {
         return getBuildLibsDir().resolve(getModId() + "-" + getVersion() + ".jar");
-    }
-
-    public Path getBuildDir() {
-        return PathUtil.resolveAndCreateDir(getProjectDir(), "build");
-    }
-
-    public Path getSrcDir() {
-        return getProjectDir().resolve("src").resolve("main").resolve("java");
-    }
-
-    public Path getResourcesDir() {
-        return getProjectDir().resolve("src").resolve("main").resolve("resources");
     }
 
     public Path fabricCache() {

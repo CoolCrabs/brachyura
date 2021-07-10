@@ -54,6 +54,11 @@
             <version>0.2</version>
         </dependency>
         <dependency>
+            <groupId>io.github.coolcrabs</groupId>
+            <artifactId>javacompilelib</artifactId>
+            <version>0.1</version>
+        </dependency>
+        <dependency>
             <groupId>net.fabricmc</groupId>
             <artifactId>mapping-io</artifactId>
             <version>0.1.5</version>

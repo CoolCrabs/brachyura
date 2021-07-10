@@ -49,8 +49,8 @@ class FabricProjectTest {
 
     @Test
     void testProject() {
-        assertTrue(Files.isRegularFile(fabricProject.getIntermediaryJar().jar));
-        assertTrue(Files.isRegularFile(fabricProject.getNamedJar().jar));
+        assertTrue(Files.isRegularFile(fabricProject.intermediaryjar.get().jar));
+        assertTrue(Files.isRegularFile(fabricProject.namedJar.get().jar));
         assertTrue(Files.isRegularFile(fabricProject.getDecompiledJar()));
     }
     
@@ -61,6 +61,6 @@ class FabricProjectTest {
 
     @Test
     void compile() {
-        fabricProject.compile();
+        assertTrue(fabricProject.build());
     }
 }
