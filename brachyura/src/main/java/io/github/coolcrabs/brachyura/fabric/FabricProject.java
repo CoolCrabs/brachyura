@@ -1,18 +1,24 @@
 package io.github.coolcrabs.brachyura.fabric;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileSystem;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.stream.JsonWriter;
 
 import org.tinylog.Logger;
 
@@ -22,6 +28,7 @@ import io.github.coolcrabs.brachyura.decompiler.cfr.CfrDecompiler;
 import io.github.coolcrabs.brachyura.dependency.Dependency;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 import io.github.coolcrabs.brachyura.dependency.NativesJarDependency;
+import io.github.coolcrabs.brachyura.exception.UnknownJsonException;
 import io.github.coolcrabs.brachyura.ide.Vscode;
 import io.github.coolcrabs.brachyura.mappings.MappingHasher;
 import io.github.coolcrabs.brachyura.mappings.Namespaces;
@@ -35,6 +42,7 @@ import io.github.coolcrabs.brachyura.maven.MavenId;
 import io.github.coolcrabs.brachyura.minecraft.Minecraft;
 import io.github.coolcrabs.brachyura.minecraft.VersionMeta;
 import io.github.coolcrabs.brachyura.project.BaseJavaProject;
+import io.github.coolcrabs.brachyura.util.ArrayUtil;
 import io.github.coolcrabs.brachyura.util.AtomicDirectory;
 import io.github.coolcrabs.brachyura.util.AtomicFile;
 import io.github.coolcrabs.brachyura.util.FileSystemUtil;
@@ -45,6 +53,7 @@ import io.github.coolcrabs.brachyura.util.UnzipUtil;
 import io.github.coolcrabs.brachyura.util.Util;
 import io.github.coolcrabs.fabricmerge.JarMerger;
 import io.github.coolcrabs.javacompilelib.JavaCompilationUnit;
+import net.fabricmc.mappingio.format.Tiny2Writer;
 import net.fabricmc.mappingio.tree.MappingTree;
 import net.fabricmc.tinyremapper.TinyRemapper;
 
@@ -60,6 +69,7 @@ public abstract class FabricProject extends BaseJavaProject {
     public final Path vanillaServerJar = Minecraft.getDownload(getMcVersion(), versionMeta, "server");
 
     public void vscode() {
+        String mappingsClasspath = writeMappings4FabricStuff().getParent().getParent().toAbsolutePath().toString();
         Path vscode = getProjectDir().resolve(".vscode");
         Vscode.updateSettingsJson(vscode.resolve("settings.json"), getIdeDependencies());
         Vscode.LaunchJson launchJson = new Vscode.LaunchJson();
@@ -68,11 +78,21 @@ public abstract class FabricProject extends BaseJavaProject {
         server.cwd = "${workspaceFolder}/run";
         server.mainClass = "net.fabricmc.devlaunchinjector.Main";
         server.vmArgs = "-Dfabric.dli.config=" + writeLaunchCfg().toAbsolutePath().toString() + " -Dfabric.dli.env=server -Dfabric.dli.main=net.fabricmc.loader.launch.knot.KnotServer";
+        server.classPaths = new String[] {
+            "$Auto",
+            "${workspaceFolder}/src/main/resources/",
+            mappingsClasspath
+        };
         Vscode.LaunchJson.Configuration client = new Vscode.LaunchJson.Configuration();
         client.name = "Minecraft Client";
         client.cwd = "${workspaceFolder}/run";
         client.mainClass = "net.fabricmc.devlaunchinjector.Main";
         client.vmArgs = "-Dfabric.dli.config=" + writeLaunchCfg().toAbsolutePath().toString() + " -Dfabric.dli.env=client -Dfabric.dli.main=net.fabricmc.loader.launch.knot.KnotClient";
+        client.classPaths = new String[] {
+            "$Auto",
+            "${workspaceFolder}/src/main/resources/",
+            mappingsClasspath
+        };
         launchJson.configurations = new Vscode.LaunchJson.Configuration[] {client, server};
         Vscode.updateLaunchJson(vscode.resolve("launch.json"), launchJson);
         PathUtil.resolveAndCreateDir(getProjectDir(), "run");
@@ -121,6 +141,25 @@ public abstract class FabricProject extends BaseJavaProject {
         }
     }
 
+    public Path writeMappings4FabricStuff() {
+        try {
+            MappingTree mappingTree = getMappings();
+            String hash = MappingHasher.hashSha256(mappingTree);
+            Path result = getLocalBrachyuraPath().resolve("mappings-cache").resolve(hash).resolve("mappings").resolve("mappings.tiny"); // floader hardcoded path as it asumes you are using a yarn jar as mapping root of truth
+            if (!Files.isRegularFile(result)) {
+                try (AtomicFile atomicFile = new AtomicFile(result)) {
+                    try (Tiny2Writer tiny2Writer = new Tiny2Writer(Files.newBufferedWriter(atomicFile.tempPath), false)) {
+                        mappingTree.accept(tiny2Writer);
+                    }
+                    atomicFile.commit();
+                }
+            }
+            return result;
+        } catch (Exception e) {
+            throw Util.sneak(e);
+        }
+    }
+
     public List<Path> getExtractedNatives() {
         List<Path> result = new ArrayList<>();
         for (Dependency dependency : mcDependencies.get()) {
@@ -140,7 +179,13 @@ public abstract class FabricProject extends BaseJavaProject {
     }
 
     public boolean build() {
-        String[] compileArgs = JvmUtil.compileArgs(JvmUtil.CURRENT_JAVA_VERSION, 8);
+        String[] compileArgs = ArrayUtil.join(String.class, 
+            JvmUtil.compileArgs(JvmUtil.CURRENT_JAVA_VERSION, 8),
+            "-AinMapFileNamedIntermediary=" + writeMappings4FabricStuff().toAbsolutePath().toString(),
+            // "-AoutMapFileNamedIntermediary=" + getLocalBrachyuraPath() + "wat.tiny",
+            "-AoutRefMapFile=" + getBuildResourcesDir().resolve(getModId() + "-refmap.json").toAbsolutePath().toString(),
+            "-AdefaultObfuscationEnv=named:intermediary"
+        );
         JavaCompilationUnit javaCompilationUnit = new JavaCompilationUnitBuilder()
                 .sourceDir(getSrcDir())
                 .outputDir(getBuildClassesDir())
@@ -171,17 +216,64 @@ public abstract class FabricProject extends BaseJavaProject {
     }
 
     @Override
-    public void processResource(Path relativePath, Path absolutePath, Path targetDir) throws IOException {
-        if (relativePath.toString().equals("fabric.mod.json")) {
-            Gson gson = new Gson();
-            JsonObject fabricModJson = gson.fromJson(PathUtil.newBufferedReader(absolutePath), JsonObject.class);
+    public boolean processResources(Path source, Path target) throws IOException {
+        // If you think this is bad look at what loom does
+        Gson gson = new GsonBuilder().setPrettyPrinting().setLenient().create();
+        Path fmj = source.resolve("fabric.mod.json");
+        List<String> mixinjs = new ArrayList<>();
+        List<Path> mixinFiles = new ArrayList<>();
+        if (Files.isRegularFile(fmj)) {
+            JsonObject fabricModJson;
+            try (BufferedReader reader = PathUtil.newBufferedReader(fmj)) {
+                fabricModJson = gson.fromJson(reader, JsonObject.class);
+            }
             fabricModJson.addProperty("version", getVersion());
-            try (JsonWriter jsonWriter = new JsonWriter(PathUtil.newBufferedWriter(targetDir.resolve(relativePath)))) {
+            JsonElement m = fabricModJson.get("mixins");
+            if (m instanceof JsonArray) {
+                JsonArray mixins = m.getAsJsonArray();
+                for (JsonElement a : mixins) {
+                    if (a.isJsonPrimitive()) {
+                        mixinjs.add(a.getAsString());
+                    } else if (a.isJsonObject()) {
+                        mixinjs.add(a.getAsJsonObject().get("config").getAsString());
+                    } else {
+                        throw new UnknownJsonException(a.toString());
+                    }
+                }
+            }
+            try (BufferedWriter jsonWriter = PathUtil.newBufferedWriter(target.resolve("fabric.mod.json"))) {
                 gson.toJson(fabricModJson, jsonWriter);
             }
-        } else {
-            super.processResource(relativePath, absolutePath, targetDir);
         }
+        for (String mixin : mixinjs) {
+            Path mixinsource = source.resolve(mixin);
+            mixinFiles.add(mixinsource);
+            Path mixintarget = target.resolve(mixin);
+            JsonObject mixinjson;
+            try (BufferedReader bufferedReader = Files.newBufferedReader(mixinsource)) {
+                mixinjson = gson.fromJson(bufferedReader, JsonObject.class);
+            }
+            if (mixinjson.get("refmap") == null) {
+                mixinjson.addProperty("refmap", getModId() + "-refmap.json");
+            }
+            try (BufferedWriter jsonWriter = PathUtil.newBufferedWriter(mixintarget)) {
+                gson.toJson(mixinjson, jsonWriter);
+            }
+        }
+        boolean[] result = new boolean[] {true};
+        Files.walkFileTree(source, new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                // Skip fmj and mixin files (already copied)
+                if (file.equals(fmj) || mixinFiles.contains(file) || processResource(source.relativize(file), file, target)) {
+                    return FileVisitResult.CONTINUE;
+                } else {
+                    result[0] = false;
+                    return FileVisitResult.TERMINATE;
+                }
+            }
+        });
+        return result[0];
     }
 
     @Override
@@ -193,6 +285,7 @@ public abstract class FabricProject extends BaseJavaProject {
             }
         }
         result.add(namedJar.get().jar);
+        result.add(Maven.getMavenJarDep(FabricMaven.URL, FabricMaven.mixinCompileExtensions("0.4.4")).jar);
         return result;
     }
 

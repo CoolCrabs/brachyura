@@ -1,0 +1,13 @@
+{
+    "required": true,
+    "minVersion": "0.8",
+    "package": "io.github.coolcrabs.testmod.mixin",
+    "compatibilityLevel": "JAVA_8",
+    "mixins": [],
+    "client": [
+        "RandomMixin"
+    ],
+    "injectors": {
+        "defaultRequire": 1
+    }
+}

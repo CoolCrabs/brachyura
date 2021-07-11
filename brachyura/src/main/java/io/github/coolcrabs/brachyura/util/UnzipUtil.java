@@ -30,10 +30,8 @@ public class UnzipUtil {
                     } else {
                         // some zip stored file path only, need create parent directories
                         // e.g data/folder/file.txt
-                        if (newPath.getParent() != null) {
-                            if (Files.notExists(newPath.getParent())) {
-                                Files.createDirectories(newPath.getParent());
-                            }
+                        if (newPath.getParent() != null && Files.notExists(newPath.getParent())) {
+                            Files.createDirectories(newPath.getParent());
                         }
                         Files.copy(zis, newPath, StandardCopyOption.REPLACE_EXISTING);
                     }

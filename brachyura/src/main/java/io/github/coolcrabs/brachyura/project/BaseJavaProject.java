@@ -25,17 +25,7 @@ public abstract class BaseJavaProject extends Project {
             if (!getCompiler().compile(javaCompilationUnit)) {
                 return false;
             }
-        
-            Path resourcesDir = getResourcesDir();
-            Files.walkFileTree(resourcesDir, new SimpleFileVisitor<Path>() {
-                @Override
-                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                    processResource(resourcesDir.relativize(file), file, buildResourcesDir);
-                    return FileVisitResult.CONTINUE;
-                }
-            });
-
-            return true;
+            return processResources(getResourcesDir(), getBuildResourcesDir());
         } catch (Exception e) {
             throw Util.sneak(e);
         }
@@ -45,10 +35,27 @@ public abstract class BaseJavaProject extends Project {
         return Collections.emptyList();
     }
 
-    public void processResource(Path relativePath, Path absolutePath, Path targetDir) throws IOException {
+    public boolean processResources(Path source, Path target) throws IOException {
+        boolean[] result = new boolean[] {true};
+        Files.walkFileTree(source, new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                if (processResource(source.relativize(file), file, target)) {
+                    return FileVisitResult.CONTINUE;
+                } else {
+                    result[0] = false;
+                    return FileVisitResult.TERMINATE;
+                }
+            }
+        });
+        return result[0];
+    }
+
+    public boolean processResource(Path relativePath, Path absolutePath, Path targetDir) throws IOException {
         Path target = targetDir.resolve(relativePath);
         Files.createDirectories(target.getParent());
         Files.copy(absolutePath, targetDir.resolve(relativePath));
+        return true;
     }
 
     public Path getBuildClassesDir() {

@@ -23,4 +23,8 @@ public class FabricMaven {
     public static MavenId devLaunchInjector(String version) {
         return new MavenId(GROUP_ID, "dev-launch-injector", version);
     }
+
+    public static MavenId mixinCompileExtensions(String version) {
+        return new MavenId(GROUP_ID, "fabric-mixin-compile-extensions", version);
+    }
 }

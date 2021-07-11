@@ -8,5 +8,8 @@
         "main": [
             "io.github.coolcrabs.testmod.TestMod"
         ]
-    }
+    },
+    "mixins": [
+        "brachyuratestmod.mixins.json"
+    ]
 }
