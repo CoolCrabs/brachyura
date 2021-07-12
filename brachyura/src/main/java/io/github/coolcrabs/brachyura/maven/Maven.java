@@ -28,7 +28,7 @@ import io.github.coolcrabs.brachyura.util.Util;
 public class Maven {
     private Maven() { }
 
-    public static String MAVEN_CENTRAL = "https://repo.maven.apache.org/maven2/";
+    public static final String MAVEN_CENTRAL = "https://repo.maven.apache.org/maven2/";
 
     public static JavaJarDependency getMavenJarDep(String mavenRepo, MavenId dep) {
         return (JavaJarDependency) getMavenDep(mavenRepo, dep, ".jar", true, true);

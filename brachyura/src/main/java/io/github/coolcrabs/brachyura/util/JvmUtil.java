@@ -52,7 +52,7 @@ public class JvmUtil {
 
     public static String[] compileArgs(int compilerversion, int targetversion) {
         if (compilerversion == targetversion) return NO_ARGS;
-        if (compilerversion >= 9 && targetversion >= 7) return new String[] {"--release", javaVersionString(targetversion)};
+        if (compilerversion >= 9 && targetversion >= 7) return new String[] {"--release", String.valueOf(targetversion)}; // Doesn't accept 1.8 etc for some reason
         throw new UnsupportedOperationException("Target Version: " + targetversion + " " + "Compiler Version: " + compilerversion);
     }
 }

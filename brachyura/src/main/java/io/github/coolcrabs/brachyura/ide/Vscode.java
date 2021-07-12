@@ -78,7 +78,7 @@ public class Vscode {
             public String console = "internalConsole";
             public String mainClass;
             public String vmArgs = "";
-            public String args = "";
+            public Object args = "";
             public boolean stopOnEntry = false;
             public String[] classPaths = new String[] {
                 "$Auto",
