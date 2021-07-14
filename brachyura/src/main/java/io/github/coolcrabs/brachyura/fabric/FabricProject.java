@@ -13,6 +13,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Consumer;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -42,6 +43,7 @@ import io.github.coolcrabs.brachyura.maven.MavenId;
 import io.github.coolcrabs.brachyura.minecraft.Minecraft;
 import io.github.coolcrabs.brachyura.minecraft.VersionMeta;
 import io.github.coolcrabs.brachyura.project.BaseJavaProject;
+import io.github.coolcrabs.brachyura.project.Task;
 import io.github.coolcrabs.brachyura.util.ArrayUtil;
 import io.github.coolcrabs.brachyura.util.AtomicDirectory;
 import io.github.coolcrabs.brachyura.util.AtomicFile;
@@ -58,15 +60,22 @@ import net.fabricmc.mappingio.tree.MappingTree;
 import net.fabricmc.tinyremapper.TinyRemapper;
 
 public abstract class FabricProject extends BaseJavaProject {
-    abstract String getMcVersion();
-    abstract MappingTree getMappings();
-    abstract FabricLoader getLoader();
-    abstract String getModId();
-    abstract String getVersion();
+    public abstract String getMcVersion();
+    public abstract MappingTree getMappings();
+    public abstract FabricLoader getLoader();
+    public abstract String getModId();
+    public abstract String getVersion();
 
     public final VersionMeta versionMeta = Minecraft.getVersion(getMcVersion());
     public final Path vanillaClientJar = Minecraft.getDownload(getMcVersion(), versionMeta, "client");
     public final Path vanillaServerJar = Minecraft.getDownload(getMcVersion(), versionMeta, "server");
+
+    @Override
+    public void getTasks(Consumer<Task> p) {
+        super.getTasks(p);
+        p.accept(Task.of("vscode", this::vscode));
+        p.accept(Task.of("build", this::build));
+    }
 
     public void vscode() {
         String mappingsClasspath = writeMappings4FabricStuff().getParent().getParent().toAbsolutePath().toString();

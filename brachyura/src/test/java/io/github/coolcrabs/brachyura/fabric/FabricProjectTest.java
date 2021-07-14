@@ -13,28 +13,28 @@ import net.fabricmc.mappingio.tree.MappingTree;
 class FabricProjectTest {
     FabricProject fabricProject = new FabricProject() {
         @Override
-        String getModId() {
+        public String getModId() {
             return "brachyuratestmod";
         }
 
         @Override
-        String getVersion() {
+        public String getVersion() {
             return "1.0.0";
         }
 
         @Override
-        String getMcVersion() {
+        public String getMcVersion() {
             return "1.16.5";
         }
 
         @Override
-        MappingTree getMappings() {
+        public MappingTree getMappings() {
             MappingTree tree = Yarn.ofMaven(FabricMaven.URL, FabricMaven.yarn("1.16.5+build.10")).tree;
             return tree;
         }
 
         @Override
-        FabricLoader getLoader() {
+        public FabricLoader getLoader() {
             return new FabricLoader(FabricMaven.URL, FabricMaven.loader("0.11.6"));
         }
 

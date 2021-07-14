@@ -1,5 +1,7 @@
 package io.github.coolcrabs.brachyura.mappings.tinyremapper;
 
+import org.tinylog.Logger;
+
 import net.fabricmc.mappingio.tree.MappingTree;
 import net.fabricmc.mappingio.tree.MappingTree.ClassMapping;
 import net.fabricmc.mappingio.tree.MappingTree.FieldMapping;
@@ -23,7 +25,12 @@ public class MappingTreeMappingProvider implements IMappingProvider {
     public void load(MappingAcceptor acceptor) {
         for (ClassMapping classMapping : tree.getClasses()) {
             String classSrcName = classMapping.getName(srcId);
-            acceptor.acceptClass(classSrcName, classMapping.getName(dstId));
+            String classDstName = classMapping.getName(dstId);
+            if (classDstName == null) {
+                Logger.warn("Missing class mapping for " + classSrcName + " this is ok, just annoying.");
+            } else {
+                acceptor.acceptClass(classSrcName, classDstName);
+            }
             for (MethodMapping method : classMapping.getMethods()) {
                 Member member = new Member(
                     classSrcName,
