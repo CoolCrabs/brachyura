@@ -53,10 +53,14 @@ public final class ForkingJavaCompilation implements JavaCompilation {
     @Override
     public boolean compile(JavaCompilationUnit javaCompilationUnit) {
         try {
-            Process process = new ProcessBuilder(java.toString(), "-cp", thisjar.toString(), "io.github.coolcrabs.javacompilelib.ForkingJavaCompilationEntry").redirectErrorStream(true).start();
+            Process process = new ProcessBuilder(java, "-cp", thisjar.toString(), "io.github.coolcrabs.javacompilelib.ForkingJavaCompilationEntry").redirectErrorStream(true).start();
             // Java 7 added some nice methods for this, why am I using Java 6 again?
-            StreamRedirector streamRedirector = new StreamRedirector(new BufferedInputStream(process.getInputStream()), System.out);
+            StreamRedirector streamRedirector = new StreamRedirector(process.getInputStream(), System.out);
+            streamRedirector.setDaemon(true);
             streamRedirector.start();
+            StreamRedirector streamRedirector2 = new StreamRedirector(process.getErrorStream(), System.err);
+            streamRedirector2.setDaemon(true);
+            streamRedirector2.start();
             ObjectOutputStream objectOutputStream = new ObjectOutputStream(new BufferedOutputStream(process.getOutputStream()));
             objectOutputStream.writeObject(javaCompilationUnit);
             objectOutputStream.close();
