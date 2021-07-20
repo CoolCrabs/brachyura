@@ -1,4 +1,4 @@
-package io.github.coolcrabs.brachyura.project;
+package io.github.coolcrabs.brachyura.project.java;
 
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
@@ -9,6 +9,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Collections;
 import java.util.List;
 
+import io.github.coolcrabs.brachyura.project.Project;
 import io.github.coolcrabs.brachyura.util.JvmUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import io.github.coolcrabs.brachyura.util.Util;

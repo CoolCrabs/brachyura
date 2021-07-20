@@ -9,6 +9,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystem;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.OpenOption;
@@ -55,6 +56,32 @@ public class PathUtil {
         } catch (IOException e) {
             throw Util.sneak(e);
         }
+    }
+
+    public static void copyDir(Path source, Path target) {
+        Path a = pathTransform(target.getFileSystem(), source);
+        try {
+            Files.walkFileTree(source, new SimpleFileVisitor<Path>(){
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                    Path targetFile = target.resolve(a.relativize(pathTransform(target.getFileSystem(), file)));
+                    Files.createDirectories(targetFile.getParent());
+                    Files.copy(file, targetFile);
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+        } catch (IOException e) {
+            throw Util.sneak(e);
+        }
+    }
+
+    // https://stackoverflow.com/a/22611925
+    public static Path pathTransform(FileSystem fs, final Path path) {
+        Path ret = fs.getPath(path.isAbsolute() ? fs.getSeparator() : "");
+        for (Path component : path) {
+            ret = ret.resolve(component.getFileName().toString());
+        }
+        return ret;
     }
 
     public static InputStream inputStream(Path path) {

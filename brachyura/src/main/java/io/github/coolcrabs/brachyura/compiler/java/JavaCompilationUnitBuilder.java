@@ -17,20 +17,22 @@ import io.github.coolcrabs.javacompilelib.JavaCompilationUnit;
 
 public class JavaCompilationUnitBuilder extends JavaCompilationUnit.Builder {
 
-    public JavaCompilationUnitBuilder sourceDir(Path dir) {
+    public JavaCompilationUnitBuilder sourceDir(Path... dirs) {
         try {
             List<File> sourceFiles = new ArrayList<>();
-            Files.walkFileTree(dir, new SimpleFileVisitor<Path>() {
-                @Override
-                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                    if (file.getFileName().toString().endsWith(".java")) {
-                        sourceFiles.add(file.toFile());
-                    } else {
-                        Logger.warn("Unrecognized file type for file {} in java src dir", file);
+            for (Path dir : dirs) {
+                Files.walkFileTree(dir, new SimpleFileVisitor<Path>() {
+                    @Override
+                    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                        if (file.getFileName().toString().endsWith(".java")) {
+                            sourceFiles.add(file.toFile());
+                        } else {
+                            Logger.warn("Unrecognized file type for file {} in java src dir", file);
+                        }
+                        return FileVisitResult.CONTINUE;
                     }
-                    return FileVisitResult.CONTINUE;
-                }
-            });
+                });
+            }
             return this.sourceFiles(sourceFiles.toArray(new File[sourceFiles.size()]));
         } catch (Exception e) {
             throw Util.sneak(e);

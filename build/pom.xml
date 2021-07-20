@@ -80,7 +80,7 @@
                     <archive>
                         <manifest>
                             <mainClass>
-                                io.github.coolcrabs.brachyura.bootstrap.Main
+                                io.github.coolcrabs.brachyura.build.Main
                             </mainClass>
                         </manifest>
                     </archive>

@@ -1,5 +1,6 @@
 package io.github.coolcrabs.brachyura.project;
 
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
 public abstract class Task {
@@ -7,6 +8,10 @@ public abstract class Task {
 
     Task(String name) {
         this.name = name;
+    }
+
+    public static Task of(String name, BooleanSupplier run) {
+        return new FailableNoArgTask(name, run);
     }
 
     public static Task of(String name, Runnable run) {
@@ -18,6 +23,20 @@ public abstract class Task {
     }
 
     public abstract void doTask(String[] args);
+
+    static class FailableNoArgTask extends Task {
+        final BooleanSupplier runnable;
+
+        FailableNoArgTask(String name, BooleanSupplier runnable) {
+            super(name);
+            this.runnable = runnable;
+        }
+
+        @Override
+        public void doTask(String[] args) {
+            if (!runnable.getAsBoolean()) System.exit(1);
+        }
+    }
 
     static class NoArgTask extends Task {
         final Runnable runnable;
