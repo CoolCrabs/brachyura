@@ -18,6 +18,7 @@ import org.tinylog.Logger;
 import io.github.coolcrabs.brachyura.decompiler.BrachyuraDecompiler;
 import io.github.coolcrabs.brachyura.util.Util;
 import net.fabricmc.mappingio.tree.MappingTree;
+import net.fabricmc.mappingio.tree.MemoryMappingTree;
 
 public class CfrDecompiler implements BrachyuraDecompiler {
     private static final Map<String, String> CFR_OPTIONS = new HashMap<>();
@@ -46,6 +47,9 @@ public class CfrDecompiler implements BrachyuraDecompiler {
                 cfrDriver.withOverrideClassFileSource(cfrClassFileSource);
                 cfrDriver.withOutputSink(cfrOutputSinkFactory);
                 if (tree != null) {
+                    if (namespace >= 0 && tree instanceof MemoryMappingTree) {
+                        ((MemoryMappingTree)tree).setIndexByDstNames(true);
+                    }
                     cfrDriver.withJavadocProvider(new MappingTreeJavadocProvider(tree, namespace));
                 }
                 CfrDriver cfrDriver2 = cfrDriver.build();

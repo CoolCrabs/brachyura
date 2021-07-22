@@ -27,7 +27,7 @@ public class Yarn {
 
     public static Yarn ofV2(Path file) {
         try {
-            MemoryMappingTree tree = new MemoryMappingTree();
+            MemoryMappingTree tree = new MemoryMappingTree(true);
             MappingReader.read(file, MappingFormat.TINY_2, tree);
             return new Yarn(tree);
         } catch (Exception e) {
@@ -37,7 +37,7 @@ public class Yarn {
 
     public static Yarn ofObfEnigma(Path dir) {
         try {
-            MemoryMappingTree tree = new MemoryMappingTree();
+            MemoryMappingTree tree = new MemoryMappingTree(true);
             EnigmaReader.read(dir, Namespaces.OBF, Namespaces.NAMED, tree);
             return new Yarn(tree);
         } catch (Exception e) {
