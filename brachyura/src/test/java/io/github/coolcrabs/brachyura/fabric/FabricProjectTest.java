@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import io.github.coolcrabs.brachyura.util.PathUtil;
@@ -47,6 +48,7 @@ class FabricProjectTest {
         
     };
 
+    @Disabled("Too slow for ci :(")
     @Test
     void testProject() {
         assertTrue(Files.isRegularFile(fabricProject.intermediaryjar.get().jar));

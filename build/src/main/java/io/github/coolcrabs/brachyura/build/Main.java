@@ -106,6 +106,7 @@ public class Main {
 
     static void uploadGithub(Path outDir) throws Exception {
         GHRepository repo = gitHub2.getRepository("CoolCrabs/brachyura");
+        repo.createTag(commit, commit, commit, "commit");
         GHRelease release = repo.createRelease(commit).commitish(commit).create();
         Files.walkFileTree(outDir, new SimpleFileVisitor<Path>() {
             @Override
