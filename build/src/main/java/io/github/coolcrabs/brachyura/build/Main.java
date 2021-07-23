@@ -99,9 +99,9 @@ public class Main {
                 }
                 w.write(lib + "\t" + hash + "\t" + filename + "\t" + isJar + "\n");
             }
-            if (github) {
-                uploadGithub(outDir);
-            }
+        }
+        if (github) {
+            uploadGithub(outDir);
         }
     }
 
