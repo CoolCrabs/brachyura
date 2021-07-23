@@ -18,8 +18,13 @@ import java.security.MessageDigest;
 import java.util.Comparator;
 import java.util.stream.Stream;
 
+import org.kohsuke.github.GHRelease;
+import org.kohsuke.github.GHRepository;
+import org.kohsuke.github.GitHub;
+import org.kohsuke.github.GitHubBuilder;
+
 public class Main {
-    static String[] localLibs = new String[] {"javacompilelib", "fabricmerge", "cfr", "brachyura"};
+    static String[] localLibs = new String[] {"javacompilelib", "fabricmerge", "cfr", "brachyura", "bootstrap"};
     static String[] mavenLibs = new String[] {
         "https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.2/asm-9.2.jar",
         "https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.2/asm-9.2-sources.jar",
@@ -37,18 +42,25 @@ public class Main {
         "https://repo.maven.apache.org/maven2/org/tinylog/tinylog-api/2.3.2/tinylog-api-2.3.2-sources.jar",
         "https://repo.maven.apache.org/maven2/org/tinylog/tinylog-impl/2.3.2/tinylog-impl-2.3.2.jar",
         "https://repo.maven.apache.org/maven2/org/tinylog/tinylog-impl/2.3.2/tinylog-impl-2.3.2-sources.jar",
-        "https://maven.fabricmc.net/net/fabricmc/mapping-io/0.1.5/mapping-io-0.1.5.jar",
-        "https://maven.fabricmc.net/net/fabricmc/mapping-io/0.1.5/mapping-io-0.1.5-sources.jar",
+        "https://maven.fabricmc.net/net/fabricmc/mapping-io/0.1.7/mapping-io-0.1.7.jar",
+        "https://maven.fabricmc.net/net/fabricmc/mapping-io/0.1.7/mapping-io-0.1.7-sources.jar",
         "https://maven.fabricmc.net/net/fabricmc/tiny-remapper/0.4.2/tiny-remapper-0.4.2.jar",
         "https://maven.fabricmc.net/net/fabricmc/tiny-remapper/0.4.2/tiny-remapper-0.4.2-sources.jar"
     };
+    static boolean github = Boolean.parseBoolean(System.getenv("CI"));
+    static String commit = github ? getCommitHash() : null;
+    static final String GITHUB_TOKEN = System.getenv("GITHUB_TOKEN");
+    static GitHub gitHub2;
 
     public static void main(String[] args) throws Exception {
+        if (github) {
+            gitHub2 = new GitHubBuilder().withOAuthToken(GITHUB_TOKEN).build();
+        }
         Path cwd = Paths.get("").toAbsolutePath();
         Path outDir = cwd.resolve("out");
         if (Files.isDirectory(outDir)) deleteDirectory(outDir);
         Files.createDirectories(outDir);
-        try (BufferedWriter w = Files.newBufferedWriter(outDir.resolve("brachyurabootstrapconf.txt-local"))) {
+        try (BufferedWriter w = Files.newBufferedWriter(outDir.resolve("brachyurabootstrapconf.txt"))) {
             w.write(String.valueOf(0) + "\n");
             for (String lib : localLibs) {
                 Path a = cwd.getParent().resolve(lib).resolve("target");
@@ -67,8 +79,15 @@ public class Main {
                 Path sources = jar.getParent().resolve(jar.getFileName().toString().replace(".jar", "-sources.jar"));
                 Path targetjar = outDir.resolve(jar.getFileName());
                 Path targetSources = outDir.resolve(sources.getFileName());
-                w.write(doLocalDep(jar, targetjar, true));
-                w.write(doLocalDep(sources, targetSources, false));
+                if (!"bootstrap".equals(lib)) {
+                    if (github) {
+                        w.write(doGithubDep(jar, targetjar, true));
+                        w.write(doGithubDep(sources, targetSources, false));
+                    } else {
+                        w.write(doLocalDep(jar, targetjar, true));
+                        w.write(doLocalDep(sources, targetSources, false));
+                    }
+                }                
             }
             for (String lib : mavenLibs) {
                 boolean isJar = !lib.endsWith("-sources.jar");
@@ -79,7 +98,22 @@ public class Main {
                 }
                 w.write(lib + "\t" + hash + "\t" + filename + "\t" + isJar + "\n");
             }
+            if (github) {
+                uploadGithub(outDir);
+            }
         }
+    }
+
+    static void uploadGithub(Path outDir) throws Exception {
+        GHRepository repo = gitHub2.getRepository("CoolCrabs/brachyura");
+        GHRelease release = repo.createRelease(commit).commitish(commit).create();
+        Files.walkFileTree(outDir, new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                release.uploadAsset(file.toFile(), file.toString().endsWith(".jar") ? "application/zip" : "text/strings");
+                return FileVisitResult.CONTINUE;
+            }
+        });
     }
 
     static String doLocalDep(Path source, Path target, boolean isJar) throws Exception {
@@ -89,6 +123,15 @@ public class Main {
         }
         String hash = toHexHash(md.digest());
         return target.toUri().toString() + "\t" + hash + "\t" + target.getFileName().toString() + "\t" + isJar + "\n";
+    }
+
+    static String doGithubDep(Path source, Path target, boolean isJar) throws Exception {
+        MessageDigest md = MessageDigest.getInstance("SHA-1");
+        try (InputStream is = new DigestInputStream(new BufferedInputStream(Files.newInputStream(source)), md)) {
+            Files.copy(is, target);
+        }
+        String hash = toHexHash(md.digest());
+        return "https://github.com/CoolCrabs/brachyura/releases/download/" + commit + "/" + target.getFileName().toString() + "\t" + hash + "\t" + target.getFileName().toString() + "\t" + isJar + "\n";
     }
 
     static void deleteDirectory(Path dir) throws IOException {
@@ -107,12 +150,26 @@ public class Main {
         });
     }
 
-    static String readFullyAsString(InputStream inputStream) throws Exception {
+    static String getCommitHash() {
+        try {
+            Process process = new ProcessBuilder("git", "rev-parse", "--verify", "HEAD").start();
+            String result = readFullyAsString(process.getInputStream());
+            int exit = process.waitFor();
+            if (exit != 0) {
+                throw new RuntimeException("Git returned " + exit);
+            }
+            return result;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    static String readFullyAsString(InputStream inputStream) throws IOException {
         return readFully(inputStream).toString(StandardCharsets.UTF_8.name());
     }
 
     // https://stackoverflow.com/a/10505933
-    private static ByteArrayOutputStream readFully(InputStream inputStream) throws Exception {
+    private static ByteArrayOutputStream readFully(InputStream inputStream) throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         byte[] buffer = new byte[1024];
         int length = 0;
