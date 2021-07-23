@@ -80,7 +80,10 @@ public class Main {
                 Path sources = jar.getParent().resolve(jar.getFileName().toString().replace(".jar", "-sources.jar"));
                 Path targetjar = outDir.resolve(jar.getFileName());
                 Path targetSources = outDir.resolve(sources.getFileName());
-                if (!"bootstrap".equals(lib)) {
+                if ("bootstrap".equals(lib)) {
+                    doLocalDep(jar, targetjar, true);
+                    doLocalDep(sources, targetSources, false);
+                } else {
                     if (github) {
                         w.write(doGithubDep(jar, targetjar, true));
                         w.write(doGithubDep(sources, targetSources, false));
