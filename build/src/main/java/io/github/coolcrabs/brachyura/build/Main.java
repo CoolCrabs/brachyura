@@ -20,6 +20,7 @@ import java.util.stream.Stream;
 
 import org.kohsuke.github.GHRelease;
 import org.kohsuke.github.GHRepository;
+import org.kohsuke.github.GHTagObject;
 import org.kohsuke.github.GitHub;
 import org.kohsuke.github.GitHubBuilder;
 
@@ -107,8 +108,8 @@ public class Main {
     static void uploadGithub(Path outDir) throws Exception {
         GHRepository repo = gitHub2.getRepository("CoolCrabs/brachyura");
         System.out.println("Creating tag " + commit);
-        repo.createTag(commit, commit, commit, "commit");
-        GHRelease release = repo.createRelease(commit).commitish(commit).create();
+        GHTagObject tag = repo.createTag("v_" + commit, commit, commit, "commit");
+        GHRelease release = repo.createRelease(tag.getTag()).commitish(commit).create();
         Files.walkFileTree(outDir, new SimpleFileVisitor<Path>() {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
@@ -133,7 +134,7 @@ public class Main {
             Files.copy(is, target);
         }
         String hash = toHexHash(md.digest());
-        return "https://github.com/CoolCrabs/brachyura/releases/download/" + commit + "/" + target.getFileName().toString() + "\t" + hash + "\t" + target.getFileName().toString() + "\t" + isJar + "\n";
+        return "https://github.com/CoolCrabs/brachyura/releases/download/" + "v_" + commit + "/" + target.getFileName().toString() + "\t" + hash + "\t" + target.getFileName().toString() + "\t" + isJar + "\n";
     }
 
     static void deleteDirectory(Path dir) throws IOException {
