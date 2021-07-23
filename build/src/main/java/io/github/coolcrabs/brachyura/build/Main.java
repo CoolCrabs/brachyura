@@ -106,6 +106,7 @@ public class Main {
 
     static void uploadGithub(Path outDir) throws Exception {
         GHRepository repo = gitHub2.getRepository("CoolCrabs/brachyura");
+        System.out.println("Creating tag " + commit);
         repo.createTag(commit, commit, commit, "commit");
         GHRelease release = repo.createRelease(commit).commitish(commit).create();
         Files.walkFileTree(outDir, new SimpleFileVisitor<Path>() {
@@ -154,7 +155,7 @@ public class Main {
     static String getCommitHash() {
         try {
             Process process = new ProcessBuilder("git", "rev-parse", "--verify", "HEAD").start();
-            String result = readFullyAsString(process.getInputStream());
+            String result = readFullyAsString(process.getInputStream()).replaceAll("[^a-zA-Z0-9]","");
             int exit = process.waitFor();
             if (exit != 0) {
                 throw new RuntimeException("Git returned " + exit);
