@@ -89,7 +89,7 @@ public class CfrDecompiler implements BrachyuraDecompiler {
     }
 
     @Override
-    public LineNumberMappingsSupport lineNumberMappingsSupport() {
-        return LineNumberMappingsSupport.REPLACE;
+    public boolean lineNumberMappingsSupport() {
+        return true;
     }
 }

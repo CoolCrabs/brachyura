@@ -25,6 +25,8 @@ import org.tinylog.Logger;
 
 import io.github.coolcrabs.brachyura.compiler.java.JavaCompilationUnitBuilder;
 import io.github.coolcrabs.brachyura.decompiler.BrachyuraDecompiler;
+import io.github.coolcrabs.brachyura.decompiler.DecompileLineNumberTable;
+import io.github.coolcrabs.brachyura.decompiler.LineNumberTableReplacer;
 import io.github.coolcrabs.brachyura.decompiler.cfr.CfrDecompiler;
 import io.github.coolcrabs.brachyura.dependency.Dependency;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
@@ -307,7 +309,7 @@ public abstract class FabricProject extends BaseJavaProject {
         }
         result.add(Maven.getMavenJarDep(FabricMaven.URL, FabricMaven.devLaunchInjector("0.2.1+build.8")));
         result.add(Maven.getMavenJarDep(Maven.MAVEN_CENTRAL, new MavenId("net.minecrell", "terminalconsoleappender", "1.2.0")));
-        result.add(new JavaJarDependency(namedJar.get().jar, getDecompiledJar(), null)); // TODO: line number mappings
+        result.add(getDecompiledJar()); // TODO: line number mappings
         return result;
     }
 
@@ -375,7 +377,7 @@ public abstract class FabricProject extends BaseJavaProject {
         return new RemappedJar(result, mappingHash);
     }
 
-    public Path getDecompiledJar() {
+    public JavaJarDependency getDecompiledJar() {
         RemappedJar named = namedJar.get();
         MappingTree mappings = getMappings();
         BrachyuraDecompiler decompiler = decompiler();
@@ -395,7 +397,11 @@ public abstract class FabricProject extends BaseJavaProject {
                 atomicFile2.commit();
             }
         }
-        return result;
+        Path result3 = fabricCache().resolve("decompiled").resolve(getMcVersion() + "-named-" + named.mappingHash + "-lineremapped-" + decompiler.getName() + "-" + decompiler.getVersion() + ".jar");
+        if (!Files.isRegularFile(result3)) {
+            LineNumberTableReplacer.replaceLineNumbers(named.jar, result3, new DecompileLineNumberTable().read(result2));
+        }
+        return new JavaJarDependency(result3, result, null);
     }
 
     public void remapJar(MappingTree mappings, String src, String dst, Path inputJar, Path outputJar, List<Path> classpath) {

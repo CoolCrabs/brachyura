@@ -53,7 +53,7 @@ class FabricProjectTest {
     void testProject() {
         assertTrue(Files.isRegularFile(fabricProject.intermediaryjar.get().jar));
         assertTrue(Files.isRegularFile(fabricProject.namedJar.get().jar));
-        assertTrue(Files.isRegularFile(fabricProject.getDecompiledJar()));
+        assertTrue(Files.isRegularFile(fabricProject.getDecompiledJar().jar));
     }
     
     @Disabled("Too slow for ci :(")
