@@ -10,7 +10,10 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.jetbrains.annotations.Nullable;
+
 import io.github.coolcrabs.brachyura.util.FileSystemUtil;
+import net.fabricmc.tinyremapper.InputTag;
 import net.fabricmc.tinyremapper.TinyRemapper;
 
 public class TinyRemapperHelper {
@@ -23,16 +26,23 @@ public class TinyRemapperHelper {
 
     public static void readJar(TinyRemapper tr, Path jar, JarType type) throws IOException {
         try (FileSystem fileSystem = FileSystemUtil.newJarFileSystem(jar)) {
-            readFileSystem(tr, fileSystem, type);
+            readFileSystem(tr, fileSystem, type, null);
         }
     }
 
     public static void readFileSystem(TinyRemapper tr, FileSystem input, JarType type) throws IOException {
-        readDir(tr, input.getPath("/"), type);
+        readFileSystem(tr, input, type, null);
     }
 
-    
+    public static void readFileSystem(TinyRemapper tr, FileSystem input, JarType type, @Nullable InputTag tag) throws IOException {
+        readDir(tr, input.getPath("/"), type, tag);
+    }
+
     public static void readDir(TinyRemapper tr, Path inputDir, JarType type) throws IOException {
+        readDir(tr, inputDir, type, null);
+    }
+    
+    public static void readDir(TinyRemapper tr, Path inputDir, JarType type, @Nullable InputTag tag) throws IOException {
         List<Path> inputs = new ArrayList<>();
         Files.walkFileTree(inputDir, new SimpleFileVisitor<Path>() {
             @Override
@@ -44,9 +54,10 @@ public class TinyRemapperHelper {
             }
         });
         if (type == JarType.CLASSPATH) {
+            if (tag != null) throw new UnsupportedOperationException();
             tr.readClassPath(inputs.toArray(new Path[inputs.size()]));
         } else {
-            tr.readInputs(inputs.toArray(new Path[inputs.size()]));
+            tr.readInputs(tag, inputs.toArray(new Path[inputs.size()]));
         }
     }
 

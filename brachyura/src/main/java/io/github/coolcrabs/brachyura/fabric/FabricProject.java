@@ -4,12 +4,15 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.security.MessageDigest;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -52,6 +55,7 @@ import io.github.coolcrabs.brachyura.util.AtomicFile;
 import io.github.coolcrabs.brachyura.util.FileSystemUtil;
 import io.github.coolcrabs.brachyura.util.JvmUtil;
 import io.github.coolcrabs.brachyura.util.Lazy;
+import io.github.coolcrabs.brachyura.util.MessageDigestUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import io.github.coolcrabs.brachyura.util.UnzipUtil;
 import io.github.coolcrabs.brachyura.util.Util;
@@ -59,6 +63,7 @@ import io.github.coolcrabs.fabricmerge.JarMerger;
 import io.github.coolcrabs.javacompilelib.JavaCompilationUnit;
 import net.fabricmc.mappingio.format.Tiny2Writer;
 import net.fabricmc.mappingio.tree.MappingTree;
+import net.fabricmc.tinyremapper.InputTag;
 import net.fabricmc.tinyremapper.TinyRemapper;
 
 public abstract class FabricProject extends BaseJavaProject {
@@ -67,6 +72,7 @@ public abstract class FabricProject extends BaseJavaProject {
     public abstract FabricLoader getLoader();
     public abstract String getModId();
     public abstract String getVersion();
+    public abstract List<JavaJarDependency> createModDependencies();
 
     public final VersionMeta versionMeta = Minecraft.getVersion(getMcVersion());
     public final Path vanillaClientJar = Minecraft.getDownload(getMcVersion(), versionMeta, "client");
@@ -297,6 +303,9 @@ public abstract class FabricProject extends BaseJavaProject {
         }
         result.add(namedJar.get().jar);
         result.add(Maven.getMavenJarDep(FabricMaven.URL, FabricMaven.mixinCompileExtensions("0.4.4")).jar);
+        for (JavaJarDependency dep : remappedModDependencied.get()) {
+            result.add(dep.jar);
+        }
         return result;
     }
 
@@ -309,7 +318,8 @@ public abstract class FabricProject extends BaseJavaProject {
         }
         result.add(Maven.getMavenJarDep(FabricMaven.URL, FabricMaven.devLaunchInjector("0.2.1+build.8")));
         result.add(Maven.getMavenJarDep(Maven.MAVEN_CENTRAL, new MavenId("net.minecrell", "terminalconsoleappender", "1.2.0")));
-        result.add(getDecompiledJar()); // TODO: line number mappings
+        result.add(getDecompiledJar());
+        result.addAll(remappedModDependencied.get());
         return result;
     }
 
@@ -322,6 +332,109 @@ public abstract class FabricProject extends BaseJavaProject {
         Collections.addAll(result, floader.serverDeps);
         Collections.addAll(result, floader.clientDeps);
         return result;
+    }
+
+    public final Lazy<List<JavaJarDependency>> remappedModDependencied = new Lazy<>(this::createRemappedModDependencies);
+    //TODO source remapping and or decomp
+    public List<JavaJarDependency> createRemappedModDependencies() {
+        try {
+            List<JavaJarDependency> unmapped = createModDependencies();
+            if (unmapped == null) return Collections.emptyList();
+            List<JavaJarDependency> result = new ArrayList<>(unmapped.size());
+            MessageDigest dephasher = MessageDigestUtil.messageDigest(MessageDigestUtil.SHA256);
+            dephasher.update((byte) 0); // Bump this if the logic changes
+            for (JavaJarDependency dep : unmapped) {
+                hashDep(dephasher, dep);
+            }
+            for (JavaJarDependency dep : mcClasspath.get()) {
+                hashDep(dephasher, dep);
+            }
+            dephasher.update(namedJar.get().mappingHash.getBytes(StandardCharsets.UTF_8));
+            dephasher.update(intermediaryjar.get().mappingHash.getBytes(StandardCharsets.UTF_8));
+            String dephash = MessageDigestUtil.toHexHash(dephasher.digest());
+            Path depdir = getLocalBrachyuraPath().resolve("deps");
+            Path resultdir = depdir.resolve(dephash);
+            if (!Files.isDirectory(resultdir)) {
+                if (Files.isDirectory(depdir)) {
+                    PathUtil.deleteDirectoryChildren(depdir);
+                }
+                try (AtomicDirectory a = new AtomicDirectory(resultdir)) {
+                    TinyRemapper tr = TinyRemapper.newRemapper()
+                        .withMappings(new MappingTreeMappingProvider(getMappings(), Namespaces.INTERMEDIARY, Namespaces.NAMED))
+                        .renameInvalidLocals(false)
+                        .build();
+                    TinyRemapperHelper.readJar(tr, intermediaryjar.get().jar, JarType.CLASSPATH);
+                    for (JavaJarDependency dep : mcClasspath.get()) {
+                        TinyRemapperHelper.readJar(tr, dep.jar, JarType.CLASSPATH);
+                    }
+                    class RemapInfo {
+                        JavaJarDependency dep;
+                        FileSystem fs;
+                        FileSystem outFs;
+                        Path outPath;
+                        InputTag tag;
+                    }
+                    List<RemapInfo> b = new ArrayList<>();
+                    try {
+                        for (JavaJarDependency u : unmapped) {
+                            RemapInfo ri = new RemapInfo();
+                            b.add(ri);
+                            ri.dep = u;
+                            ri.tag = tr.createInputTag();
+                            ri.outPath = a.tempPath.resolve(u.jar.getFileName().toString());
+                            ri.fs = FileSystemUtil.newJarFileSystem(u.jar);
+                            ri.outFs = FileSystemUtil.newJarFileSystem(ri.outPath);
+                        }
+                        Logger.info("Remapping " + b.size() + " mods");
+                        for (RemapInfo ri : b) {
+                            TinyRemapperHelper.readFileSystem(tr, ri.fs, JarType.INPUT, ri.tag);
+                        }
+                        for (RemapInfo ri : b) {
+                            tr.apply(new PathFileConsumer(ri.outFs.getPath("/")), ri.tag);
+                            // TODO aw's
+                            // TODO strip jij?
+                            // TODO add fmj for non mod for jij
+                            TinyRemapperHelper.copyNonClassfilesFromFileSystem(ri.fs, ri.outFs);
+                        }
+                    } finally {
+                        for (RemapInfo c : b) {
+                            if (c.fs != null) c.fs.close();
+                            if (c.outFs != null) c.outFs.close();
+                        }
+                        tr.finish();
+                    }
+                    a.commit();
+                }
+            }
+            for (JavaJarDependency unmapdep : unmapped) {
+                result.add(new JavaJarDependency(resultdir.resolve(unmapdep.jar.getFileName().toString()), unmapdep.sourcesJar, unmapdep.mavenId));
+            }
+            return result;
+        } catch (Exception e) {
+            throw Util.sneak(e);
+        }
+    }
+
+    public void hashDep(MessageDigest md, JavaJarDependency dep) {
+        if (dep.mavenId == null) {
+            // Hash the id if it exists
+            MessageDigestUtil.update(md, dep.mavenId.artifactId);
+            MessageDigestUtil.update(md, dep.mavenId.groupId);
+            MessageDigestUtil.update(md, dep.mavenId.version);
+        } else {
+            // Hash all the metadata if no id
+            MessageDigestUtil.update(md, dep.jar.toAbsolutePath().toString());
+            BasicFileAttributes attr;
+            try {
+                attr = Files.readAttributes(dep.jar, BasicFileAttributes.class);
+                Instant time = attr.lastModifiedTime().toInstant();
+                MessageDigestUtil.update(md, time.getEpochSecond());
+                MessageDigestUtil.update(md, time.getNano());
+                MessageDigestUtil.update(md, attr.size());
+            } catch (IOException e) {
+                Logger.warn(e);
+            }
+        }
     }
 
     public Intermediary getIntermediary() {
@@ -354,7 +467,7 @@ public abstract class FabricProject extends BaseJavaProject {
             Path result = fabricCache().resolve("intermediary").resolve(getMcVersion() + "-intermediary-" + intermediaryHash + ".jar");
             if (!Files.isRegularFile(result)) {
                 try (AtomicFile atomicFile = new AtomicFile(result)) {
-                    remapJar(intermediary.tree, Namespaces.OBF, Namespaces.INTERMEDIARY, mergedJar, atomicFile.tempPath, mcClasspath.get());
+                    remapJar(intermediary.tree, Namespaces.OBF, Namespaces.INTERMEDIARY, mergedJar, atomicFile.tempPath, mcClasspathPaths.get());
                     atomicFile.commit();
                 }
             }
@@ -370,7 +483,7 @@ public abstract class FabricProject extends BaseJavaProject {
         Path result = fabricCache().resolve("named").resolve(getMcVersion() + "-named-" + mappingHash + ".jar");
         if (!Files.isRegularFile(result)) {
             try (AtomicFile atomicFile = new AtomicFile(result)) {
-                remapJar(mappings, Namespaces.INTERMEDIARY, Namespaces.NAMED, intermediaryJar2, atomicFile.tempPath, mcClasspath.get());
+                remapJar(mappings, Namespaces.INTERMEDIARY, Namespaces.NAMED, intermediaryJar2, atomicFile.tempPath, mcClasspathPaths.get());
                 atomicFile.commit();
             }
         }
@@ -434,18 +547,29 @@ public abstract class FabricProject extends BaseJavaProject {
     }
 
     public List<Path> decompClasspath() {
-        List<Path> result = new ArrayList<>(mcClasspath.get());
+        List<Path> result = new ArrayList<>(mcClasspath.get().size() + 1);
+        for (JavaJarDependency dep : mcClasspath.get()) {
+            result.add(dep.jar);
+        }
         result.add(Maven.getMavenJarDep(FabricMaven.URL, FabricMaven.loader("0.9.3+build.207")).jar); // Just for the annotations added by fabric-merge
         return result;
     }
+    
+    public final Lazy<List<JavaJarDependency>> mcClasspath = new Lazy<>(this::createMcClasspath);
+    public final Lazy<List<Path>> mcClasspathPaths = new Lazy<>(() -> {
+        ArrayList<Path> result = new ArrayList<>(mcClasspath.get().size());
+        for (JavaJarDependency dep : mcClasspath.get()) {
+            result.add(dep.jar);
+        }
+        return result;
+    });
 
-    public final Lazy<List<Path>> mcClasspath = new Lazy<>(this::createMcClasspath);
-    public List<Path> createMcClasspath() {
+    public List<JavaJarDependency> createMcClasspath() {
         List<Dependency> deps = mcDependencies.get();
-        List<Path> result = new ArrayList<>();
+        List<JavaJarDependency> result = new ArrayList<>();
         for (Dependency dependency : deps) {
             if (dependency instanceof JavaJarDependency) {
-                result.add(((JavaJarDependency)dependency).jar);
+                result.add((JavaJarDependency)dependency);
             }
         }
         return result;

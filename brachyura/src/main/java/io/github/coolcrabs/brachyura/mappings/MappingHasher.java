@@ -1,7 +1,6 @@
 package io.github.coolcrabs.brachyura.mappings;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.List;
 
@@ -32,9 +31,7 @@ public class MappingHasher implements MappingVisitor {
     }
 
     private void update(String string) {
-        if (string != null) {
-            messageDigest.update(string.getBytes(StandardCharsets.UTF_8));
-        }
+        MessageDigestUtil.update(messageDigest, string);
     }
 
     private void update(List<String> strings) {
@@ -44,14 +41,7 @@ public class MappingHasher implements MappingVisitor {
     }
 
     private void update(int i) {
-        messageDigest.update(
-            new byte[] {
-                (byte)(i >>> 24),
-                (byte)(i >>> 16),
-                (byte)(i >>> 8),
-                (byte)i
-            }
-        );
+        MessageDigestUtil.update(messageDigest, i);
     }
 
     private void update(MappedElementKind kind) {

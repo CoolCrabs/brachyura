@@ -4,10 +4,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
+import java.util.List;
 
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
+import io.github.coolcrabs.brachyura.maven.Maven;
+import io.github.coolcrabs.brachyura.maven.MavenId;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import net.fabricmc.mappingio.tree.MappingTree;
 
@@ -44,6 +49,16 @@ class FabricProjectTest {
             Path result = PathUtil.CWD.getParent().resolve("testmod");
             assertTrue(Files.isDirectory(result)); 
             return result;
+        }
+
+        @Override
+        public List<JavaJarDependency> createModDependencies() {
+            return Collections.singletonList(
+                Maven.getMavenJarDep(
+                    FabricMaven.URL,
+                    new MavenId(FabricMaven.GROUP_ID + ".fabric-api", "fabric-resource-loader-v0", "0.4.2+ca58154a7d")
+                )
+            );
         }
         
     };
