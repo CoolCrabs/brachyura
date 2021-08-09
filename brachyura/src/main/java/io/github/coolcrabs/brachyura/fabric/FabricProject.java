@@ -36,6 +36,7 @@ import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 import io.github.coolcrabs.brachyura.dependency.NativesJarDependency;
 import io.github.coolcrabs.brachyura.exception.UnknownJsonException;
 import io.github.coolcrabs.brachyura.ide.Vscode;
+import io.github.coolcrabs.brachyura.mappings.BudgetSourceRemapper;
 import io.github.coolcrabs.brachyura.mappings.MappingHasher;
 import io.github.coolcrabs.brachyura.mappings.Namespaces;
 import io.github.coolcrabs.brachyura.mappings.tinyremapper.Jsr2JetbrainsMappingProvider;
@@ -342,7 +343,7 @@ public abstract class FabricProject extends BaseJavaProject {
             if (unmapped == null) return Collections.emptyList();
             List<JavaJarDependency> result = new ArrayList<>(unmapped.size());
             MessageDigest dephasher = MessageDigestUtil.messageDigest(MessageDigestUtil.SHA256);
-            dephasher.update((byte) 0); // Bump this if the logic changes
+            dephasher.update((byte) 1); // Bump this if the logic changes
             for (JavaJarDependency dep : unmapped) {
                 hashDep(dephasher, dep);
             }
@@ -354,13 +355,14 @@ public abstract class FabricProject extends BaseJavaProject {
             String dephash = MessageDigestUtil.toHexHash(dephasher.digest());
             Path depdir = getLocalBrachyuraPath().resolve("deps");
             Path resultdir = depdir.resolve(dephash);
+            MappingTree mappings = getMappings();
             if (!Files.isDirectory(resultdir)) {
                 if (Files.isDirectory(depdir)) {
                     PathUtil.deleteDirectoryChildren(depdir);
                 }
                 try (AtomicDirectory a = new AtomicDirectory(resultdir)) {
                     TinyRemapper tr = TinyRemapper.newRemapper()
-                        .withMappings(new MappingTreeMappingProvider(getMappings(), Namespaces.INTERMEDIARY, Namespaces.NAMED))
+                        .withMappings(new MappingTreeMappingProvider(mappings, Namespaces.INTERMEDIARY, Namespaces.NAMED))
                         .renameInvalidLocals(false)
                         .build();
                     TinyRemapperHelper.readJar(tr, intermediaryjar.get().jar, JarType.CLASSPATH);
@@ -403,11 +405,30 @@ public abstract class FabricProject extends BaseJavaProject {
                         }
                         tr.finish();
                     }
+                    BudgetSourceRemapper sourceRemapper = new BudgetSourceRemapper(mappings, mappings.getNamespaceId(Namespaces.INTERMEDIARY), mappings.getNamespaceId(Namespaces.NAMED));
+                    for (JavaJarDependency u : unmapped) { 
+                        if (u.sourcesJar != null) {
+                            Logger.info("Remapping " + u.sourcesJar.getFileName());
+                            long start = System.currentTimeMillis();
+                            Path target = a.tempPath.resolve(u.jar.getFileName().toString().replace(".jar", "-sources.jar"));
+                            sourceRemapper.remapSourcesJar(u.sourcesJar, target);
+                            long end = System.currentTimeMillis() - start;
+                            Logger.info("Remapped " + u.sourcesJar.getFileName() + " in " + end + "ms");
+                        }
+                    }
                     a.commit();
                 }
             }
             for (JavaJarDependency unmapdep : unmapped) {
-                result.add(new JavaJarDependency(resultdir.resolve(unmapdep.jar.getFileName().toString()), unmapdep.sourcesJar, unmapdep.mavenId));
+                result.add(
+                    new JavaJarDependency(
+                        resultdir.resolve(
+                            unmapdep.jar.getFileName().toString()
+                        ),
+                        unmapdep.sourcesJar == null ? null : resultdir.resolve(unmapdep.jar.getFileName().toString().replace(".jar", "-sources.jar")),
+                        unmapdep.mavenId
+                    )
+                );
             }
             return result;
         } catch (Exception e) {
