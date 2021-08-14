@@ -71,7 +71,7 @@ class FabricProjectTest {
         assertTrue(Files.isRegularFile(fabricProject.getDecompiledJar().jar));
     }
     
-    // @Disabled("Too slow for ci :(")
+    @Disabled("Too slow for ci :(")
     @Test
     void vscode() {
         fabricProject.vscode();
