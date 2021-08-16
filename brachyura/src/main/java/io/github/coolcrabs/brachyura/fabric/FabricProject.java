@@ -218,14 +218,14 @@ public abstract class FabricProject extends BaseJavaProject {
                 Files.deleteIfExists(atomicFile.tempPath);
                 TinyRemapper remapper = TinyRemapper.newRemapper().withMappings(new MappingTreeMappingProvider(getMappings(), Namespaces.NAMED, Namespaces.INTERMEDIARY)).build();
                 try {
-                for (Path path : getCompileDependencies()) {
-                    TinyRemapperHelper.readJar(remapper, path, JarType.CLASSPATH);
-                }
-                TinyRemapperHelper.readDir(remapper, getBuildClassesDir(), JarType.INPUT);
-                try (FileSystem outputFileSystem = FileSystemUtil.newJarFileSystem(atomicFile.tempPath)) {
-                    remapper.apply(new PathFileConsumer(outputFileSystem.getPath("/")));
-                    TinyRemapperHelper.copyNonClassfilesFromDir(getBuildResourcesDir(), outputFileSystem);
-                }
+                    for (Path path : getCompileDependencies()) {
+                        TinyRemapperHelper.readJar(remapper, path, JarType.CLASSPATH);
+                    }
+                    TinyRemapperHelper.readDir(remapper, getBuildClassesDir(), JarType.INPUT);
+                    try (FileSystem outputFileSystem = FileSystemUtil.newJarFileSystem(atomicFile.tempPath)) {
+                        remapper.apply(new PathFileConsumer(outputFileSystem.getPath("/")));
+                        TinyRemapperHelper.copyNonClassfilesFromDir(getBuildResourcesDir(), outputFileSystem);
+                    }
                 } finally {
                     remapper.finish();
                 }
