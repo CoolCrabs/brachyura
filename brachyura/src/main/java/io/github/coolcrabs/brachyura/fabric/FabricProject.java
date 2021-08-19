@@ -35,7 +35,9 @@ import io.github.coolcrabs.brachyura.dependency.Dependency;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 import io.github.coolcrabs.brachyura.dependency.NativesJarDependency;
 import io.github.coolcrabs.brachyura.exception.UnknownJsonException;
-import io.github.coolcrabs.brachyura.ide.Vscode;
+import io.github.coolcrabs.brachyura.ide.IdeProject;
+import io.github.coolcrabs.brachyura.ide.IdeProject.IdeProjectBuilder;
+import io.github.coolcrabs.brachyura.ide.IdeProject.RunConfig.RunConfigBuilder;
 import io.github.coolcrabs.brachyura.mappings.BudgetSourceRemapper;
 import io.github.coolcrabs.brachyura.mappings.MappingHasher;
 import io.github.coolcrabs.brachyura.mappings.Namespaces;
@@ -82,38 +84,51 @@ public abstract class FabricProject extends BaseJavaProject {
     @Override
     public void getTasks(Consumer<Task> p) {
         super.getTasks(p);
-        p.accept(Task.of("vscode", this::vscode));
         p.accept(Task.of("build", this::build));
     }
 
-    public void vscode() {
-        String mappingsClasspath = writeMappings4FabricStuff().getParent().getParent().toAbsolutePath().toString();
-        Path vscode = getProjectDir().resolve(".vscode");
-        Vscode.updateSettingsJson(vscode.resolve("settings.json"), getIdeDependencies());
-        Vscode.LaunchJson launchJson = new Vscode.LaunchJson();
-        Vscode.LaunchJson.Configuration server = new Vscode.LaunchJson.Configuration();
-        server.name = "Minecraft Server";
-        server.cwd = "${workspaceFolder}/run";
-        server.mainClass = "net.fabricmc.devlaunchinjector.Main";
-        server.vmArgs = "-Dfabric.dli.config=" + writeLaunchCfg().toAbsolutePath().toString() + " -Dfabric.dli.env=server -Dfabric.dli.main=net.fabricmc.loader.launch.knot.KnotServer";
-        server.classPaths = new String[] {
-            "$Auto",
-            "${workspaceFolder}/src/main/resources/",
-            mappingsClasspath
-        };
-        Vscode.LaunchJson.Configuration client = new Vscode.LaunchJson.Configuration();
-        client.name = "Minecraft Client";
-        client.cwd = "${workspaceFolder}/run";
-        client.mainClass = "net.fabricmc.devlaunchinjector.Main";
-        client.vmArgs = "-Dfabric.dli.config=" + writeLaunchCfg().toAbsolutePath().toString() + " -Dfabric.dli.env=client -Dfabric.dli.main=net.fabricmc.loader.launch.knot.KnotClient";
-        client.classPaths = new String[] {
-            "$Auto",
-            "${workspaceFolder}/src/main/resources/",
-            mappingsClasspath
-        };
-        launchJson.configurations = new Vscode.LaunchJson.Configuration[] {client, server};
-        Vscode.updateLaunchJson(vscode.resolve("launch.json"), launchJson);
-        PathUtil.resolveAndCreateDir(getProjectDir(), "run");
+    @Override
+    public IdeProject getIdeProject() {
+        Path mappingsClasspath = writeMappings4FabricStuff().getParent().getParent();
+        Path cwd = getProjectDir().resolve("run");
+        PathUtil.createDirectories(cwd);
+        //TODO impl compile only and runtime only deps
+        List<JavaJarDependency> ideDependencies = getIdeDependencies();
+        ArrayList<Path> classpath = new ArrayList<>(ideDependencies.size() + 1);
+        for (JavaJarDependency dependency : ideDependencies) {
+            classpath.add(dependency.jar);
+        }
+        classpath.add(mappingsClasspath);
+        Path launchConfig = writeLaunchCfg();
+        return new IdeProjectBuilder()
+            .dependencies(getIdeDependencies())
+            .sourcePaths(getSrcDir())
+            .resourcePaths(getResourcesDir())
+            .runConfigs(
+                new RunConfigBuilder()
+                    .name("Minecraft Client")
+                    .cwd(cwd)
+                    .mainClass("net.fabricmc.devlaunchinjector.Main")
+                    .classpath(classpath)
+                    .vmArgs(
+                        "-Dfabric.dli.config=" + launchConfig.toString(),
+                        "-Dfabric.dli.env=client",
+                        "-Dfabric.dli.main=net.fabricmc.loader.launch.knot.KnotClient"
+                    )
+                .build(),
+                new RunConfigBuilder()
+                    .name("Minecraft Server")
+                    .cwd(cwd)
+                    .mainClass("net.fabricmc.devlaunchinjector.Main")
+                    .classpath(classpath)
+                    .vmArgs(
+                        "-Dfabric.dli.config=" + launchConfig.toString(),
+                        "-Dfabric.dli.env=server",
+                        "-Dfabric.dli.main=net.fabricmc.loader.launch.knot.KnotServer"
+                    )
+                .build()
+            )
+        .build();
     }
 
     public Path writeLaunchCfg() {

@@ -198,4 +198,12 @@ public class PathUtil {
             throw Util.sneak(e);
         }
     }
+
+    public static void createDirectories(Path path) {
+        try {
+            Files.createDirectories(path);
+        } catch (IOException e) {
+            throw Util.sneak(e);
+        }
+    }
 }

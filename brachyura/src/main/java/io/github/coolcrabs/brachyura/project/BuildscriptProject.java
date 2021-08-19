@@ -7,12 +7,14 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 
 import io.github.coolcrabs.brachyura.compiler.java.JavaCompilationUnitBuilder;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 import io.github.coolcrabs.brachyura.exception.TaskFailedException;
-import io.github.coolcrabs.brachyura.ide.Vscode;
+import io.github.coolcrabs.brachyura.ide.IdeProject;
+import io.github.coolcrabs.brachyura.ide.IdeProject.IdeProjectBuilder;
+import io.github.coolcrabs.brachyura.ide.IdeProject.RunConfig;
+import io.github.coolcrabs.brachyura.ide.IdeProject.RunConfig.RunConfigBuilder;
 import io.github.coolcrabs.brachyura.project.java.BaseJavaProject;
 import io.github.coolcrabs.brachyura.util.JvmUtil;
 import io.github.coolcrabs.brachyura.util.Lazy;
@@ -29,31 +31,26 @@ class BuildscriptProject extends BaseJavaProject {
     }
 
     @Override
-    public void getTasks(Consumer<Task> p) {
-        p.accept(Task.of("vscode", this::vscode));
-    }
-
-    public void vscode() {
-        Path vscode = getProjectDir().resolve(".vscode");
-        Vscode.updateSettingsJson(vscode.resolve("settings.json"), getIdeDependencies());
-        Vscode.LaunchJson launchJson = new Vscode.LaunchJson();
+    public IdeProject getIdeProject() {
         Tasks t = new Tasks();
         project.get().getTasks(t);
-        Vscode.LaunchJson.Configuration[] configs = new Vscode.LaunchJson.Configuration[t.t.size()];
-        int i = 0;
+        ArrayList<RunConfig> runConfigs = new ArrayList<>(t.t.size());
+        Path cwd = getProjectDir().resolve("run");
+        PathUtil.createDirectories(cwd);
         for (Map.Entry<String, Task> e : t.t.entrySet()) {
-            Vscode.LaunchJson.Configuration run = new Vscode.LaunchJson.Configuration();
-            run.name = e.getKey();
-            run.cwd = "${workspaceFolder}/run";
-            run.mainClass = "io.github.coolcrabs.brachyura.project.BuildscriptDevEntry";
-            run.args = new String[] {super.getProjectDir().toAbsolutePath().toString(), e.getKey()};
-            configs[i] = run;
-            ++i;
+            runConfigs.add(
+                new RunConfigBuilder()
+                    .name(e.getKey())
+                    .cwd(cwd)
+                    .mainClass("io.github.coolcrabs.brachyura.project.BuildscriptDevEntry")
+                    .args(super.getProjectDir().toString(), e.getKey())
+                .build()
+            );
         }
-        
-        launchJson.configurations = configs;
-        Vscode.updateLaunchJson(vscode.resolve("launch.json"), launchJson);
-        PathUtil.resolveAndCreateDir(getProjectDir(), "run");
+        return new IdeProjectBuilder()
+            .sourcePaths(getSrcDir())
+            .dependencies(getIdeDependencies())
+        .build();
     }
 
     public final Lazy<Project> project = new Lazy<>(this::createProject);

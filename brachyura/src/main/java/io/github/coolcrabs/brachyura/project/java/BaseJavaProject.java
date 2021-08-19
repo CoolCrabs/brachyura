@@ -8,8 +8,12 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Consumer;
 
+import io.github.coolcrabs.brachyura.ide.Ide;
+import io.github.coolcrabs.brachyura.ide.IdeProject;
 import io.github.coolcrabs.brachyura.project.Project;
+import io.github.coolcrabs.brachyura.project.Task;
 import io.github.coolcrabs.brachyura.util.JvmUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import io.github.coolcrabs.brachyura.util.Util;
@@ -18,6 +22,19 @@ import io.github.coolcrabs.javacompilelib.JavaCompilation;
 import io.github.coolcrabs.javacompilelib.JavaCompilationUnit;
 
 public abstract class BaseJavaProject extends Project {
+    public abstract IdeProject getIdeProject();
+
+    @Override
+    public void getTasks(Consumer<Task> p) {
+        super.getTasks(p);
+        getIdeTasks(p);
+    }
+
+    public void getIdeTasks(Consumer<Task> p) {
+        for (Ide ide : Ide.getIdes()) {
+            p.accept(Task.of(ide.ideName(), () -> ide.updateProject(getProjectDir(), getIdeProject())));
+        }
+    }
 
     public boolean compile(JavaCompilationUnit javaCompilationUnit) {
         try {

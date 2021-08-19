@@ -10,11 +10,13 @@ import java.util.function.Consumer;
 
 import io.github.coolcrabs.brachyura.compiler.java.JavaCompilationUnitBuilder;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
-import io.github.coolcrabs.brachyura.ide.Vscode;
+import io.github.coolcrabs.brachyura.ide.IdeProject;
+import io.github.coolcrabs.brachyura.ide.IdeProject.IdeProjectBuilder;
 import io.github.coolcrabs.brachyura.project.Task;
 import io.github.coolcrabs.brachyura.util.AtomicFile;
 import io.github.coolcrabs.brachyura.util.FileSystemUtil;
 import io.github.coolcrabs.brachyura.util.JvmUtil;
+import io.github.coolcrabs.brachyura.util.Lazy;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import io.github.coolcrabs.brachyura.util.Util;
 import io.github.coolcrabs.javacompilelib.JavaCompilationUnit;
@@ -28,13 +30,17 @@ public abstract class SimpleJavaProject extends BaseJavaProject {
 
     @Override
     public void getTasks(Consumer<Task> p) {
+        super.getTasks(p);
         p.accept(Task.of("build", this::build));
-        p.accept(Task.of("vscode", this::build));
     }
 
-    public void vscode() {
-        Path vscode = getProjectDir().resolve(".vscode");
-        Vscode.updateSettingsJson(vscode.resolve("settings.json"), getDependencies());
+    @Override
+    public IdeProject getIdeProject() {
+        return new IdeProjectBuilder()
+            .sourcePaths(getSrcDir())
+            .resourcePaths(getResourcesDir())
+            .dependencies(dependencies.get())
+            .build();
     }
 
     public boolean build() {
@@ -74,13 +80,14 @@ public abstract class SimpleJavaProject extends BaseJavaProject {
         }
     }
 
+    public final Lazy<List<JavaJarDependency>> dependencies = new Lazy<>(this::getDependencies);
     public List<JavaJarDependency> getDependencies() {
         return Collections.emptyList();
     }
 
     @Override
     public List<Path> getCompileDependencies() {
-        List<JavaJarDependency> deps = getDependencies();
+        List<JavaJarDependency> deps = dependencies.get();
         ArrayList<Path> result = new ArrayList<>(deps.size());
         for (int i = 0; i < deps.size(); i++) {
             result.set(i, deps.get(i).jar);

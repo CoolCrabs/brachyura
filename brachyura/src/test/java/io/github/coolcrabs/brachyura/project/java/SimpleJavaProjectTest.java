@@ -27,7 +27,10 @@ class SimpleJavaProjectTest {
                 return PathUtil.CWD.getParent().resolve("testprogram");
             }
         };
-        project.vscode();
+        //Todo better api for this?
+        project.getTasks(p -> {
+            if (p.name.equals("vscode")) p.doTask(new String[]{});
+        });
         assertTrue(project.build());
     }    
 }

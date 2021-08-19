@@ -74,7 +74,10 @@ class FabricProjectTest {
     @Disabled("Too slow for ci :(")
     @Test
     void vscode() {
-        fabricProject.vscode();
+        //Todo better api for this?
+        fabricProject.getTasks(p -> {
+            if (p.name.equals("vscode")) p.doTask(new String[]{});
+        });
     }
 
     @Test
