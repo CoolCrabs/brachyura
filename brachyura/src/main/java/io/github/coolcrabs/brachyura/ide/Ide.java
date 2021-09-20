@@ -5,7 +5,8 @@ import java.nio.file.Path;
 public interface Ide {
     public static Ide[] getIdes() {
         return new Ide[] {
-            Vscode.INSTANCE
+            Vscode.INSTANCE,
+            Netbeans.INSTANCE
         };
     }
 

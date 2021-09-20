@@ -30,6 +30,7 @@ class SimpleJavaProjectTest {
         //Todo better api for this?
         project.getTasks(p -> {
             if (p.name.equals("vscode")) p.doTask(new String[]{});
+            if (p.name.equals("netbeans")) p.doTask(new String[]{});
         });
         assertTrue(project.build());
     }    

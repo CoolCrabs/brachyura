@@ -93,7 +93,7 @@ public final class IdeProject {
             private String mainClass;
             private Path cwd;
             private List<String> vmArgs = Collections.emptyList();
-            public List<String> args = Collections.emptyList();
+            private List<String> args = Collections.emptyList();
             private List<Path> classpath = Collections.emptyList();
 
             public RunConfigBuilder name(String name) {

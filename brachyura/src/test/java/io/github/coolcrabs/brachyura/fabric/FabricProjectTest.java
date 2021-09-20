@@ -71,12 +71,13 @@ class FabricProjectTest {
         assertTrue(Files.isRegularFile(fabricProject.getDecompiledJar().jar));
     }
     
-    @Disabled("Too slow for ci :(")
+    // @Disabled("Too slow for ci :(")
     @Test
-    void vscode() {
+    void ide() {
         //Todo better api for this?
         fabricProject.getTasks(p -> {
             if (p.name.equals("vscode")) p.doTask(new String[]{});
+            if (p.name.equals("netbeans")) p.doTask(new String[]{});
         });
     }
 

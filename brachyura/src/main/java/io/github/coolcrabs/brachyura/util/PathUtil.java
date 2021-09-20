@@ -52,6 +52,12 @@ public class PathUtil {
                     Files.delete(file);
                     return FileVisitResult.CONTINUE;
                 }
+
+                @Override
+                public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+                    Files.delete(dir);
+                    return FileVisitResult.CONTINUE;
+                }
             });
         } catch (IOException e) {
             throw Util.sneak(e);
