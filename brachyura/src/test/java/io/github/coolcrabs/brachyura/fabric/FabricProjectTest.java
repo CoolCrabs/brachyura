@@ -13,6 +13,7 @@ import io.github.coolcrabs.brachyura.decompiler.BrachyuraDecompiler;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 import io.github.coolcrabs.brachyura.maven.Maven;
 import io.github.coolcrabs.brachyura.maven.MavenId;
+import io.github.coolcrabs.brachyura.util.JvmUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import net.fabricmc.mappingio.tree.MappingTree;
 
@@ -88,6 +89,6 @@ class FabricProjectTest {
 
     @Test
     void compile() {
-        assertTrue(fabricProject.build());
+        if (JvmUtil.CURRENT_JAVA_VERSION >= 16) assertTrue(fabricProject.build());
     }
 }
