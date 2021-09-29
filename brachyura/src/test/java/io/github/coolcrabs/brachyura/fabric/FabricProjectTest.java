@@ -7,9 +7,9 @@ import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+import io.github.coolcrabs.brachyura.decompiler.BrachyuraDecompiler;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 import io.github.coolcrabs.brachyura.maven.Maven;
 import io.github.coolcrabs.brachyura.maven.MavenId;
@@ -30,12 +30,12 @@ class FabricProjectTest {
 
         @Override
         public String getMcVersion() {
-            return "1.16.5";
+            return "21w39a";
         }
 
         @Override
         public MappingTree getMappings() {
-            MappingTree tree = Yarn.ofMaven(FabricMaven.URL, FabricMaven.yarn("1.16.5+build.10")).tree;
+            MappingTree tree = Yarn.ofMaven(FabricMaven.URL, FabricMaven.yarn("21w39a+build.3")).tree;
             return tree;
         }
 
@@ -56,29 +56,34 @@ class FabricProjectTest {
             return Collections.singletonList(
                 Maven.getMavenJarDep(
                     FabricMaven.URL,
-                    new MavenId(FabricMaven.GROUP_ID + ".fabric-api", "fabric-resource-loader-v0", "0.4.2+ca58154a7d")
+                    new MavenId(FabricMaven.GROUP_ID + ".fabric-api", "fabric-resource-loader-v0", "0.4.8+a00e834b88")
                 )
             );
         }
-        
+
+        @Override
+        public BrachyuraDecompiler decompiler() {
+            return null;
+        };
     };
 
-    @Disabled("Too slow for ci :(")
     @Test
     void testProject() {
         assertTrue(Files.isRegularFile(fabricProject.intermediaryjar.get().jar));
         assertTrue(Files.isRegularFile(fabricProject.namedJar.get().jar));
-        assertTrue(Files.isRegularFile(fabricProject.getDecompiledJar().jar));
+        // assertTrue(Files.isRegularFile(fabricProject.getDecompiledJar().jar));
     }
     
-    // @Disabled("Too slow for ci :(")
     @Test
     void ide() {
+        long a = System.currentTimeMillis();
         //Todo better api for this?
         fabricProject.getTasks(p -> {
             if (p.name.equals("vscode")) p.doTask(new String[]{});
             if (p.name.equals("netbeans")) p.doTask(new String[]{});
         });
+        long b = System.currentTimeMillis();
+        System.out.println(b - a);
     }
 
     @Test

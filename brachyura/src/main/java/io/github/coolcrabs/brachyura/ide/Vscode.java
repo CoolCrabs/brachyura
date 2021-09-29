@@ -32,7 +32,7 @@ public enum Vscode implements Ide {
             Path vscodeDir = projectDir.resolve(".vscode");
             Files.createDirectories(vscodeDir);
             Path settingsJsonFile = vscodeDir.resolve("settings.json");
-            updateSettingsJson(settingsJsonFile, ideProject);
+            updateSettingsJson(settingsJsonFile, projectDir, ideProject);
             if (!ideProject.runConfigs.isEmpty()) {
                 Path launchJsonFile = vscodeDir.resolve("launch.json");
                 updateLaunchJson(launchJsonFile, ideProject);
@@ -43,7 +43,7 @@ public enum Vscode implements Ide {
     }
 
     // https://github.com/redhat-developer/vscode-java/blob/master/package.json
-    void updateSettingsJson(Path settingsJsonFile, IdeProject ideProject) {
+    void updateSettingsJson(Path settingsJsonFile, Path projectDir, IdeProject ideProject) {
         Gson gson = new GsonBuilder().setLenient().setPrettyPrinting().create();
         JsonObject settingsJson = null;
         if (Files.isRegularFile(settingsJsonFile)) {
@@ -59,7 +59,7 @@ public enum Vscode implements Ide {
         JsonArray sourcePaths = new JsonArray();
         settingsJson.add("java.project.sourcePaths", sourcePaths);
         for (Path path : ideProject.sourcePaths) {
-            sourcePaths.add(path.toString());
+            sourcePaths.add(projectDir.relativize(path).toString()); // Why does this have to be relative?
         }
         JsonObject referencedLibraries = new JsonObject();
         settingsJson.add("java.project.referencedLibraries", referencedLibraries);

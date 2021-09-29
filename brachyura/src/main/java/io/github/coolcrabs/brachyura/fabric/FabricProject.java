@@ -4,12 +4,14 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.MessageDigest;
 import java.time.Instant;
@@ -17,6 +19,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -24,6 +28,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
+import org.jetbrains.annotations.Nullable;
 import org.tinylog.Logger;
 
 import io.github.coolcrabs.brachyura.compiler.java.JavaCompilationUnitBuilder;
@@ -60,6 +65,7 @@ import io.github.coolcrabs.brachyura.util.JvmUtil;
 import io.github.coolcrabs.brachyura.util.Lazy;
 import io.github.coolcrabs.brachyura.util.MessageDigestUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
+import io.github.coolcrabs.brachyura.util.StreamUtil;
 import io.github.coolcrabs.brachyura.util.UnzipUtil;
 import io.github.coolcrabs.brachyura.util.Util;
 import io.github.coolcrabs.fabricmerge.JarMerger;
@@ -78,8 +84,6 @@ public abstract class FabricProject extends BaseJavaProject {
     public abstract List<JavaJarDependency> createModDependencies();
 
     public final VersionMeta versionMeta = Minecraft.getVersion(getMcVersion());
-    public final Path vanillaClientJar = Minecraft.getDownload(getMcVersion(), versionMeta, "client");
-    public final Path vanillaServerJar = Minecraft.getDownload(getMcVersion(), versionMeta, "server");
 
     @Override
     public void getTasks(Consumer<Task> p) {
@@ -482,21 +486,42 @@ public abstract class FabricProject extends BaseJavaProject {
     }
 
     public Path getMergedJar() {
-        Path result = fabricCache().resolve("merged").resolve(getMcVersion() + "-merged.jar");
-        if (!Files.isRegularFile(result)) {
-            try (AtomicFile atomicFile = new AtomicFile(result)) {
-                try {
+        try {
+            Path vanillaClientJar = Minecraft.getDownload(getMcVersion(), versionMeta, "client");
+            Path vanillaServerJar = Minecraft.getDownload(getMcVersion(), versionMeta, "server");
+            try (ZipFile file = new ZipFile(vanillaServerJar.toFile())) {
+                ZipEntry entry = file.getEntry("META-INF/versions.list");
+                if (entry != null) {
+                    String jar;
+                    try (InputStream is = file.getInputStream(entry)) {
+                        jar = StreamUtil.readFullyAsString(is).split("\t")[2];
+                    }
+                    vanillaServerJar = fabricCache().resolve("serverextract").resolve(jar);
+                    if (!Files.isRegularFile(vanillaServerJar)) {
+                        try (
+                            AtomicFile f = new AtomicFile(vanillaServerJar);
+                            InputStream is = file.getInputStream(file.getEntry("META-INF/versions/" + jar))
+                        ) {
+                            Files.copy(is, f.tempPath, StandardCopyOption.REPLACE_EXISTING);
+                            f.commit();
+                        }
+                    }
+                }
+            }
+            Path result = fabricCache().resolve("merged").resolve(getMcVersion() + "-merged.jar");
+            if (!Files.isRegularFile(result)) {
+                try (AtomicFile atomicFile = new AtomicFile(result)) {
                     try (JarMerger jarMerger = new JarMerger(vanillaClientJar, vanillaServerJar, atomicFile.tempPath)) {
                         jarMerger.enableSyntheticParamsOffset();
                         jarMerger.merge();
                     }
-                } catch (IOException e) {
-                    throw Util.sneak(e);
+                    atomicFile.commit();
                 }
-                atomicFile.commit();
             }
+            return result;
+        } catch (Exception e) {
+            throw Util.sneak(e);
         }
-        return result;
     }
 
     public final Lazy<RemappedJar> intermediaryjar = new Lazy<>(this::createIntermediaryJar);
@@ -532,8 +557,9 @@ public abstract class FabricProject extends BaseJavaProject {
 
     public JavaJarDependency getDecompiledJar() {
         RemappedJar named = namedJar.get();
-        MappingTree mappings = getMappings();
         BrachyuraDecompiler decompiler = decompiler();
+        if (decompiler == null) return new JavaJarDependency(named.jar, null, null);
+        MappingTree mappings = getMappings();
         Path result = fabricCache().resolve("decompiled").resolve(getMcVersion() + "-named-" + named.mappingHash + "-decomp-" + decompiler.getName() + "-" + decompiler.getVersion() + "-sources.jar");
         Path result2 = fabricCache().resolve("decompiled").resolve(getMcVersion() + "-named-" + named.mappingHash + "-decomp-" + decompiler.getName() + "-" + decompiler.getVersion() + ".linemappings");
         if (!(Files.isRegularFile(result) && Files.isRegularFile(result2))) {
@@ -622,7 +648,7 @@ public abstract class FabricProject extends BaseJavaProject {
         return result;
     }
 
-    public BrachyuraDecompiler decompiler() {
+    public @Nullable BrachyuraDecompiler decompiler() {
         return new CfrDecompiler(Runtime.getRuntime().availableProcessors());
     }
 
