@@ -4,14 +4,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
 import io.github.coolcrabs.brachyura.decompiler.BrachyuraDecompiler;
-import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
-import io.github.coolcrabs.brachyura.maven.Maven;
 import io.github.coolcrabs.brachyura.maven.MavenId;
 import io.github.coolcrabs.brachyura.util.JvmUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
@@ -35,7 +31,7 @@ class FabricProjectTest {
         }
 
         @Override
-        public MappingTree getMappings() {
+        public MappingTree createMappings() {
             MappingTree tree = Yarn.ofMaven(FabricMaven.URL, FabricMaven.yarn("21w39a+build.3")).tree;
             return tree;
         }
@@ -53,18 +49,10 @@ class FabricProjectTest {
         }
 
         @Override
-        public List<JavaJarDependency> createModDependencies() {
-            return Arrays.asList(
-                Maven.getMavenJarDep(
-                    FabricMaven.URL,
-                    new MavenId(FabricMaven.GROUP_ID + ".fabric-api", "fabric-resource-loader-v0", "0.4.8+a00e834b88")
-                ),
-                Maven.getMavenJarDep(
-                    FabricMaven.URL,
-                    new MavenId(FabricMaven.GROUP_ID + ".fabric-api", "fabric-game-rule-api-v1", "1.0.7+cbda931888")
-                )
-            );
-        }
+        public void getModDependencies(ModDependencyCollector d) {
+            d.addMaven(FabricMaven.URL, new MavenId(FabricMaven.GROUP_ID + ".fabric-api", "fabric-resource-loader-v0", "0.4.8+a00e834b88"), ModDependencyFlag.RUNTIME, ModDependencyFlag.COMPILE);
+            d.addMaven(FabricMaven.URL, new MavenId(FabricMaven.GROUP_ID + ".fabric-api", "fabric-game-rule-api-v1", "1.0.7+cbda931888"), ModDependencyFlag.RUNTIME, ModDependencyFlag.COMPILE);
+        };
 
         @Override
         public BrachyuraDecompiler decompiler() {

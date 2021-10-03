@@ -1,6 +1,16 @@
 # brachyura
 
-WIP Minecraft Modding Build Tool
+\[WIP\] Java build tool focused on Minecraft modding. Uses simple buildscripts written in Java with easy to understand and debug logic.
+
+## Goals
+
+Predictable
+Simple
+Flexible
+
+## Discord
+
+[![Join The Discord](https://discordapp.com/api/guilds/844335788384452619/widget.png?style=banner2)](https://discord.gg/ZfNH3BUVth)
 
 ## File Structure
 

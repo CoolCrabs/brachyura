@@ -18,7 +18,9 @@ import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -80,13 +82,41 @@ import net.fabricmc.tinyremapper.TinyRemapper;
 
 public abstract class FabricProject extends BaseJavaProject {
     public abstract String getMcVersion();
-    // TODO switch to lazy
-    public abstract MappingTree getMappings();
+    public final Lazy<MappingTree> mappings = new Lazy<>(this::createMappings);
+    public abstract MappingTree createMappings();
     public abstract FabricLoader getLoader();
     public abstract String getModId();
     public abstract String getVersion();
-    //TODO better api
-    public abstract List<JavaJarDependency> createModDependencies();
+    public abstract void getModDependencies(ModDependencyCollector d);
+
+    public static class ModDependencyCollector {
+        public final List<ModDependency> dependencies = new ArrayList<>();
+
+        public void addMaven(String repo, MavenId id, ModDependencyFlag... flags) {
+            add(Maven.getMavenJarDep(repo, id), flags);
+        }
+
+        public void add(JavaJarDependency jarDependency, ModDependencyFlag... flags) {
+            if (flags.length == 0) throw new UnsupportedOperationException("Must have atleast one dependency flag");
+            EnumSet<ModDependencyFlag> flags2 = EnumSet.of(flags[0], flags); // Bruh
+            dependencies.add(new ModDependency(jarDependency, flags2));
+        }
+    }
+
+    public static class ModDependency {
+        public final JavaJarDependency jarDependency;
+        public final Set<ModDependencyFlag> flags;
+
+        public ModDependency(JavaJarDependency jarDependency, Set<ModDependencyFlag> flags) {
+            this.jarDependency = jarDependency;
+            this.flags = flags;
+        }
+    }
+
+    public enum ModDependencyFlag {
+        COMPILE,
+        RUNTIME
+    }
 
     public final VersionMeta versionMeta = Minecraft.getVersion(getMcVersion());
 
@@ -101,7 +131,6 @@ public abstract class FabricProject extends BaseJavaProject {
         Path mappingsClasspath = writeMappings4FabricStuff().getParent().getParent();
         Path cwd = getProjectDir().resolve("run");
         PathUtil.createDirectories(cwd);
-        //TODO impl compile only and runtime only deps
         List<JavaJarDependency> ideDependencies = getIdeDependencies();
         ArrayList<Path> classpath = new ArrayList<>(ideDependencies.size() + 1);
         for (JavaJarDependency dependency : ideDependencies) {
@@ -185,7 +214,7 @@ public abstract class FabricProject extends BaseJavaProject {
 
     public Path writeMappings4FabricStuff() {
         try {
-            MappingTree mappingTree = getMappings();
+            MappingTree mappingTree = mappings.get();
             String hash = MappingHasher.hashSha256(mappingTree);
             Path result = getLocalBrachyuraPath().resolve("mappings-cache").resolve(hash).resolve("mappings").resolve("mappings.tiny"); // floader hardcoded path as it asumes you are using a yarn jar as mapping root of truth
             if (!Files.isRegularFile(result)) {
@@ -240,7 +269,7 @@ public abstract class FabricProject extends BaseJavaProject {
             Files.deleteIfExists(target);
             try (AtomicFile atomicFile = new AtomicFile(target)) {
                 Files.deleteIfExists(atomicFile.tempPath);
-                TinyRemapper remapper = TinyRemapper.newRemapper().withMappings(new MappingTreeMappingProvider(getMappings(), Namespaces.NAMED, Namespaces.INTERMEDIARY)).build();
+                TinyRemapper remapper = TinyRemapper.newRemapper().withMappings(new MappingTreeMappingProvider(mappings.get(), Namespaces.NAMED, Namespaces.INTERMEDIARY)).build();
                 try {
                     for (Path path : getCompileDependencies()) {
                         TinyRemapperHelper.readJar(remapper, path, JarType.CLASSPATH);
@@ -332,8 +361,8 @@ public abstract class FabricProject extends BaseJavaProject {
         }
         result.add(namedJar.get().jar);
         result.add(Maven.getMavenJarDep(FabricMaven.URL, FabricMaven.mixinCompileExtensions("0.4.4")).jar);
-        for (JavaJarDependency dep : remappedModDependencied.get()) {
-            result.add(dep.jar);
+        for (ModDependency dep : remappedModDependencies.get()) {
+            if (dep.flags.contains(ModDependencyFlag.COMPILE)) result.add(dep.jarDependency.jar);
         }
         return result;
     }
@@ -348,7 +377,9 @@ public abstract class FabricProject extends BaseJavaProject {
         result.add(Maven.getMavenJarDep(FabricMaven.URL, FabricMaven.devLaunchInjector("0.2.1+build.8")));
         result.add(Maven.getMavenJarDep(Maven.MAVEN_CENTRAL, new MavenId("net.minecrell", "terminalconsoleappender", "1.2.0")));
         result.add(getDecompiledJar());
-        result.addAll(remappedModDependencied.get());
+        for (ModDependency d : remappedModDependencies.get()) {
+            if (d.flags.contains(ModDependencyFlag.RUNTIME)) result.add(d.jarDependency);
+        }
         return result;
     }
 
@@ -363,18 +394,20 @@ public abstract class FabricProject extends BaseJavaProject {
         return result;
     }
 
-    public final Lazy<List<JavaJarDependency>> remappedModDependencied = new Lazy<>(this::createRemappedModDependencies);
+    public final Lazy<List<ModDependency>> remappedModDependencies = new Lazy<>(this::createRemappedModDependencies);
     /**
      * 🍝
      */
-    public List<JavaJarDependency> createRemappedModDependencies() {
+    public List<ModDependency> createRemappedModDependencies() {
         try {
-            List<JavaJarDependency> unmapped = createModDependencies();
+            ModDependencyCollector d = new ModDependencyCollector();
+            getModDependencies(d);
+            List<ModDependency> unmapped = d.dependencies;
             if (unmapped == null) return Collections.emptyList();
-            List<JavaJarDependency> result = new ArrayList<>(unmapped.size());
+            List<ModDependency> result = new ArrayList<>(unmapped.size());
             MessageDigest dephasher = MessageDigestUtil.messageDigest(MessageDigestUtil.SHA256);
-            dephasher.update((byte) 2); // Bump this if the logic changes
-            for (JavaJarDependency dep : unmapped) {
+            dephasher.update((byte) 3); // Bump this if the logic changes
+            for (ModDependency dep : unmapped) {
                 hashDep(dephasher, dep);
             }
             for (JavaJarDependency dep : mcClasspath.get()) {
@@ -385,14 +418,13 @@ public abstract class FabricProject extends BaseJavaProject {
             String dephash = MessageDigestUtil.toHexHash(dephasher.digest());
             Path depdir = getLocalBrachyuraPath().resolve("deps");
             Path resultdir = depdir.resolve(dephash);
-            MappingTree mappings = getMappings();
             if (!Files.isDirectory(resultdir)) {
                 if (Files.isDirectory(depdir)) {
                     PathUtil.deleteDirectoryChildren(depdir);
                 }
                 try (AtomicDirectory a = new AtomicDirectory(resultdir)) {
                     TinyRemapper tr = TinyRemapper.newRemapper()
-                        .withMappings(new MappingTreeMappingProvider(mappings, Namespaces.INTERMEDIARY, Namespaces.NAMED))
+                        .withMappings(new MappingTreeMappingProvider(mappings.get(), Namespaces.INTERMEDIARY, Namespaces.NAMED))
                         .renameInvalidLocals(false)
                         .build();
                     TinyRemapperHelper.readJar(tr, intermediaryjar.get().jar, JarType.CLASSPATH);
@@ -400,7 +432,7 @@ public abstract class FabricProject extends BaseJavaProject {
                         TinyRemapperHelper.readJar(tr, dep.jar, JarType.CLASSPATH);
                     }
                     class RemapInfo {
-                        JavaJarDependency dep;
+                        ModDependency dep;
                         FileSystem fs;
                         FileSystem outFs;
                         Path outPath;
@@ -408,13 +440,13 @@ public abstract class FabricProject extends BaseJavaProject {
                     }
                     List<RemapInfo> b = new ArrayList<>();
                     try {
-                        for (JavaJarDependency u : unmapped) {
+                        for (ModDependency u : unmapped) {
                             RemapInfo ri = new RemapInfo();
                             b.add(ri);
                             ri.dep = u;
                             ri.tag = tr.createInputTag();
-                            ri.outPath = a.tempPath.resolve(u.jar.getFileName().toString());
-                            ri.fs = FileSystemUtil.newJarFileSystem(u.jar);
+                            ri.outPath = a.tempPath.resolve(u.jarDependency.jar.getFileName().toString());
+                            ri.fs = FileSystemUtil.newJarFileSystem(u.jarDependency.jar);
                             ri.outFs = FileSystemUtil.newJarFileSystem(ri.outPath);
                         }
                         Logger.info("Remapping " + b.size() + " mods");
@@ -439,7 +471,7 @@ public abstract class FabricProject extends BaseJavaProject {
                                                 int v = AccessWidenerReader.readVersion(r);
                                                 r.reset();
                                                 AccessWidenerWriter w = new AccessWidenerWriter(v);
-                                                AccessWidenerNamespaceChanger nc = new AccessWidenerNamespaceChanger(w, mappings, mappings.getNamespaceId(Namespaces.NAMED));
+                                                AccessWidenerNamespaceChanger nc = new AccessWidenerNamespaceChanger(w, mappings.get(), mappings.get().getNamespaceId(Namespaces.NAMED));
                                                 new AccessWidenerReader(nc).read(r);
                                                 Files.copy(new ByteArrayInputStream(w.write()), target);
                                             }
@@ -458,34 +490,44 @@ public abstract class FabricProject extends BaseJavaProject {
                         }
                         tr.finish();
                     }
-                    BudgetSourceRemapper sourceRemapper = new BudgetSourceRemapper(mappings, mappings.getNamespaceId(Namespaces.INTERMEDIARY), mappings.getNamespaceId(Namespaces.NAMED));
-                    for (JavaJarDependency u : unmapped) { 
-                        if (u.sourcesJar != null) {
-                            Logger.info("Remapping " + u.sourcesJar.getFileName());
+                    BudgetSourceRemapper sourceRemapper = new BudgetSourceRemapper(mappings.get(), mappings.get().getNamespaceId(Namespaces.INTERMEDIARY), mappings.get().getNamespaceId(Namespaces.NAMED));
+                    for (ModDependency u : unmapped) { 
+                        if (u.jarDependency != null) {
+                            Logger.info("Remapping " + u.jarDependency.sourcesJar.getFileName());
                             long start = System.currentTimeMillis();
-                            Path target = a.tempPath.resolve(u.jar.getFileName().toString().replace(".jar", "-sources.jar"));
-                            sourceRemapper.remapSourcesJar(u.sourcesJar, target);
+                            Path target = a.tempPath.resolve(u.jarDependency.jar.getFileName().toString().replace(".jar", "-sources.jar"));
+                            sourceRemapper.remapSourcesJar(u.jarDependency.sourcesJar, target);
                             long end = System.currentTimeMillis() - start;
-                            Logger.info("Remapped " + u.sourcesJar.getFileName() + " in " + end + "ms");
+                            Logger.info("Remapped " + u.jarDependency.sourcesJar.getFileName() + " in " + end + "ms");
                         }
                     }
                     a.commit();
                 }
             }
-            for (JavaJarDependency unmapdep : unmapped) {
+            for (ModDependency unmapdep : unmapped) {
                 result.add(
-                    new JavaJarDependency(
-                        resultdir.resolve(
-                            unmapdep.jar.getFileName().toString()
+                    new ModDependency(
+                        new JavaJarDependency(
+                            resultdir.resolve(
+                                unmapdep.jarDependency.jar.getFileName().toString()
+                            ),
+                            unmapdep.jarDependency.sourcesJar == null ? null : resultdir.resolve(unmapdep.jarDependency.jar.getFileName().toString().replace(".jar", "-sources.jar")),
+                            unmapdep.jarDependency.mavenId
                         ),
-                        unmapdep.sourcesJar == null ? null : resultdir.resolve(unmapdep.jar.getFileName().toString().replace(".jar", "-sources.jar")),
-                        unmapdep.mavenId
+                        unmapdep.flags
                     )
                 );
             }
             return result;
         } catch (Exception e) {
             throw Util.sneak(e);
+        }
+    }
+
+    public void hashDep(MessageDigest md, ModDependency dep) {
+        hashDep(md, dep.jarDependency);
+        for (ModDependencyFlag flag : dep.flags) {
+            MessageDigestUtil.update(md, flag.ordinal());
         }
     }
 
@@ -572,13 +614,12 @@ public abstract class FabricProject extends BaseJavaProject {
     public final Lazy<RemappedJar> namedJar = new Lazy<>(this::createNamedJar);
     public RemappedJar createNamedJar() {
         Path intermediaryJar2 = intermediaryjar.get().jar;
-        MappingTree mappings = getMappings();
         Intermediary intermediary = getIntermediary();
-        String mappingHash = MappingHasher.hashSha256(intermediary.tree, mappings);
+        String mappingHash = MappingHasher.hashSha256(intermediary.tree, mappings.get());
         Path result = fabricCache().resolve("named").resolve(getMcVersion() + "-named-" + mappingHash + ".jar");
         if (!Files.isRegularFile(result)) {
             try (AtomicFile atomicFile = new AtomicFile(result)) {
-                remapJar(mappings, Namespaces.INTERMEDIARY, Namespaces.NAMED, intermediaryJar2, atomicFile.tempPath, mcClasspathPaths.get());
+                remapJar(mappings.get(), Namespaces.INTERMEDIARY, Namespaces.NAMED, intermediaryJar2, atomicFile.tempPath, mcClasspathPaths.get());
                 atomicFile.commit();
             }
         }
@@ -589,7 +630,6 @@ public abstract class FabricProject extends BaseJavaProject {
         RemappedJar named = namedJar.get();
         BrachyuraDecompiler decompiler = decompiler();
         if (decompiler == null) return new JavaJarDependency(named.jar, null, null);
-        MappingTree mappings = getMappings();
         Path result = fabricCache().resolve("decompiled").resolve(getMcVersion() + "-named-" + named.mappingHash + "-decomp-" + decompiler.getName() + "-" + decompiler.getVersion() + "-sources.jar");
         Path result2 = fabricCache().resolve("decompiled").resolve(getMcVersion() + "-named-" + named.mappingHash + "-decomp-" + decompiler.getName() + "-" + decompiler.getVersion() + ".linemappings");
         if (!(Files.isRegularFile(result) && Files.isRegularFile(result2))) {
@@ -599,7 +639,7 @@ public abstract class FabricProject extends BaseJavaProject {
             ) {
                 Logger.info("Decompiling " + named.jar.getFileName() + " using " + decompiler.getName() + " " + decompiler.getVersion() + " with " + decompiler.getThreadCount() + " threads"); 
                 long start = System.currentTimeMillis();
-                decompiler.decompile(named.jar, decompClasspath(), atomicFile.tempPath, atomicFile2.tempPath, mappings, mappings.getNamespaceId(Namespaces.NAMED));
+                decompiler.decompile(named.jar, decompClasspath(), atomicFile.tempPath, atomicFile2.tempPath, mappings.get(), mappings.get().getNamespaceId(Namespaces.NAMED));
                 long end = System.currentTimeMillis();
                 Logger.info("Decompiled " + named.jar.getFileName() + " in " + (end - start) + "ms");
                 atomicFile.commit();
