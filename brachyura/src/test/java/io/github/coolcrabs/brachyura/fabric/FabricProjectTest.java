@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -54,10 +54,14 @@ class FabricProjectTest {
 
         @Override
         public List<JavaJarDependency> createModDependencies() {
-            return Collections.singletonList(
+            return Arrays.asList(
                 Maven.getMavenJarDep(
                     FabricMaven.URL,
                     new MavenId(FabricMaven.GROUP_ID + ".fabric-api", "fabric-resource-loader-v0", "0.4.8+a00e834b88")
+                ),
+                Maven.getMavenJarDep(
+                    FabricMaven.URL,
+                    new MavenId(FabricMaven.GROUP_ID + ".fabric-api", "fabric-game-rule-api-v1", "1.0.7+cbda931888")
                 )
             );
         }

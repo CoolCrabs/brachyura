@@ -2,6 +2,7 @@ package io.github.coolcrabs.brachyura.fabric;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -70,6 +71,8 @@ import io.github.coolcrabs.brachyura.util.UnzipUtil;
 import io.github.coolcrabs.brachyura.util.Util;
 import io.github.coolcrabs.fabricmerge.JarMerger;
 import io.github.coolcrabs.javacompilelib.JavaCompilationUnit;
+import net.fabricmc.accesswidener.AccessWidenerReader;
+import net.fabricmc.accesswidener.AccessWidenerWriter;
 import net.fabricmc.mappingio.format.Tiny2Writer;
 import net.fabricmc.mappingio.tree.MappingTree;
 import net.fabricmc.tinyremapper.InputTag;
@@ -77,10 +80,12 @@ import net.fabricmc.tinyremapper.TinyRemapper;
 
 public abstract class FabricProject extends BaseJavaProject {
     public abstract String getMcVersion();
+    // TODO switch to lazy
     public abstract MappingTree getMappings();
     public abstract FabricLoader getLoader();
     public abstract String getModId();
     public abstract String getVersion();
+    //TODO better api
     public abstract List<JavaJarDependency> createModDependencies();
 
     public final VersionMeta versionMeta = Minecraft.getVersion(getMcVersion());
@@ -359,14 +364,16 @@ public abstract class FabricProject extends BaseJavaProject {
     }
 
     public final Lazy<List<JavaJarDependency>> remappedModDependencied = new Lazy<>(this::createRemappedModDependencies);
-    //TODO source remapping and or decomp
+    /**
+     * 🍝
+     */
     public List<JavaJarDependency> createRemappedModDependencies() {
         try {
             List<JavaJarDependency> unmapped = createModDependencies();
             if (unmapped == null) return Collections.emptyList();
             List<JavaJarDependency> result = new ArrayList<>(unmapped.size());
             MessageDigest dephasher = MessageDigestUtil.messageDigest(MessageDigestUtil.SHA256);
-            dephasher.update((byte) 1); // Bump this if the logic changes
+            dephasher.update((byte) 2); // Bump this if the logic changes
             for (JavaJarDependency dep : unmapped) {
                 hashDep(dephasher, dep);
             }
@@ -416,10 +423,33 @@ public abstract class FabricProject extends BaseJavaProject {
                         }
                         for (RemapInfo ri : b) {
                             tr.apply(new PathFileConsumer(ri.outFs.getPath("/")), ri.tag);
-                            // TODO aw's
                             // TODO strip jij?
                             // TODO add fmj for non mod for jij
-                            TinyRemapperHelper.copyNonClassfilesFromFileSystem(ri.fs, ri.outFs);
+                            Files.walkFileTree(ri.fs.getPath("/"), new SimpleFileVisitor<Path>() {
+                                @Override
+                                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                                    String fileString = file.toString();
+                                    if (!fileString.endsWith(".class")) {
+                                        Path target = ri.outFs.getPath("/").resolve(ri.fs.getPath("/").relativize(file).toString());
+                                        Files.createDirectories(target.getParent());
+                                        if (fileString.endsWith(".accesswidener")) {
+                                            try (BufferedReader r = Files.newBufferedReader(file)) {
+                                                // TODO this is dumb
+                                                r.mark(20);
+                                                int v = AccessWidenerReader.readVersion(r);
+                                                r.reset();
+                                                AccessWidenerWriter w = new AccessWidenerWriter(v);
+                                                AccessWidenerNamespaceChanger nc = new AccessWidenerNamespaceChanger(w, mappings, mappings.getNamespaceId(Namespaces.NAMED));
+                                                new AccessWidenerReader(nc).read(r);
+                                                Files.copy(new ByteArrayInputStream(w.write()), target);
+                                            }
+                                        } else {
+                                            Files.copy(file, target);
+                                        }
+                                    }
+                                    return FileVisitResult.CONTINUE;
+                                }
+                            });
                         }
                     } finally {
                         for (RemapInfo c : b) {

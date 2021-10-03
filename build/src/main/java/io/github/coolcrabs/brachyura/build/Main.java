@@ -46,7 +46,9 @@ public class Main {
         "https://maven.fabricmc.net/net/fabricmc/mapping-io/0.1.7/mapping-io-0.1.7.jar",
         "https://maven.fabricmc.net/net/fabricmc/mapping-io/0.1.7/mapping-io-0.1.7-sources.jar",
         "https://maven.fabricmc.net/net/fabricmc/tiny-remapper/0.4.2/tiny-remapper-0.4.2.jar",
-        "https://maven.fabricmc.net/net/fabricmc/tiny-remapper/0.4.2/tiny-remapper-0.4.2-sources.jar"
+        "https://maven.fabricmc.net/net/fabricmc/tiny-remapper/0.4.2/tiny-remapper-0.4.2-sources.jar",
+        "https://maven.fabricmc.net/net/fabricmc/access-widener/2.0.0/access-widener-2.0.0.jar",
+        "https://maven.fabricmc.net/net/fabricmc/access-widener/2.0.0/access-widener-2.0.0-sources.jar"
     };
     static boolean github = Boolean.parseBoolean(System.getenv("CI"));
     static String commit = github ? getCommitHash() : null;
