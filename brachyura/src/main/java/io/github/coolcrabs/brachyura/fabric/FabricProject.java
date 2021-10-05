@@ -87,6 +87,11 @@ public abstract class FabricProject extends BaseJavaProject {
     public abstract FabricLoader getLoader();
     public abstract String getModId();
     public abstract String getVersion();
+    public final Lazy<List<ModDependency>> modDependencies = new Lazy<>(() -> {
+        ModDependencyCollector d = new ModDependencyCollector();
+        getModDependencies(d);
+        return d.dependencies;
+    });
     public abstract void getModDependencies(ModDependencyCollector d);
 
     public static class ModDependencyCollector {
@@ -115,7 +120,8 @@ public abstract class FabricProject extends BaseJavaProject {
 
     public enum ModDependencyFlag {
         COMPILE,
-        RUNTIME
+        RUNTIME,
+        JIJ
     }
 
     public final VersionMeta versionMeta = Minecraft.getVersion(getMcVersion());
@@ -290,6 +296,7 @@ public abstract class FabricProject extends BaseJavaProject {
         }
     }
 
+    //TODO better process resources api
     @Override
     public boolean processResources(Path source, Path target) throws IOException {
         // If you think this is bad look at what loom does
@@ -314,6 +321,30 @@ public abstract class FabricProject extends BaseJavaProject {
                     } else {
                         throw new UnknownJsonException(a.toString());
                     }
+                }
+            }
+            List<Path> jij = new ArrayList<>();
+            for (ModDependency modDependency : modDependencies.get()) {
+                if (modDependency.flags.contains(ModDependencyFlag.JIJ)) {
+                    jij.add(modDependency.jarDependency.jar);
+                }
+            }
+            if (!jij.isEmpty()) {
+                JsonArray jars = new JsonArray();
+                fabricModJson.add("jars", jars);
+                List<String> used = new ArrayList<>();
+                for (Path jar : jij) {
+                    String path = "META-INF/jars/" + jar.getFileName();
+                    int a = 0;
+                    while (used.contains(path)) {
+                        path = "META-INF/jars/" + a + jar.getFileName();
+                    }
+                    JsonObject o = new JsonObject();
+                    o.addProperty("file", path);
+                    jars.add(o);
+                    used.add(path);
+                    Path t = PathUtil.resolveAndCreateDir(target, path);
+                    Files.copy(jar, t, StandardCopyOption.REPLACE_EXISTING);
                 }
             }
             try (BufferedWriter jsonWriter = PathUtil.newBufferedWriter(target.resolve("fabric.mod.json"))) {
@@ -400,9 +431,7 @@ public abstract class FabricProject extends BaseJavaProject {
      */
     public List<ModDependency> createRemappedModDependencies() {
         try {
-            ModDependencyCollector d = new ModDependencyCollector();
-            getModDependencies(d);
-            List<ModDependency> unmapped = d.dependencies;
+            List<ModDependency> unmapped = modDependencies.get();
             if (unmapped == null) return Collections.emptyList();
             List<ModDependency> result = new ArrayList<>(unmapped.size());
             MessageDigest dephasher = MessageDigestUtil.messageDigest(MessageDigestUtil.SHA256);

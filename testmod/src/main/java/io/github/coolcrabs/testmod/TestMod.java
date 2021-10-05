@@ -12,6 +12,8 @@ public class TestMod implements ModInitializer {
     @Override
     public void onInitialize() {
         Registry.register(Registry.ITEM, new Identifier("brachyuratestmod", "epic"), new Item(new Item.Settings()));
-        GameRuleRegistry.register("gradleisgood", Category.MISC, GameRuleFactory.createBooleanRule(false, (mc, gr) -> gr.set(false, mc)));
+        GameRuleRegistry.register("gradleisgood", Category.MISC, GameRuleFactory.createBooleanRule(false, (mc, gr) -> {
+            if (gr.get()) gr.set(false, mc);
+        }));
     }
 }

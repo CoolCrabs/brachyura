@@ -50,8 +50,8 @@ class FabricProjectTest {
 
         @Override
         public void getModDependencies(ModDependencyCollector d) {
-            d.addMaven(FabricMaven.URL, new MavenId(FabricMaven.GROUP_ID + ".fabric-api", "fabric-resource-loader-v0", "0.4.8+a00e834b88"), ModDependencyFlag.RUNTIME, ModDependencyFlag.COMPILE);
-            d.addMaven(FabricMaven.URL, new MavenId(FabricMaven.GROUP_ID + ".fabric-api", "fabric-game-rule-api-v1", "1.0.7+cbda931888"), ModDependencyFlag.RUNTIME, ModDependencyFlag.COMPILE);
+            d.addMaven(FabricMaven.URL, new MavenId(FabricMaven.GROUP_ID + ".fabric-api", "fabric-resource-loader-v0", "0.4.8+a00e834b88"), ModDependencyFlag.RUNTIME, ModDependencyFlag.COMPILE, ModDependencyFlag.JIJ);
+            d.addMaven(FabricMaven.URL, new MavenId(FabricMaven.GROUP_ID + ".fabric-api", "fabric-game-rule-api-v1", "1.0.7+cbda931888"), ModDependencyFlag.RUNTIME, ModDependencyFlag.COMPILE, ModDependencyFlag.JIJ);
         };
 
         @Override
@@ -81,6 +81,7 @@ class FabricProjectTest {
 
     @Test
     void compile() {
-        if (JvmUtil.CURRENT_JAVA_VERSION >= 16) assertTrue(fabricProject.build());
+        if (JvmUtil.CURRENT_JAVA_VERSION >= 16)
+            assertTrue(fabricProject.build());
     }
 }
