@@ -3,6 +3,7 @@ package io.github.coolcrabs.brachyura.project;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 import org.tinylog.Logger;
 
@@ -29,14 +30,19 @@ public class BrachyuraEntry {
                     Logger.info("Avalible buildscript tasks: " + t.toString());
                 }
             } else {
-                Project project = buildscriptProject.project.get();
-                Tasks t = new Tasks();
-                project.getTasks(t);
-                if (args.length >= 1) {
-                    Task task = t.get(args[0]);
-                    task.doTask(args.length > 2 ? Arrays.copyOfRange(args, 1, args.length) : new String[]{});
+                Optional<Project> o = buildscriptProject.project.get();
+                if (o.isPresent()) {
+                    Project project = o.get();
+                    Tasks t = new Tasks();
+                    project.getTasks(t);
+                    if (args.length >= 1) {
+                        Task task = t.get(args[0]);
+                        task.doTask(args.length > 2 ? Arrays.copyOfRange(args, 1, args.length) : new String[]{});
+                    } else {
+                        Logger.info("Avalible tasks: " + t.toString());
+                    }
                 } else {
-                    Logger.info("Avalible tasks: " + t.toString());
+                    Logger.warn("Invalid build script :(");
                 }
             }
         } catch (Exception e) {

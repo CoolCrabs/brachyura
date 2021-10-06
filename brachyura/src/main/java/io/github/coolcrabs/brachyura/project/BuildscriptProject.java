@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.jetbrains.annotations.Nullable;
 import org.tinylog.Logger;
@@ -36,7 +37,8 @@ class BuildscriptProject extends BaseJavaProject {
     @Override
     public IdeProject getIdeProject() {
         Tasks t = new Tasks();
-        if (project.get() != null) project.get().getTasks(t);
+        Optional<Project> o = project.get();
+        if (o.isPresent()) o.get().getTasks(t);
         ArrayList<RunConfig> runConfigs = new ArrayList<>(t.t.size());
         Path cwd = getProjectDir().resolve("run");
         PathUtil.createDirectories(cwd);
@@ -56,16 +58,16 @@ class BuildscriptProject extends BaseJavaProject {
         .build();
     }
 
-    public final Lazy<@Nullable Project> project = new Lazy<>(this::createProject);
+    public final Lazy<Optional<Project>> project = new Lazy<>(this::createProject);
     @SuppressWarnings("all")
-    public @Nullable Project createProject() {
+    public Optional<Project> createProject() {
         try {
             Path b = getBuildscriptClaspath();
-            if (b == null) return null;
+            if (b == null) return Optional.empty();
             URLClassLoader classLoader = URLClassLoader.newInstance(new URL[] {getBuildscriptClaspath().toUri().toURL()}, BuildscriptProject.class.getClassLoader());
             Class projectclass = Class.forName("Buildscript", true, classLoader);
             if (Project.class.isAssignableFrom(projectclass)) {
-                return (Project) projectclass.getDeclaredConstructor().newInstance();
+                return Optional.of((Project) projectclass.getDeclaredConstructor().newInstance());
             } else {
                 throw new TaskFailedException("Buildscript must be instance of Project");
             }
