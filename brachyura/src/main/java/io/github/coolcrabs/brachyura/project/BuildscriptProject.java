@@ -8,6 +8,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import org.jetbrains.annotations.Nullable;
+import org.tinylog.Logger;
+
 import io.github.coolcrabs.brachyura.compiler.java.JavaCompilationUnitBuilder;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 import io.github.coolcrabs.brachyura.exception.TaskFailedException;
@@ -33,7 +36,7 @@ class BuildscriptProject extends BaseJavaProject {
     @Override
     public IdeProject getIdeProject() {
         Tasks t = new Tasks();
-        project.get().getTasks(t);
+        if (project.get() != null) project.get().getTasks(t);
         ArrayList<RunConfig> runConfigs = new ArrayList<>(t.t.size());
         Path cwd = getProjectDir().resolve("run");
         PathUtil.createDirectories(cwd);
@@ -53,10 +56,12 @@ class BuildscriptProject extends BaseJavaProject {
         .build();
     }
 
-    public final Lazy<Project> project = new Lazy<>(this::createProject);
+    public final Lazy<@Nullable Project> project = new Lazy<>(this::createProject);
     @SuppressWarnings("all")
-    public Project createProject() {
+    public @Nullable Project createProject() {
         try {
+            Path b = getBuildscriptClaspath();
+            if (b == null) return null;
             URLClassLoader classLoader = URLClassLoader.newInstance(new URL[] {getBuildscriptClaspath().toUri().toURL()}, BuildscriptProject.class.getClassLoader());
             Class projectclass = Class.forName("Buildscript", true, classLoader);
             if (Project.class.isAssignableFrom(projectclass)) {
@@ -69,7 +74,7 @@ class BuildscriptProject extends BaseJavaProject {
         }
     }
 
-    public Path getBuildscriptClaspath() {
+    public @Nullable Path getBuildscriptClaspath() {
         JavaCompilationUnit javaCompilationUnit = new JavaCompilationUnitBuilder()
             .sourceDir(getSrcDir())
             .outputDir(getBuildClassesDir())
@@ -77,7 +82,8 @@ class BuildscriptProject extends BaseJavaProject {
             .options(JvmUtil.compileArgs(JvmUtil.CURRENT_JAVA_VERSION, 8))
             .build();
         if (!compile(javaCompilationUnit)) {
-            throw new TaskFailedException("Buildscript compilation failed!");
+            Logger.warn("Buildscript compilation failed!");
+            return null;
         }
         return getBuildClassesDir();
     }
