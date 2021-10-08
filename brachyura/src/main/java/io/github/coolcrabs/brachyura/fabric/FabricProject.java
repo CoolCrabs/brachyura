@@ -137,15 +137,14 @@ public abstract class FabricProject extends BaseJavaProject {
         Path mappingsClasspath = writeMappings4FabricStuff().getParent().getParent();
         Path cwd = getProjectDir().resolve("run");
         PathUtil.createDirectories(cwd);
-        List<JavaJarDependency> ideDependencies = getIdeDependencies();
-        ArrayList<Path> classpath = new ArrayList<>(ideDependencies.size() + 1);
-        for (JavaJarDependency dependency : ideDependencies) {
+        ArrayList<Path> classpath = new ArrayList<>(runtimeDependencies.get().size() + 1);
+        for (JavaJarDependency dependency : runtimeDependencies.get()) {
             classpath.add(dependency.jar);
         }
         classpath.add(mappingsClasspath);
         Path launchConfig = writeLaunchCfg();
         return new IdeProjectBuilder()
-            .dependencies(getIdeDependencies())
+            .dependencies(ideDependencies.get())
             .sourcePaths(getSrcDir())
             .resourcePaths(getResourcesDir())
             .runConfigs(
@@ -398,7 +397,23 @@ public abstract class FabricProject extends BaseJavaProject {
         return result;
     }
 
-    public List<JavaJarDependency> getIdeDependencies() {
+    public final Lazy<List<JavaJarDependency>> ideDependencies = new Lazy<>(this::createIdeDependencies);
+    public List<JavaJarDependency> createIdeDependencies() {
+        List<JavaJarDependency> result = new ArrayList<>();
+        for (Dependency dependency : dependencies.get()) {
+            if (dependency instanceof JavaJarDependency) {
+                result.add((JavaJarDependency) dependency);
+            }
+        }
+        result.add(decompiledJar.get());
+        for (ModDependency d : remappedModDependencies.get()) {
+            if (d.flags.contains(ModDependencyFlag.COMPILE)) result.add(d.jarDependency);
+        }
+        return result;
+    }
+
+    public final Lazy<List<JavaJarDependency>> runtimeDependencies = new Lazy<>(this::createRuntimeDependencies);
+    public List<JavaJarDependency> createRuntimeDependencies() {
         List<JavaJarDependency> result = new ArrayList<>();
         for (Dependency dependency : dependencies.get()) {
             if (dependency instanceof JavaJarDependency) {
@@ -407,7 +422,7 @@ public abstract class FabricProject extends BaseJavaProject {
         }
         result.add(Maven.getMavenJarDep(FabricMaven.URL, FabricMaven.devLaunchInjector("0.2.1+build.8")));
         result.add(Maven.getMavenJarDep(Maven.MAVEN_CENTRAL, new MavenId("net.minecrell", "terminalconsoleappender", "1.2.0")));
-        result.add(getDecompiledJar());
+        result.add(decompiledJar.get());
         for (ModDependency d : remappedModDependencies.get()) {
             if (d.flags.contains(ModDependencyFlag.RUNTIME)) result.add(d.jarDependency);
         }
@@ -655,7 +670,8 @@ public abstract class FabricProject extends BaseJavaProject {
         return new RemappedJar(result, mappingHash);
     }
 
-    public JavaJarDependency getDecompiledJar() {
+    public final Lazy<JavaJarDependency> decompiledJar = new Lazy<>(this::createDecompiledJar);
+    public JavaJarDependency createDecompiledJar() {
         RemappedJar named = namedJar.get();
         BrachyuraDecompiler decompiler = decompiler();
         if (decompiler == null) return new JavaJarDependency(named.jar, null, null);
