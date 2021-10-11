@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.zip.ZipEntry;
@@ -515,7 +516,7 @@ public abstract class FabricProject extends BaseJavaProject {
                                                 int v = AccessWidenerReader.readVersion(r);
                                                 r.reset();
                                                 AccessWidenerWriter w = new AccessWidenerWriter(v);
-                                                AccessWidenerNamespaceChanger nc = new AccessWidenerNamespaceChanger(w, mappings.get(), mappings.get().getNamespaceId(Namespaces.NAMED));
+                                                AccessWidenerNamespaceChanger nc = new AccessWidenerNamespaceChanger(w, mappings.get(), mappings.get().getNamespaceId(Namespaces.NAMED), Objects.toString(ri.dep.jarDependency.mavenId) + " (" +  fileString + ")");
                                                 new AccessWidenerReader(nc).read(r);
                                                 Files.copy(new ByteArrayInputStream(w.write()), target);
                                             }
