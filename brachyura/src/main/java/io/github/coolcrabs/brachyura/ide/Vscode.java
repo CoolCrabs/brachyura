@@ -56,7 +56,7 @@ public enum Vscode implements Ide {
         if (settingsJson == null || !settingsJson.isJsonObject()) {
             settingsJson = new JsonObject();
         }
-        settingsJson.addProperty("java.project.outputPath", "./brachyura/vscodeout");
+        settingsJson.addProperty("java.project.outputPath", "./.brachyura/vscodeout");
         JsonArray sourcePaths = new JsonArray();
         settingsJson.add("java.project.sourcePaths", sourcePaths);
         for (Path path : ideProject.sourcePaths) {
