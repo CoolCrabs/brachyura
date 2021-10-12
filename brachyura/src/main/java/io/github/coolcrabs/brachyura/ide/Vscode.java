@@ -56,6 +56,7 @@ public enum Vscode implements Ide {
         if (settingsJson == null || !settingsJson.isJsonObject()) {
             settingsJson = new JsonObject();
         }
+        settingsJson.addProperty("java.project.outputPath", projectDir.resolve(".brachyura").resolve("vscodeout").toString());
         JsonArray sourcePaths = new JsonArray();
         settingsJson.add("java.project.sourcePaths", sourcePaths);
         for (Path path : ideProject.sourcePaths) {
@@ -116,7 +117,7 @@ public enum Vscode implements Ide {
                     jsonWriter.name("stopOnEntry").value(false);
                     jsonWriter.name("classPaths");
                     jsonWriter.beginArray();
-                    jsonWriter.value("$Runtime");
+                    jsonWriter.value(".brachyura/vscodeout");
                     for (Path path : ideProject.resourcePaths) {
                         jsonWriter.value(path.toString());
                     }

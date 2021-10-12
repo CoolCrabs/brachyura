@@ -68,7 +68,7 @@ public class AccessWidenerNamespaceChanger implements AccessWidenerVisitor {
                 p.visitField(clazz.getName(t), field.getName(t), field.getDesc(t), access, transitive);
             } else {
                 Logger.warn("Possibly broken aw in {}: No field mapping found for {} in class {}", whoToYellAt, name, owner);
-                p.visitField(owner, name, m.mapDesc(descriptor, t), access, transitive);
+                p.visitField(clazz.getName(t), name, m.mapDesc(descriptor, t), access, transitive);
             }
         } else {
             p.visitField(owner, name, descriptor, access, transitive);
