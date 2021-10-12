@@ -14,12 +14,11 @@ import io.github.coolcrabs.brachyura.ide.Ide;
 import io.github.coolcrabs.brachyura.ide.IdeProject;
 import io.github.coolcrabs.brachyura.project.Project;
 import io.github.coolcrabs.brachyura.project.Task;
-import io.github.coolcrabs.brachyura.util.JvmUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import io.github.coolcrabs.brachyura.util.Util;
-import io.github.coolcrabs.javacompilelib.ForkingJavaCompilation;
 import io.github.coolcrabs.javacompilelib.JavaCompilation;
 import io.github.coolcrabs.javacompilelib.JavaCompilationUnit;
+import io.github.coolcrabs.javacompilelib.LocalJavaCompilation;
 
 public abstract class BaseJavaProject extends Project {
     public abstract IdeProject getIdeProject();
@@ -101,6 +100,6 @@ public abstract class BaseJavaProject extends Project {
     }
     
     public JavaCompilation getCompiler() {
-        return new ForkingJavaCompilation(JvmUtil.CURRENT_JAVA_EXECUTABLE);
+        return LocalJavaCompilation.INSTANCE;
     }
 }

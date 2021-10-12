@@ -76,8 +76,11 @@ import io.github.coolcrabs.fabricmerge.JarMerger;
 import io.github.coolcrabs.javacompilelib.JavaCompilationUnit;
 import net.fabricmc.accesswidener.AccessWidenerReader;
 import net.fabricmc.accesswidener.AccessWidenerWriter;
+import net.fabricmc.mappingio.MappingReader;
+import net.fabricmc.mappingio.format.MappingFormat;
 import net.fabricmc.mappingio.format.Tiny2Writer;
 import net.fabricmc.mappingio.tree.MappingTree;
+import net.fabricmc.mappingio.tree.MemoryMappingTree;
 import net.fabricmc.tinyremapper.InputTag;
 import net.fabricmc.tinyremapper.TinyRemapper;
 
@@ -256,11 +259,13 @@ public abstract class FabricProject extends BaseJavaProject {
     }
 
     public boolean build() {
+        Path mixinOut = getLocalBrachyuraPath().resolve("mixinmapout.tiny");
+        PathUtil.deleteIfExists(mixinOut);
         String[] compileArgs = ArrayUtil.join(String.class, 
             JvmUtil.compileArgs(JvmUtil.CURRENT_JAVA_VERSION, 8),
             "-AinMapFileNamedIntermediary=" + writeMappings4FabricStuff().toAbsolutePath().toString(),
-            // "-AoutMapFileNamedIntermediary=" + getLocalBrachyuraPath() + "wat.tiny",
-            "-AoutRefMapFile=" + getBuildResourcesDir().resolve(getModId() + "-refmap.json").toAbsolutePath().toString(),
+            "-AoutMapFileNamedIntermediary=" + mixinOut, // Remaps shadows etc
+            "-AoutRefMapFile=" + getBuildResourcesDir().resolve(getModId() + "-refmap.json").toAbsolutePath().toString(), // Remaps annotations
             "-AdefaultObfuscationEnv=named:intermediary"
         );
         JavaCompilationUnit javaCompilationUnit = new JavaCompilationUnitBuilder()
@@ -275,7 +280,12 @@ public abstract class FabricProject extends BaseJavaProject {
             Files.deleteIfExists(target);
             try (AtomicFile atomicFile = new AtomicFile(target)) {
                 Files.deleteIfExists(atomicFile.tempPath);
-                TinyRemapper remapper = TinyRemapper.newRemapper().withMappings(new MappingTreeMappingProvider(mappings.get(), Namespaces.NAMED, Namespaces.INTERMEDIARY)).build();
+                MemoryMappingTree mixinMappings = new MemoryMappingTree();
+                MappingReader.read(mixinOut, MappingFormat.TINY, mixinMappings);
+                TinyRemapper remapper = TinyRemapper.newRemapper()
+                    .withMappings(new MappingTreeMappingProvider(mappings.get(), Namespaces.NAMED, Namespaces.INTERMEDIARY))
+                    .withMappings(new MappingTreeMappingProvider(mixinMappings, Namespaces.NAMED, Namespaces.INTERMEDIARY))
+                    .build();
                 try {
                     for (Path path : getCompileDependencies()) {
                         TinyRemapperHelper.readJar(remapper, path, JarType.CLASSPATH);
@@ -391,7 +401,7 @@ public abstract class FabricProject extends BaseJavaProject {
             }
         }
         result.add(namedJar.get().jar);
-        result.add(Maven.getMavenJarDep(FabricMaven.URL, FabricMaven.mixinCompileExtensions("0.4.4")).jar);
+        result.add(Maven.getMavenJarDep(FabricMaven.URL, FabricMaven.mixinCompileExtensions("0.4.6")).jar);
         for (ModDependency dep : remappedModDependencies.get()) {
             if (dep.flags.contains(ModDependencyFlag.COMPILE)) result.add(dep.jarDependency.jar);
         }
@@ -406,6 +416,7 @@ public abstract class FabricProject extends BaseJavaProject {
                 result.add((JavaJarDependency) dependency);
             }
         }
+        result.add(Maven.getMavenJarDep(FabricMaven.URL, FabricMaven.devLaunchInjector("0.2.1+build.8"))); // vscode moment
         result.add(decompiledJar.get());
         for (ModDependency d : remappedModDependencies.get()) {
             if (d.flags.contains(ModDependencyFlag.COMPILE)) result.add(d.jarDependency);

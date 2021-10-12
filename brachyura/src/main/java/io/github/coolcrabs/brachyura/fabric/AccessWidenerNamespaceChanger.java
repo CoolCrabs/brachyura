@@ -52,7 +52,7 @@ public class AccessWidenerNamespaceChanger implements AccessWidenerVisitor {
                 p.visitMethod(clazz.getName(t), method.getName(t), method.getDesc(t), access, transitive);
             } else {
                 Logger.warn("Possibly broken aw in {}: No method mapping found for {} in class {}", whoToYellAt, name, owner);
-                p.visitMethod(owner, name, descriptor, access, transitive);
+                p.visitMethod(clazz.getName(t), name, m.mapDesc(descriptor, t), access, transitive);
             }
         } else {
             p.visitMethod(owner, name, descriptor, access, transitive);
@@ -68,7 +68,7 @@ public class AccessWidenerNamespaceChanger implements AccessWidenerVisitor {
                 p.visitField(clazz.getName(t), field.getName(t), field.getDesc(t), access, transitive);
             } else {
                 Logger.warn("Possibly broken aw in {}: No field mapping found for {} in class {}", whoToYellAt, name, owner);
-                p.visitField(owner, name, descriptor, access, transitive);
+                p.visitField(owner, name, m.mapDesc(descriptor, t), access, transitive);
             }
         } else {
             p.visitField(owner, name, descriptor, access, transitive);
@@ -78,7 +78,7 @@ public class AccessWidenerNamespaceChanger implements AccessWidenerVisitor {
     ClassMapping clazz(String owner) {
         ClassMapping clazz = m.getClass(owner, s);
         if (clazz == null) {
-            Logger.warn("Possibly broken aw in {}: No class mapping found for {}", whoToYellAt, clazz);
+            Logger.warn("Possibly broken aw in {}: No class mapping found for {}", whoToYellAt, owner);
         }
         return clazz;
     }
