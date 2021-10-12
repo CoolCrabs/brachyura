@@ -35,7 +35,7 @@ public enum Vscode implements Ide {
             updateSettingsJson(settingsJsonFile, projectDir, ideProject);
             if (!ideProject.runConfigs.isEmpty()) {
                 Path launchJsonFile = vscodeDir.resolve("launch.json");
-                updateLaunchJson(launchJsonFile, ideProject);
+                updateLaunchJson(launchJsonFile, ideProject, projectDir);
             }
         } catch (Exception e) {
             throw Util.sneak(e);
@@ -56,7 +56,7 @@ public enum Vscode implements Ide {
         if (settingsJson == null || !settingsJson.isJsonObject()) {
             settingsJson = new JsonObject();
         }
-        settingsJson.addProperty("java.project.outputPath", projectDir.resolve(".brachyura").resolve("vscodeout").toString());
+        settingsJson.addProperty("java.project.outputPath", "./brachyura/vscodeout");
         JsonArray sourcePaths = new JsonArray();
         settingsJson.add("java.project.sourcePaths", sourcePaths);
         for (Path path : ideProject.sourcePaths) {
@@ -86,7 +86,7 @@ public enum Vscode implements Ide {
         }
     }
 
-    void updateLaunchJson(Path launchJsonFile, IdeProject ideProject) throws IOException {
+    void updateLaunchJson(Path launchJsonFile, IdeProject ideProject, Path projectDir) throws IOException {
         try (AtomicFile atomicFile = new AtomicFile(launchJsonFile)) {
             try (JsonWriter jsonWriter = new JsonWriter(PathUtil.newBufferedWriter(atomicFile.tempPath))) {
                 jsonWriter.setIndent("  ");
@@ -117,7 +117,7 @@ public enum Vscode implements Ide {
                     jsonWriter.name("stopOnEntry").value(false);
                     jsonWriter.name("classPaths");
                     jsonWriter.beginArray();
-                    jsonWriter.value(".brachyura/vscodeout");
+                    jsonWriter.value(projectDir.resolve(".brachyura").resolve("vscodeout").toString());
                     for (Path path : ideProject.resourcePaths) {
                         jsonWriter.value(path.toString());
                     }
