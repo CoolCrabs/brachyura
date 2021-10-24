@@ -15,14 +15,23 @@
 
     <repositories>
         <repository>
-          <id>fabricmc</id>
-          <name>FabricMC</name>
-          <url>https://maven.fabricmc.net/</url>
+            <id>fabricmc</id>
+            <name>FabricMC</name>
+            <url>https://maven.fabricmc.net/</url>
         </repository>
-      </repositories>
+        <repository>
+            <id>hydos</id>
+            <name>Hydos</name>
+            <url>https://maven.hydos.cf/releases</url>
+        </repository>
+    </repositories>
 
     <dependencies>
-
+        <dependency>
+            <groupId>io.github.coolmineman</groupId>
+            <artifactId>trieharder</artifactId>
+            <version>0.1.0</version>
+        </dependency>
         <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>

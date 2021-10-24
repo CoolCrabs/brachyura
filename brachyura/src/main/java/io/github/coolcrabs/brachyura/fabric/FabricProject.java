@@ -47,7 +47,6 @@ import io.github.coolcrabs.brachyura.exception.UnknownJsonException;
 import io.github.coolcrabs.brachyura.ide.IdeProject;
 import io.github.coolcrabs.brachyura.ide.IdeProject.IdeProjectBuilder;
 import io.github.coolcrabs.brachyura.ide.IdeProject.RunConfig.RunConfigBuilder;
-import io.github.coolcrabs.brachyura.mappings.BudgetSourceRemapper;
 import io.github.coolcrabs.brachyura.mappings.MappingHasher;
 import io.github.coolcrabs.brachyura.mappings.Namespaces;
 import io.github.coolcrabs.brachyura.mappings.tinyremapper.Jsr2JetbrainsMappingProvider;
@@ -74,6 +73,7 @@ import io.github.coolcrabs.brachyura.util.UnzipUtil;
 import io.github.coolcrabs.brachyura.util.Util;
 import io.github.coolcrabs.fabricmerge.JarMerger;
 import io.github.coolcrabs.javacompilelib.JavaCompilationUnit;
+import io.github.coolmineman.trieharder.FindReplaceSourceRemapper;
 import net.fabricmc.accesswidener.AccessWidenerReader;
 import net.fabricmc.accesswidener.AccessWidenerWriter;
 import net.fabricmc.mappingio.MappingReader;
@@ -546,7 +546,7 @@ public abstract class FabricProject extends BaseJavaProject {
                         }
                         tr.finish();
                     }
-                    BudgetSourceRemapper sourceRemapper = new BudgetSourceRemapper(mappings.get(), mappings.get().getNamespaceId(Namespaces.INTERMEDIARY), mappings.get().getNamespaceId(Namespaces.NAMED));
+                    FindReplaceSourceRemapper sourceRemapper = new FindReplaceSourceRemapper(mappings.get(), mappings.get().getNamespaceId(Namespaces.INTERMEDIARY), mappings.get().getNamespaceId(Namespaces.NAMED));
                     for (ModDependency u : unmapped) { 
                         if (u.jarDependency != null) {
                             Logger.info("Remapping " + u.jarDependency.sourcesJar.getFileName());
