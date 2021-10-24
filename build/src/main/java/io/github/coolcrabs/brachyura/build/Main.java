@@ -49,8 +49,8 @@ public class Main {
         "https://maven.fabricmc.net/net/fabricmc/tiny-remapper/0.4.2/tiny-remapper-0.4.2-sources.jar",
         "https://maven.fabricmc.net/net/fabricmc/access-widener/2.0.0/access-widener-2.0.0.jar",
         "https://maven.fabricmc.net/net/fabricmc/access-widener/2.0.0/access-widener-2.0.0-sources.jar",
-        "https://maven.hydos.cf/releases/io/github/coolmineman/trieharder/0.1.0/trieharder-0.1.2.jar",
-        "https://maven.hydos.cf/releases/io/github/coolmineman/trieharder/0.1.0/trieharder-0.1.2-sources.jar"
+        "https://maven.hydos.cf/releases/io/github/coolmineman/trieharder/0.1.2/trieharder-0.1.2.jar",
+        "https://maven.hydos.cf/releases/io/github/coolmineman/trieharder/0.1.2/trieharder-0.1.2-sources.jar"
     };
     static boolean github = Boolean.parseBoolean(System.getenv("CI"));
     static String commit = github ? getCommitHash() : null;
