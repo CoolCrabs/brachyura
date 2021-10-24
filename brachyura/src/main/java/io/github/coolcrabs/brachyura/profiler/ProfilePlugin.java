@@ -102,6 +102,7 @@ public enum ProfilePlugin implements Plugin {
             try {
                 objectName = new ObjectName("jdk.management.jfr:type=FlightRecorder");
                 if (mBeanServer.isRegistered(objectName)) {
+                    usable = true;
                     return true;
                 } else {
                     Logger.warn("JFR not found");
