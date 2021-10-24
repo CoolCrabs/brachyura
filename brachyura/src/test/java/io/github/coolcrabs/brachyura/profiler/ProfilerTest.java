@@ -1,6 +1,5 @@
 package io.github.coolcrabs.brachyura.profiler;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -11,15 +10,16 @@ import org.junit.jupiter.api.Test;
 
 class ProfilerTest {
     @Test
-    void e() throws IOException {
+    void e() throws IOException, InterruptedException {
         assertTrue(ProfilePlugin.INSTANCE.init());
         Path a = Files.createTempFile("bruh", ".jfr");
         Long b = ProfilePlugin.INSTANCE.startRecording(a);
-        String yeet = "yeet";
-        for (int i = 0; i < 10000; i++) {
-            yeet += System.currentTimeMillis();
+        long start = System.currentTimeMillis();
+        double bruh = 5;
+        while (System.currentTimeMillis() - start < 5000) {
+            bruh += Math.random();
         }
-        assertNotNull(yeet);
+        System.out.println(bruh);
         ProfilePlugin.INSTANCE.stopRecording(b);
         assertTrue(Files.exists(a));
         System.out.println(a);
