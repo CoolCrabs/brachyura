@@ -5,6 +5,7 @@ import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
@@ -100,8 +101,10 @@ public class Main {
             for (String lib : mavenLibs) {
                 boolean isJar = !lib.endsWith("-sources.jar");
                 String filename = lib.substring(lib.lastIndexOf('/') + 1);
+                HttpURLConnection connection = (HttpURLConnection) new URL(lib + ".sha1").openConnection();
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.4; en-US; rv:1.9.2.2) Gecko/20100316 Firefox/3.6.2"); // hydos moment
                 String hash;
-                try (InputStream is = new URL(lib + ".sha1").openStream()) {
+                try (InputStream is = connection.getInputStream()) {
                     hash = readFullyAsString(is);
                 }
                 w.write(lib + "\t" + hash + "\t" + filename + "\t" + isJar + "\n");
