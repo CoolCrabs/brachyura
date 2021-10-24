@@ -7,6 +7,8 @@ import java.util.Optional;
 
 import org.tinylog.Logger;
 
+import io.github.coolcrabs.brachyura.plugins.Plugin;
+import io.github.coolcrabs.brachyura.plugins.Plugins;
 import io.github.coolcrabs.brachyura.util.Util;
 
 public class BrachyuraEntry {
@@ -16,6 +18,10 @@ public class BrachyuraEntry {
 
     // Called via reflection by bootstrap
     public static void main(String[] args, Path projectDir, List<Path> classpath) {
+        List<Plugin> plugins = Plugins.getPlugins();
+        for (Plugin plugin : plugins) {
+            plugin.onEntry();
+        }
         try {
             EntryGlobals.projectDir = projectDir;
             BrachyuraEntry.classpath = classpath;
@@ -46,7 +52,13 @@ public class BrachyuraEntry {
                 }
             }
         } catch (Exception e) {
+            for (Plugin plugin : plugins) {
+                plugin.onExit();
+            }
             throw Util.sneak(e);
+        }
+        for (Plugin plugin : plugins) {
+            plugin.onExit();
         }
     }
 }
