@@ -21,6 +21,8 @@ import io.github.coolcrabs.brachyura.util.Util;
 public enum ProfilePlugin implements Plugin {
     INSTANCE;
 
+    static final boolean profile = Boolean.getBoolean("profile");
+
     boolean init = false;
     boolean usable = false;
     MBeanServer mBeanServer = ManagementFactory.getPlatformMBeanServer();
@@ -31,14 +33,14 @@ public enum ProfilePlugin implements Plugin {
 
     @Override
     public void onEntry() {
-        if (Boolean.getBoolean("profile") && init()) {
+        if (profile && init()) {
             currentRecord = startRecording(PathUtil.CWD.resolve(System.currentTimeMillis() + ".jfr"));
         }
     }
 
     @Override
     public void onExit() {
-        if (init()) {
+        if (profile && init()) {
             stopRecording(currentRecord);
         }
     }
@@ -85,6 +87,7 @@ public enum ProfilePlugin implements Plugin {
                 return null;
             });
             mBeanServer.invoke(objectName, "copyTo", copyToArgs, new String[]{long.class.getName(), String.class.getName()});
+            Logger.info("Saved jfr recording: " + copyToArgs[1]);
 
             Object[] closeRecordingArgs = new Object[] {id};
             mBeanServer.invoke(objectName, "closeRecording", closeRecordingArgs, new String[]{long.class.getName()});

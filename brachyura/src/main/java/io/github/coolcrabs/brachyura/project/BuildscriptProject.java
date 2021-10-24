@@ -48,6 +48,7 @@ class BuildscriptProject extends BaseJavaProject {
                     .name(e.getKey())
                     .cwd(cwd)
                     .mainClass("io.github.coolcrabs.brachyura.project.BuildscriptDevEntry")
+                    .classpath(getCompileDependencies())
                     .args(super.getProjectDir().toString(), e.getKey())
                 .build()
             );
