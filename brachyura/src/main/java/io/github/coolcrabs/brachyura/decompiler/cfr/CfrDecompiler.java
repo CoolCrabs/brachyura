@@ -50,7 +50,7 @@ public class CfrDecompiler implements BrachyuraDecompiler {
                 if (outputLineNumberMappings != null) {
                     cfrDriver.withOptions(CFR_OPTIONS);
                 }
-                cfrDriver.withOverrideClassFileSource(cfrClassFileSource);
+                cfrDriver.withClassFileSource(cfrClassFileSource);
                 cfrDriver.withOutputSink(cfrOutputSinkFactory);
                 if (tree != null) {
                     if (namespace >= 0 && tree instanceof MemoryMappingTree) {
