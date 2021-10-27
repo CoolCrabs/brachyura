@@ -22,9 +22,15 @@ import net.fabricmc.mappingio.tree.MemoryMappingTree;
 
 public class CfrDecompiler implements BrachyuraDecompiler {
     private static final Map<String, String> CFR_OPTIONS = new HashMap<>();
+    private static final String VERSION;
 
     static {
         CFR_OPTIONS.put("trackbytecodeloc", "true");
+        try {
+            VERSION = (String) CfrVersionInfo.class.getField("VERSION").get(null); // Java moment
+        } catch (Exception t) {
+            throw Util.sneak(t);
+        }
     }
 
     private final int threadCount;
@@ -80,7 +86,7 @@ public class CfrDecompiler implements BrachyuraDecompiler {
 
     @Override
     public String getVersion() {
-        return CfrVersionInfo.VERSION;
+        return VERSION;
     }
 
     @Override
