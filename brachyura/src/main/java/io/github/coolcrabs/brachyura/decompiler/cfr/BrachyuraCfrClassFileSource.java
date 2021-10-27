@@ -70,8 +70,7 @@ class BrachyuraCfrClassFileSource implements ClassFileSource, Closeable {
     @Override
     public Pair<byte[], String> getClassFileContent(String path) throws IOException {
         Path path2 = allClasses.get(path);
-        if (path2 == null && path.length() > 0 && path.charAt(0) != '/') path2 = allClasses.get("/" + path);
-        if (path2 != null && Files.isRegularFile(path2)) {
+        if (path2 != null) {
             try (InputStream inputStream = PathUtil.inputStream(path2)) {
                 return new Pair<>(StreamUtil.readFullyAsBytes(inputStream), path);
             }
