@@ -7,7 +7,6 @@ import java.nio.file.Path;
 
 import org.junit.jupiter.api.Test;
 
-import io.github.coolcrabs.brachyura.decompiler.BrachyuraDecompiler;
 import io.github.coolcrabs.brachyura.maven.MavenId;
 import io.github.coolcrabs.brachyura.util.JvmUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
@@ -54,10 +53,10 @@ class FabricProjectTest {
             d.addMaven(FabricMaven.URL, new MavenId(FabricMaven.GROUP_ID + ".fabric-api", "fabric-game-rule-api-v1", "1.0.7+cbda931888"), ModDependencyFlag.RUNTIME, ModDependencyFlag.COMPILE, ModDependencyFlag.JIJ);
         };
 
-        @Override
-        public BrachyuraDecompiler decompiler() {
-            return null;
-        };
+        // @Override
+        // public BrachyuraDecompiler decompiler() {
+        //     return null;
+        // };
     };
 
     @Test

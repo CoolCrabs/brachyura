@@ -19,18 +19,22 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.benf.cfr.reader.api.ClassFileSource;
 import org.benf.cfr.reader.bytecode.analysis.parse.utils.Pair;
 import org.jetbrains.annotations.Nullable;
+import org.tinylog.Logger;
 
 import io.github.coolcrabs.brachyura.util.FileSystemUtil;
 import io.github.coolcrabs.brachyura.util.JvmUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import io.github.coolcrabs.brachyura.util.StreamUtil;
+import io.github.coolcrabs.brachyura.util.Util;
 
 class BrachyuraCfrClassFileSource implements ClassFileSource, Closeable {
     private final Map<String, Path> allClasses = new HashMap<>();
+    private final ConcurrentHashMap<String, byte[]> classmap = new ConcurrentHashMap<>();
     private final List<FileSystem> toClose = new ArrayList<>();
 
     public BrachyuraCfrClassFileSource(Path mainJar, List<Path> classpath, List<String> mainClassesOut) throws IOException {
@@ -51,10 +55,11 @@ class BrachyuraCfrClassFileSource implements ClassFileSource, Closeable {
         Files.walkFileTree(fileSystem.getPath("/"), new SimpleFileVisitor<Path>() {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
-                if (file.toString().endsWith(".class")) {
-                    allClasses.put(file.toString(), file);
+                String path = file.toString().substring(1);
+                if (path.endsWith(".class")) {
+                    allClasses.put(path, file);
                     if (classesOut != null) {
-                        classesOut.add(file.toString());
+                        classesOut.add(path);
                     }
                 }
                 return FileVisitResult.CONTINUE;
@@ -74,7 +79,7 @@ class BrachyuraCfrClassFileSource implements ClassFileSource, Closeable {
         String[] jars = System.getProperty("sun.boot.class.path").split(File.pathSeparator);
         for (String jar : jars) {
             Path path = Paths.get(jar);
-            if (Files.exists(path)) { // ??? whatever sunrsasign.jar is claims to be on bootstrap classpath but doesn't exikst
+            if (Files.exists(path)) { // ??? whatever sunrsasign.jar is claims to be on bootstrap classpath but doesn't exist
                 FileSystem fs;
                 try {
                     fs = FileSystems.getFileSystem(new URI("jar:file", null, path.toUri().getPath(), ""));
@@ -118,15 +123,24 @@ class BrachyuraCfrClassFileSource implements ClassFileSource, Closeable {
 
     @Override
     public Pair<byte[], String> getClassFileContent(String path) throws IOException {
-        Path path2 = allClasses.get(path);
-        if (path2 != null) {
-            try (InputStream inputStream = PathUtil.inputStream(path2)) {
-                return new Pair<>(StreamUtil.readFullyAsBytes(inputStream), path);
+        byte[] content = classmap.computeIfAbsent(path, p -> {
+            try {
+                Path path2 = allClasses.get(path);
+                if (path2 != null) {
+                    try (InputStream inputStream = PathUtil.inputStream(path2)) {
+                        return StreamUtil.readFullyAsBytes(inputStream);
+                    }
+                } else {
+                    Logger.warn("Unable to find " + path);
+                    return null;
+                }
+            } catch (Exception e) {
+                throw Util.sneak(e);
             }
-        } else {
-            return null;
-        }
+        });
+        return new Pair<>(content, path);
     }
+        
 
     @Override
     public void close() throws IOException {
