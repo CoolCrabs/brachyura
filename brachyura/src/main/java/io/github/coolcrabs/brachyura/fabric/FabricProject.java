@@ -280,11 +280,10 @@ public abstract class FabricProject extends BaseJavaProject {
             Files.deleteIfExists(target);
             try (AtomicFile atomicFile = new AtomicFile(target)) {
                 Files.deleteIfExists(atomicFile.tempPath);
-                MemoryMappingTree mixinMappings = new MemoryMappingTree();
-                if (Files.exists(mixinOut)) MappingReader.read(mixinOut, MappingFormat.TINY, mixinMappings);
+                MemoryMappingTree compmappings = new MemoryMappingTree(mappings.get());
+                if (Files.exists(mixinOut)) MappingReader.read(mixinOut, MappingFormat.TINY, compmappings);
                 TinyRemapper remapper = TinyRemapper.newRemapper()
-                    .withMappings(new MappingTreeMappingProvider(mappings.get(), Namespaces.NAMED, Namespaces.INTERMEDIARY))
-                    .withMappings(new MappingTreeMappingProvider(mixinMappings, Namespaces.NAMED, Namespaces.INTERMEDIARY))
+                    .withMappings(new MappingTreeMappingProvider(compmappings, Namespaces.NAMED, Namespaces.INTERMEDIARY))
                     .build();
                 try {
                     for (Path path : getCompileDependencies()) {
