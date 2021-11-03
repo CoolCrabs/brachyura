@@ -6,6 +6,7 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.FileVisitResult;
@@ -17,8 +18,10 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -58,12 +61,20 @@ import io.github.coolcrabs.brachyura.maven.Maven;
 import io.github.coolcrabs.brachyura.maven.MavenId;
 import io.github.coolcrabs.brachyura.minecraft.Minecraft;
 import io.github.coolcrabs.brachyura.minecraft.VersionMeta;
+import io.github.coolcrabs.brachyura.processing.ProcessingEntry;
+import io.github.coolcrabs.brachyura.processing.ProcessingId;
+import io.github.coolcrabs.brachyura.processing.ProcessingSink;
+import io.github.coolcrabs.brachyura.processing.Processor;
+import io.github.coolcrabs.brachyura.processing.ProcessorChain;
+import io.github.coolcrabs.brachyura.processing.sinks.DirectoryProcessingSink;
+import io.github.coolcrabs.brachyura.processing.sources.DirectoryProcessingSource;
 import io.github.coolcrabs.brachyura.project.Task;
 import io.github.coolcrabs.brachyura.project.java.BaseJavaProject;
 import io.github.coolcrabs.brachyura.util.ArrayUtil;
 import io.github.coolcrabs.brachyura.util.AtomicDirectory;
 import io.github.coolcrabs.brachyura.util.AtomicFile;
 import io.github.coolcrabs.brachyura.util.FileSystemUtil;
+import io.github.coolcrabs.brachyura.util.GsonUtil;
 import io.github.coolcrabs.brachyura.util.JvmUtil;
 import io.github.coolcrabs.brachyura.util.Lazy;
 import io.github.coolcrabs.brachyura.util.MessageDigestUtil;
@@ -306,90 +317,126 @@ public abstract class FabricProject extends BaseJavaProject {
         }
     }
 
-    //TODO better process resources api
+    public enum FMJRefmapApplier implements Processor {
+        INSTANCE;
+
+        @Override
+        public void process(Collection<ProcessingEntry> inputs, ProcessingSink sink) throws IOException {
+            HashMap<String, ProcessingEntry> entries = new HashMap<>();
+            for (ProcessingEntry e : inputs) {
+                entries.put(e.id.path, e);
+            }
+            ProcessingEntry fmj = entries.get("fabric.mod.json");
+            if (fmj != null) {
+                Gson gson = new GsonBuilder().setPrettyPrinting().setLenient().create();
+                List<String> mixinjs = new ArrayList<>();
+                JsonObject fabricModJson;
+                try (BufferedReader reader = new BufferedReader(new InputStreamReader(fmj.in.get(), StandardCharsets.UTF_8))) {
+                    fabricModJson = gson.fromJson(reader, JsonObject.class);
+                }
+                JsonElement m = fabricModJson.get("mixins");
+                if (m instanceof JsonArray) {
+                    JsonArray mixins = m.getAsJsonArray();
+                    for (JsonElement a : mixins) {
+                        if (a.isJsonPrimitive()) {
+                            mixinjs.add(a.getAsString());
+                        } else if (a.isJsonObject()) {
+                            mixinjs.add(a.getAsJsonObject().get("config").getAsString());
+                        } else {
+                            throw new UnknownJsonException(a.toString());
+                        }
+                    }
+                }
+                for (String mixin : mixinjs) {
+                    ProcessingEntry entry = entries.get(mixin);
+                    entries.remove(mixin);
+                    JsonObject mixinjson;
+                    try (BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(entry.in.get(), StandardCharsets.UTF_8))) {
+                        mixinjson = gson.fromJson(bufferedReader, JsonObject.class);
+                    }
+                    if (mixinjson.get("refmap") == null) {
+                        mixinjson.addProperty("refmap", fabricModJson.get("id").getAsString() + "-refmap.json");
+                    }
+                    sink.sink(() -> GsonUtil.toIs(mixinjson, gson), entry.id);
+                }
+            }
+            entries.forEach((k, v) -> sink.sink(v.in, v.id));
+        }
+    }
+
+    public static class FmjJijApplier implements Processor {
+        final List<Path> jij;
+
+        public FmjJijApplier(List<Path> jij) {
+            this.jij = jij;
+        }
+
+        @Override
+        public void process(Collection<ProcessingEntry> inputs, ProcessingSink sink) throws IOException {
+            for (ProcessingEntry e : inputs) {
+                if (!jij.isEmpty() && "fabric.mod.json".equals(e.id.path)) {
+                    Gson gson = new GsonBuilder().setPrettyPrinting().setLenient().create();
+                    JsonObject fabricModJson;
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(e.in.get(), StandardCharsets.UTF_8))) {
+                        fabricModJson = gson.fromJson(reader, JsonObject.class);
+                    }
+                    JsonArray jars = new JsonArray();
+                    fabricModJson.add("jars", jars);
+                    List<String> used = new ArrayList<>();
+                    for (Path jar : jij) {
+                        String path = "META-INF/jars/" + jar.getFileName();
+                        int a = 0;
+                        while (used.contains(path)) {
+                            path = "META-INF/jars/" + a + jar.getFileName();
+                            a++;
+                        }
+                        JsonObject o = new JsonObject();
+                        o.addProperty("file", path);
+                        jars.add(o);
+                        used.add(path);
+                        sink.sink(() -> PathUtil.inputStream(jar), new ProcessingId(path, e.id.source));
+                    }
+                    sink.sink(() -> GsonUtil.toIs(fabricModJson, gson), e.id);
+                } else {
+                    sink.sink(e.in, e.id);
+                }
+            }
+        }
+    }
+
+    public class FmjMiscProcessor implements Processor {
+        @Override
+        public void process(Collection<ProcessingEntry> inputs, ProcessingSink sink) throws IOException {
+            for (ProcessingEntry e : inputs) {
+                if ("fabric.mod.json".equals(e.id.path)) {
+                    Gson gson = new GsonBuilder().setPrettyPrinting().setLenient().create();
+                    JsonObject fabricModJson;
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(e.in.get(), StandardCharsets.UTF_8))) {
+                        fabricModJson = gson.fromJson(reader, JsonObject.class);
+                    }
+                    fabricModJson.addProperty("version", getVersion());
+                    if (!getModId().equals(fabricModJson.get("id").getAsString())) {
+                        throw new IllegalArgumentException("Modid in fabric.mod.json not the same as buildscript");
+                    }
+                    sink.sink(() -> GsonUtil.toIs(fabricModJson, gson), e.id);
+                } else {
+                    sink.sink(e.in, e.id);
+                }
+            }
+        }
+    }
+
     @Override
     public boolean processResources(Path source, Path target) throws IOException {
-        // If you think this is bad look at what loom does
-        Gson gson = new GsonBuilder().setPrettyPrinting().setLenient().create();
-        Path fmj = source.resolve("fabric.mod.json");
-        List<String> mixinjs = new ArrayList<>();
-        List<Path> mixinFiles = new ArrayList<>();
-        if (Files.isRegularFile(fmj)) {
-            JsonObject fabricModJson;
-            try (BufferedReader reader = PathUtil.newBufferedReader(fmj)) {
-                fabricModJson = gson.fromJson(reader, JsonObject.class);
-            }
-            fabricModJson.addProperty("version", getVersion());
-            JsonElement m = fabricModJson.get("mixins");
-            if (m instanceof JsonArray) {
-                JsonArray mixins = m.getAsJsonArray();
-                for (JsonElement a : mixins) {
-                    if (a.isJsonPrimitive()) {
-                        mixinjs.add(a.getAsString());
-                    } else if (a.isJsonObject()) {
-                        mixinjs.add(a.getAsJsonObject().get("config").getAsString());
-                    } else {
-                        throw new UnknownJsonException(a.toString());
-                    }
-                }
-            }
-            List<Path> jij = new ArrayList<>();
-            for (ModDependency modDependency : modDependencies.get()) {
-                if (modDependency.flags.contains(ModDependencyFlag.JIJ)) {
-                    jij.add(modDependency.jarDependency.jar);
-                }
-            }
-            if (!jij.isEmpty()) {
-                JsonArray jars = new JsonArray();
-                fabricModJson.add("jars", jars);
-                List<String> used = new ArrayList<>();
-                for (Path jar : jij) {
-                    String path = "META-INF/jars/" + jar.getFileName();
-                    int a = 0;
-                    while (used.contains(path)) {
-                        path = "META-INF/jars/" + a + jar.getFileName();
-                    }
-                    JsonObject o = new JsonObject();
-                    o.addProperty("file", path);
-                    jars.add(o);
-                    used.add(path);
-                    Path t = PathUtil.resolveAndCreateDir(target, path);
-                    Files.copy(jar, t, StandardCopyOption.REPLACE_EXISTING);
-                }
-            }
-            try (BufferedWriter jsonWriter = PathUtil.newBufferedWriter(target.resolve("fabric.mod.json"))) {
-                gson.toJson(fabricModJson, jsonWriter);
+        List<Path> jij = new ArrayList<>();
+        for (ModDependency modDependency : modDependencies.get()) {
+            if (modDependency.flags.contains(ModDependencyFlag.JIJ)) {
+                jij.add(modDependency.jarDependency.jar);
             }
         }
-        for (String mixin : mixinjs) {
-            Path mixinsource = source.resolve(mixin);
-            mixinFiles.add(mixinsource);
-            Path mixintarget = target.resolve(mixin);
-            JsonObject mixinjson;
-            try (BufferedReader bufferedReader = Files.newBufferedReader(mixinsource)) {
-                mixinjson = gson.fromJson(bufferedReader, JsonObject.class);
-            }
-            if (mixinjson.get("refmap") == null) {
-                mixinjson.addProperty("refmap", getModId() + "-refmap.json");
-            }
-            try (BufferedWriter jsonWriter = PathUtil.newBufferedWriter(mixintarget)) {
-                gson.toJson(mixinjson, jsonWriter);
-            }
-        }
-        boolean[] result = new boolean[] {true};
-        Files.walkFileTree(source, new SimpleFileVisitor<Path>() {
-            @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                // Skip fmj and mixin files (already copied)
-                if (file.equals(fmj) || mixinFiles.contains(file) || processResource(source.relativize(file), file, target)) {
-                    return FileVisitResult.CONTINUE;
-                } else {
-                    result[0] = false;
-                    return FileVisitResult.TERMINATE;
-                }
-            }
-        });
-        return result[0];
+        ProcessorChain c = new ProcessorChain(new FmjMiscProcessor(), FMJRefmapApplier.INSTANCE, new FmjJijApplier(jij));
+        c.apply(new DirectoryProcessingSink(target), new DirectoryProcessingSource(source));
+        return true;
     }
 
     @Override
