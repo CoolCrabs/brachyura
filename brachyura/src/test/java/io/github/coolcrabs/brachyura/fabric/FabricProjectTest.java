@@ -16,16 +16,6 @@ import net.fabricmc.mappingio.tree.MappingTree;
 class FabricProjectTest {
     FabricProject fabricProject = new FabricProject() {
         @Override
-        public String getModId() {
-            return "brachyuratestmod";
-        }
-
-        @Override
-        public String getVersion() {
-            return "1.0.0";
-        }
-
-        @Override
         public String getMcVersion() {
             return "21w39a";
         }

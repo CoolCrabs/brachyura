@@ -100,14 +100,34 @@ public abstract class FabricProject extends BaseJavaProject {
     public final Lazy<MappingTree> mappings = new Lazy<>(this::createMappings);
     public abstract MappingTree createMappings();
     public abstract FabricLoader getLoader();
-    public abstract String getModId();
-    public abstract String getVersion();
+
     public final Lazy<List<ModDependency>> modDependencies = new Lazy<>(() -> {
         ModDependencyCollector d = new ModDependencyCollector();
         getModDependencies(d);
         return d.dependencies;
     });
     public abstract void getModDependencies(ModDependencyCollector d);
+
+    public String getModId() {
+        return fmjParseThingy.get()[0];
+    }
+
+    public String getVersion() {
+        return fmjParseThingy.get()[1];
+    }
+
+    private Lazy<String[]> fmjParseThingy = new Lazy<>(() -> {
+        try {
+            Gson gson = new GsonBuilder().setPrettyPrinting().setLenient().create();
+            JsonObject fabricModJson;
+            try (BufferedReader reader = PathUtil.newBufferedReader(getResourcesDir().resolve("fabric.mod.json"))) {
+                fabricModJson = gson.fromJson(reader, JsonObject.class);
+            }
+            return new String[] {fabricModJson.get("id").getAsString(), fabricModJson.get("version").getAsString()};
+        } catch (Exception e) {
+            throw Util.sneak(e);
+        }
+    });
 
     public static class ModDependencyCollector {
         public final List<ModDependency> dependencies = new ArrayList<>();
@@ -404,28 +424,6 @@ public abstract class FabricProject extends BaseJavaProject {
         }
     }
 
-    public class FmjMiscProcessor implements Processor {
-        @Override
-        public void process(Collection<ProcessingEntry> inputs, ProcessingSink sink) throws IOException {
-            for (ProcessingEntry e : inputs) {
-                if ("fabric.mod.json".equals(e.id.path)) {
-                    Gson gson = new GsonBuilder().setPrettyPrinting().setLenient().create();
-                    JsonObject fabricModJson;
-                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(e.in.get(), StandardCharsets.UTF_8))) {
-                        fabricModJson = gson.fromJson(reader, JsonObject.class);
-                    }
-                    fabricModJson.addProperty("version", getVersion());
-                    if (!getModId().equals(fabricModJson.get("id").getAsString())) {
-                        throw new IllegalArgumentException("Modid in fabric.mod.json not the same as buildscript");
-                    }
-                    sink.sink(() -> GsonUtil.toIs(fabricModJson, gson), e.id);
-                } else {
-                    sink.sink(e.in, e.id);
-                }
-            }
-        }
-    }
-
     @Override
     public boolean processResources(Path source, Path target) throws IOException {
         List<Path> jij = new ArrayList<>();
@@ -434,7 +432,7 @@ public abstract class FabricProject extends BaseJavaProject {
                 jij.add(modDependency.jarDependency.jar);
             }
         }
-        ProcessorChain c = new ProcessorChain(new FmjMiscProcessor(), FMJRefmapApplier.INSTANCE, new FmjJijApplier(jij));
+        ProcessorChain c = new ProcessorChain(FMJRefmapApplier.INSTANCE, new FmjJijApplier(jij));
         c.apply(new DirectoryProcessingSink(target), new DirectoryProcessingSource(source));
         return true;
     }
