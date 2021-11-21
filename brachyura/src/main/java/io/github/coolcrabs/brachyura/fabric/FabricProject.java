@@ -88,6 +88,7 @@ import io.github.coolmineman.trieharder.FindReplaceSourceRemapper;
 import net.fabricmc.accesswidener.AccessWidenerReader;
 import net.fabricmc.accesswidener.AccessWidenerWriter;
 import net.fabricmc.mappingio.MappingReader;
+import net.fabricmc.mappingio.adapter.MappingSourceNsSwitch;
 import net.fabricmc.mappingio.format.MappingFormat;
 import net.fabricmc.mappingio.format.Tiny2Writer;
 import net.fabricmc.mappingio.tree.MappingTree;
@@ -312,7 +313,7 @@ public abstract class FabricProject extends BaseJavaProject {
             try (AtomicFile atomicFile = new AtomicFile(target)) {
                 Files.deleteIfExists(atomicFile.tempPath);
                 MemoryMappingTree compmappings = new MemoryMappingTree(true);
-                mappings.get().accept(compmappings);
+                mappings.get().accept(new MappingSourceNsSwitch(compmappings, Namespaces.NAMED)); // Works arround mapping io not merging if a class doesn't have a "src" name
                 if (Files.exists(mixinOut)) MappingReader.read(mixinOut, MappingFormat.TINY, compmappings);
                 TinyRemapper remapper = TinyRemapper.newRemapper()
                     .withMappings(new MappingTreeMappingProvider(compmappings, Namespaces.NAMED, Namespaces.INTERMEDIARY))
