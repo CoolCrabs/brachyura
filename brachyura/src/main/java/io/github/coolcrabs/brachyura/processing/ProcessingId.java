@@ -8,4 +8,9 @@ public final class ProcessingId {
         this.path = path;
         this.source = source;
     }
+
+    @Override
+    public String toString() {
+        return "ProcessingId [path=" + path + ", source=" + source + "]";
+    }
 }

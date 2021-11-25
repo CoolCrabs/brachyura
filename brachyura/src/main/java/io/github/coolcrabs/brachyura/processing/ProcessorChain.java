@@ -2,7 +2,7 @@ package io.github.coolcrabs.brachyura.processing;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.ArrayList;
 import java.util.function.Supplier;
 
 import io.github.coolcrabs.brachyura.util.Util;
@@ -34,7 +34,7 @@ public class ProcessorChain {
     }
 
     static class Collector implements ProcessingSink {
-        ConcurrentLinkedQueue<ProcessingEntry> e = new ConcurrentLinkedQueue<>();
+        ArrayList<ProcessingEntry> e = new ArrayList<>();
 
         @Override
         public void sink(Supplier<InputStream> in, ProcessingId id) {

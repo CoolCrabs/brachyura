@@ -7,6 +7,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.FileVisitResult;
@@ -38,7 +39,8 @@ import com.google.gson.JsonObject;
 import org.jetbrains.annotations.Nullable;
 import org.tinylog.Logger;
 
-import io.github.coolcrabs.brachyura.compiler.java.JavaCompilationUnitBuilder;
+import io.github.coolcrabs.brachyura.compiler.java.BrachyuraJavaFileManager;
+import io.github.coolcrabs.brachyura.compiler.java.JavaCompilation;
 import io.github.coolcrabs.brachyura.decompiler.BrachyuraDecompiler;
 import io.github.coolcrabs.brachyura.decompiler.DecompileLineNumberTable;
 import io.github.coolcrabs.brachyura.decompiler.LineNumberTableReplacer;
@@ -55,22 +57,24 @@ import io.github.coolcrabs.brachyura.mappings.Namespaces;
 import io.github.coolcrabs.brachyura.mappings.tinyremapper.Jsr2JetbrainsMappingProvider;
 import io.github.coolcrabs.brachyura.mappings.tinyremapper.MappingTreeMappingProvider;
 import io.github.coolcrabs.brachyura.mappings.tinyremapper.PathFileConsumer;
+import io.github.coolcrabs.brachyura.mappings.tinyremapper.RemapperProcessor;
 import io.github.coolcrabs.brachyura.mappings.tinyremapper.TinyRemapperHelper;
 import io.github.coolcrabs.brachyura.mappings.tinyremapper.TinyRemapperHelper.JarType;
 import io.github.coolcrabs.brachyura.maven.Maven;
 import io.github.coolcrabs.brachyura.maven.MavenId;
 import io.github.coolcrabs.brachyura.minecraft.Minecraft;
 import io.github.coolcrabs.brachyura.minecraft.VersionMeta;
+import io.github.coolcrabs.brachyura.mixin.BrachyuraMixinCompileExtensions;
 import io.github.coolcrabs.brachyura.processing.ProcessingEntry;
 import io.github.coolcrabs.brachyura.processing.ProcessingId;
 import io.github.coolcrabs.brachyura.processing.ProcessingSink;
 import io.github.coolcrabs.brachyura.processing.Processor;
 import io.github.coolcrabs.brachyura.processing.ProcessorChain;
-import io.github.coolcrabs.brachyura.processing.sinks.DirectoryProcessingSink;
+import io.github.coolcrabs.brachyura.processing.sinks.ZipProcessingSink;
 import io.github.coolcrabs.brachyura.processing.sources.DirectoryProcessingSource;
+import io.github.coolcrabs.brachyura.processing.sources.ProcessingSponge;
 import io.github.coolcrabs.brachyura.project.Task;
 import io.github.coolcrabs.brachyura.project.java.BaseJavaProject;
-import io.github.coolcrabs.brachyura.util.ArrayUtil;
 import io.github.coolcrabs.brachyura.util.AtomicDirectory;
 import io.github.coolcrabs.brachyura.util.AtomicFile;
 import io.github.coolcrabs.brachyura.util.FileSystemUtil;
@@ -83,7 +87,6 @@ import io.github.coolcrabs.brachyura.util.StreamUtil;
 import io.github.coolcrabs.brachyura.util.UnzipUtil;
 import io.github.coolcrabs.brachyura.util.Util;
 import io.github.coolcrabs.fabricmerge.JarMerger;
-import io.github.coolcrabs.javacompilelib.JavaCompilationUnit;
 import io.github.coolmineman.trieharder.FindReplaceSourceRemapper;
 import net.fabricmc.accesswidener.AccessWidenerReader;
 import net.fabricmc.accesswidener.AccessWidenerWriter;
@@ -291,44 +294,41 @@ public abstract class FabricProject extends BaseJavaProject {
     }
 
     public boolean build() {
-        Path mixinOut = getLocalBrachyuraPath().resolve("mixinmapout.tiny");
-        PathUtil.deleteIfExists(mixinOut);
-        String[] compileArgs = ArrayUtil.join(String.class, 
-            JvmUtil.compileArgs(JvmUtil.CURRENT_JAVA_VERSION, 8),
-            "-AinMapFileNamedIntermediary=" + writeMappings4FabricStuff().toAbsolutePath().toString(),
-            "-AoutMapFileNamedIntermediary=" + mixinOut, // Remaps shadows etc
-            "-AoutRefMapFile=" + getBuildResourcesDir().resolve(getModId() + "-refmap.json").toAbsolutePath().toString(), // Remaps annotations
-            "-AdefaultObfuscationEnv=named:intermediary"
-        );
-        JavaCompilationUnit javaCompilationUnit = new JavaCompilationUnitBuilder()
-                .sourceDir(getSrcDir())
-                .outputDir(getBuildClassesDir())
-                .classpath(getCompileDependencies())
-                .options(compileArgs)
-                .build();
-        if (!compile(javaCompilationUnit)) return false;
         try {
-            Path target = getBuildJarPath();
-            Files.deleteIfExists(target);
-            try (AtomicFile atomicFile = new AtomicFile(target)) {
+            String mixinOut = "mixinmapout.tiny";
+            JavaCompilation compilation = new JavaCompilation()
+                .addOption(JvmUtil.compileArgs(JvmUtil.CURRENT_JAVA_VERSION, 8))
+                .addOption(
+                    "-AbrachyuraInMap=" + writeMappings4FabricStuff().toAbsolutePath().toString(),
+                    "-AbrachyuraOutMap=" + mixinOut, // Remaps shadows etc
+                    "-AbrachyuraInNamespace=" + Namespaces.NAMED,
+                    "-AbrachyuraOutNamespace=" + Namespaces.INTERMEDIARY,
+                    "-AoutRefMapFile=" + getModId() + "-refmap.json", // Remaps annotations
+                    "-AdefaultObfuscationEnv=brachyura"
+                )
+                .addClasspath(getCompileDependencies())
+                .addSourceDir(getSrcDir());
+            BrachyuraJavaFileManager fm = new BrachyuraJavaFileManager();
+            if (!compilation.compile(fm)) return false;
+            ProcessingSponge compilationOutput = new ProcessingSponge();
+            fm.getProcessingSource().getInputs(compilationOutput);
+            MemoryMappingTree compmappings = new MemoryMappingTree(true);
+            mappings.get().accept(new MappingSourceNsSwitch(compmappings, Namespaces.NAMED));
+            ProcessingEntry mixinMappings = compilationOutput.popEntry(mixinOut);
+            if (mixinMappings != null) {
+                try (Reader reader = new InputStreamReader(mixinMappings.in.get())) {
+                    MappingReader.read(reader, MappingFormat.TINY_2, compmappings);
+                }
+            }
+            ProcessingSponge trout = new ProcessingSponge();
+            new ProcessorChain(
+                new RemapperProcessor(TinyRemapper.newRemapper().withMappings(new MappingTreeMappingProvider(compmappings, Namespaces.NAMED, Namespaces.INTERMEDIARY)), getCompileDependencies())
+            ).apply(trout, compilationOutput);
+            try (AtomicFile atomicFile = new AtomicFile(getBuildJarPath())) {
                 Files.deleteIfExists(atomicFile.tempPath);
-                MemoryMappingTree compmappings = new MemoryMappingTree(true);
-                mappings.get().accept(new MappingSourceNsSwitch(compmappings, Namespaces.NAMED)); // Works arround mapping io not merging if a class doesn't have a "src" name
-                if (Files.exists(mixinOut)) MappingReader.read(mixinOut, MappingFormat.TINY, compmappings);
-                TinyRemapper remapper = TinyRemapper.newRemapper()
-                    .withMappings(new MappingTreeMappingProvider(compmappings, Namespaces.NAMED, Namespaces.INTERMEDIARY))
-                    .build();
-                try {
-                    for (Path path : getCompileDependencies()) {
-                        TinyRemapperHelper.readJar(remapper, path, JarType.CLASSPATH);
-                    }
-                    TinyRemapperHelper.readDir(remapper, getBuildClassesDir(), JarType.INPUT);
-                    try (FileSystem outputFileSystem = FileSystemUtil.newJarFileSystem(atomicFile.tempPath)) {
-                        remapper.apply(new PathFileConsumer(outputFileSystem.getPath("/")));
-                        TinyRemapperHelper.copyNonClassfilesFromDir(getBuildResourcesDir(), outputFileSystem);
-                    }
-                } finally {
-                    remapper.finish();
+                try (ZipProcessingSink out = new ZipProcessingSink(atomicFile.tempPath)) {
+                    processResourcesChain().apply(out, new DirectoryProcessingSource(getResourcesDir()));
+                    trout.getInputs(out);
                 }
                 atomicFile.commit();
             }
@@ -425,17 +425,14 @@ public abstract class FabricProject extends BaseJavaProject {
         }
     }
 
-    @Override
-    public boolean processResources(Path source, Path target) throws IOException {
+    public ProcessorChain processResourcesChain() {
         List<Path> jij = new ArrayList<>();
         for (ModDependency modDependency : modDependencies.get()) {
             if (modDependency.flags.contains(ModDependencyFlag.JIJ)) {
                 jij.add(modDependency.jarDependency.jar);
             }
         }
-        ProcessorChain c = new ProcessorChain(FMJRefmapApplier.INSTANCE, new FmjJijApplier(jij));
-        c.apply(new DirectoryProcessingSink(target), new DirectoryProcessingSource(source));
-        return true;
+        return new ProcessorChain(FMJRefmapApplier.INSTANCE, new FmjJijApplier(jij));
     }
 
     @Override
@@ -447,7 +444,7 @@ public abstract class FabricProject extends BaseJavaProject {
             }
         }
         result.add(namedJar.get().jar);
-        result.add(Maven.getMavenJarDep(FabricMaven.URL, FabricMaven.mixinCompileExtensions("0.4.6")).jar);
+        result.add(BrachyuraMixinCompileExtensions.getJar());
         for (ModDependency dep : remappedModDependencies.get()) {
             if (dep.flags.contains(ModDependencyFlag.COMPILE)) result.add(dep.jarDependency.jar);
         }
