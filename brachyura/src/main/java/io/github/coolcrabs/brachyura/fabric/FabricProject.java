@@ -70,8 +70,10 @@ import io.github.coolcrabs.brachyura.processing.ProcessingId;
 import io.github.coolcrabs.brachyura.processing.ProcessingSink;
 import io.github.coolcrabs.brachyura.processing.Processor;
 import io.github.coolcrabs.brachyura.processing.ProcessorChain;
+import io.github.coolcrabs.brachyura.processing.sinks.DirectoryProcessingSink;
 import io.github.coolcrabs.brachyura.processing.sinks.ZipProcessingSink;
 import io.github.coolcrabs.brachyura.processing.sources.DirectoryProcessingSource;
+import io.github.coolcrabs.brachyura.processing.sources.FilteringProcessingSource;
 import io.github.coolcrabs.brachyura.processing.sources.ProcessingSponge;
 import io.github.coolcrabs.brachyura.project.Task;
 import io.github.coolcrabs.brachyura.project.java.BaseJavaProject;
@@ -425,6 +427,37 @@ public abstract class FabricProject extends BaseJavaProject {
         }
     }
 
+    public static class AccessWidenerRemapper implements Processor {
+        final MappingTree mappings;
+        final int namespace;
+
+        public AccessWidenerRemapper(MappingTree mappings, int namespace) {
+            this.mappings = mappings;
+            this.namespace = namespace;
+        }
+
+        @Override
+        public void process(Collection<ProcessingEntry> inputs, ProcessingSink sink) throws IOException {
+            for (ProcessingEntry entry : inputs) {
+                if (entry.id.path.endsWith(".accesswidener")) {
+                    try (BufferedReader r = new BufferedReader(new InputStreamReader(entry.in.get()))) {
+                        // TODO this is dumb
+                        r.mark(20);
+                        int v = AccessWidenerReader.readVersion(r);
+                        r.reset();
+                        AccessWidenerWriter w = new AccessWidenerWriter(v);
+                        AccessWidenerNamespaceChanger nc = new AccessWidenerNamespaceChanger(w, mappings, namespace, entry.id.path);
+                        new AccessWidenerReader(nc).read(r);
+                        sink.sink(() -> new ByteArrayInputStream(w.write()), entry.id);
+                    }
+                } else {
+                    sink.sink(entry.in, entry.id);
+                }
+            }
+            
+        }
+    }
+
     public ProcessorChain processResourcesChain() {
         List<Path> jij = new ArrayList<>();
         for (ModDependency modDependency : modDependencies.get()) {
@@ -432,7 +465,7 @@ public abstract class FabricProject extends BaseJavaProject {
                 jij.add(modDependency.jarDependency.jar);
             }
         }
-        return new ProcessorChain(FMJRefmapApplier.INSTANCE, new FmjJijApplier(jij));
+        return new ProcessorChain(FMJRefmapApplier.INSTANCE, new FmjJijApplier(jij), new AccessWidenerRemapper(mappings.get(), mappings.get().getNamespaceId(Namespaces.INTERMEDIARY)));
     }
 
     @Override
@@ -556,31 +589,11 @@ public abstract class FabricProject extends BaseJavaProject {
                             tr.apply(new PathFileConsumer(ri.outFs.getPath("/")), ri.tag);
                             // TODO strip jij?
                             // TODO add fmj for non mod for jij
-                            Files.walkFileTree(ri.fs.getPath("/"), new SimpleFileVisitor<Path>() {
-                                @Override
-                                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                                    String fileString = file.toString();
-                                    if (!fileString.endsWith(".class")) {
-                                        Path target = ri.outFs.getPath("/").resolve(ri.fs.getPath("/").relativize(file).toString());
-                                        Files.createDirectories(target.getParent());
-                                        if (fileString.endsWith(".accesswidener")) {
-                                            try (BufferedReader r = Files.newBufferedReader(file)) {
-                                                // TODO this is dumb
-                                                r.mark(20);
-                                                int v = AccessWidenerReader.readVersion(r);
-                                                r.reset();
-                                                AccessWidenerWriter w = new AccessWidenerWriter(v);
-                                                AccessWidenerNamespaceChanger nc = new AccessWidenerNamespaceChanger(w, mappings.get(), mappings.get().getNamespaceId(Namespaces.NAMED), Objects.toString(ri.dep.jarDependency.mavenId) + " (" +  fileString + ")");
-                                                new AccessWidenerReader(nc).read(r);
-                                                Files.copy(new ByteArrayInputStream(w.write()), target);
-                                            }
-                                        } else {
-                                            Files.copy(file, target);
-                                        }
-                                    }
-                                    return FileVisitResult.CONTINUE;
-                                }
-                            });
+                            new ProcessorChain(new AccessWidenerRemapper(mappings.get(), mappings.get().getNamespaceId(Namespaces.NAMED)))
+                                .apply(
+                                    new DirectoryProcessingSink(ri.outFs.getPath("/")),
+                                    new FilteringProcessingSource(new DirectoryProcessingSource(ri.fs.getPath("/")), e -> !e.id.path.endsWith(".class"))
+                                );
                         }
                     } finally {
                         for (RemapInfo c : b) {
