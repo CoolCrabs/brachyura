@@ -20,6 +20,11 @@ cd ..
 cd crabloader
 mvn clean package verify install
 cd ..
+cd brachyura-mixin-compile-extensions
+# needs to be seperate or service loader will explode?
+mvn clean package
+mvn clean install
+cd ..
 cd brachyura
 mvn clean package verify
 cd ..

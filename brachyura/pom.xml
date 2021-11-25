@@ -70,7 +70,7 @@
         <dependency>
             <groupId>io.github.coolcrabs</groupId>
             <artifactId>brachyura-mixin-compile-extensions</artifactId>
-            <version>0.1-SNAPSHOT</version>
+            <version>0.1</version>
         </dependency>
         <!-- <dependency>
             <groupId>io.github.coolcrabs</groupId>
