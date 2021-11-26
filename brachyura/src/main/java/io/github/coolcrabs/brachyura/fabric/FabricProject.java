@@ -642,11 +642,6 @@ public abstract class FabricProject extends BaseJavaProject {
 
     public void hashDep(MessageDigest md, JavaJarDependency dep) {
         if (dep.mavenId == null) {
-            // Hash the id if it exists
-            MessageDigestUtil.update(md, dep.mavenId.artifactId);
-            MessageDigestUtil.update(md, dep.mavenId.groupId);
-            MessageDigestUtil.update(md, dep.mavenId.version);
-        } else {
             // Hash all the metadata if no id
             MessageDigestUtil.update(md, dep.jar.toAbsolutePath().toString());
             BasicFileAttributes attr;
@@ -659,6 +654,11 @@ public abstract class FabricProject extends BaseJavaProject {
             } catch (IOException e) {
                 Logger.warn(e);
             }
+        } else {
+            // Hash the id if it exists
+            MessageDigestUtil.update(md, dep.mavenId.artifactId);
+            MessageDigestUtil.update(md, dep.mavenId.groupId);
+            MessageDigestUtil.update(md, dep.mavenId.version);
         }
     }
 
