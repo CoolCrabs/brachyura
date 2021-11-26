@@ -64,8 +64,13 @@ class J8FabricProjectTest {
         long a = System.currentTimeMillis();
         //Todo better api for this?
         fabricProject.getTasks(p -> {
-            if (p.name.equals("vscode")) p.doTask(new String[]{});
-            if (p.name.equals("netbeans")) p.doTask(new String[]{});
+            try {
+                if (p.name.equals("vscode")) p.doTask(new String[]{});
+                if (p.name.equals("netbeans")) p.doTask(new String[]{});
+            } catch (Exception e) {
+                e.printStackTrace();
+                throw e;
+            }
         });
         long b = System.currentTimeMillis();
         System.out.println(b - a);
