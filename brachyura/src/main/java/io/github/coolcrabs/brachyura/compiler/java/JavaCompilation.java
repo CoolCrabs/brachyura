@@ -25,6 +25,7 @@ import io.github.coolcrabs.brachyura.util.Util;
 public class JavaCompilation {
     private ArrayList<String> options = new ArrayList<>();
     private ArrayList<Path> sourceFiles = new ArrayList<>();
+    private ArrayList<Path> sourcePath = new ArrayList<>();
     private ArrayList<Path> classpath = new ArrayList<>();
     private JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
 
@@ -47,6 +48,30 @@ public class JavaCompilation {
                         sourceFiles.add(file);
                     } else {
                         Logger.warn("Unrecognized file type for file {} in java src dir", file);
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+        } catch (IOException e) {
+            throw Util.sneak(e);
+        }
+        return this;
+    }
+
+    public JavaCompilation addSourcePathFile(Path path) {
+        this.sourcePath.add(path);
+        return this;
+    }
+
+    public JavaCompilation addSourcePathDir(Path path) {
+        try {
+            Files.walkFileTree(path, new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                    if (file.getFileName().toString().endsWith(".java")) {
+                        sourcePath.add(file);
+                    } else {
+                        Logger.warn("Unrecognized file type for file {} in java src path dir", file);
                     }
                     return FileVisitResult.CONTINUE;
                 }
@@ -83,6 +108,7 @@ public class JavaCompilation {
     public boolean compile(StandardJavaFileManager fileManager) {
         try {
             fileManager.setLocation(StandardLocation.CLASS_PATH, bruh(classpath));
+            fileManager.setLocation(StandardLocation.SOURCE_PATH, bruh(sourcePath));
         } catch (IOException e) {
             throw Util.sneak(e);
         }
