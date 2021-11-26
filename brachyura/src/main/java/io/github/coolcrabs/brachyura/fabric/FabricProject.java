@@ -601,7 +601,7 @@ public abstract class FabricProject extends BaseJavaProject {
                     }
                     FindReplaceSourceRemapper sourceRemapper = new FindReplaceSourceRemapper(mappings.get(), mappings.get().getNamespaceId(Namespaces.INTERMEDIARY), mappings.get().getNamespaceId(Namespaces.NAMED));
                     for (ModDependency u : unmapped) { 
-                        if (u.jarDependency != null) {
+                        if (u.jarDependency.sourcesJar != null) {
                             Logger.info("Remapping " + u.jarDependency.sourcesJar.getFileName());
                             long start = System.currentTimeMillis();
                             Path target = a.tempPath.resolve(u.jarDependency.jar.getFileName().toString().replace(".jar", "-sources.jar"));
