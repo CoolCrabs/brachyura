@@ -1,5 +1,7 @@
 package io.github.coolcrabs.brachyura.minecraft;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -12,7 +14,9 @@ import org.junit.jupiter.api.Test;
 import io.github.coolcrabs.brachyura.dependency.Dependency;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 import io.github.coolcrabs.brachyura.dependency.NativesJarDependency;
+import io.github.coolcrabs.brachyura.mappings.Namespaces;
 import io.github.coolcrabs.brachyura.minecraft.LauncherMeta.Version;
+import net.fabricmc.mappingio.tree.MappingTree;
 
 class MinecraftTest {
     @Test
@@ -43,6 +47,15 @@ class MinecraftTest {
                 assertNotNull(((NativesJarDependency)lib).jar);
             }
         }
+    }
+
+    @Test
+    void ojmap1_16() {
+        MappingTree mappings = Minecraft.getMojmap("1.16.5", Minecraft.getVersion("1.16.5"));
+        System.out.println(mappings.getNamespaceId(Namespaces.OBF));
+        assertEquals(-1, mappings.getNamespaceId(Namespaces.OBF));
+        assertEquals(0, mappings.getNamespaceId(Namespaces.NAMED));
+        assertEquals("youJustLostTheGame", mappings.getClass("ddt").getMethod("a", "()V").getName(0));
     }
 
     @Disabled("Very agresssive")

@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.Reader;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -22,6 +23,7 @@ import io.github.coolcrabs.brachyura.dependency.Dependency;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 import io.github.coolcrabs.brachyura.dependency.NativesJarDependency;
 import io.github.coolcrabs.brachyura.exception.IncorrectHashException;
+import io.github.coolcrabs.brachyura.mappings.Namespaces;
 import io.github.coolcrabs.brachyura.maven.Maven;
 import io.github.coolcrabs.brachyura.maven.MavenId;
 import io.github.coolcrabs.brachyura.minecraft.LauncherMeta.Version;
@@ -35,6 +37,11 @@ import io.github.coolcrabs.brachyura.util.NetUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import io.github.coolcrabs.brachyura.util.StreamUtil;
 import io.github.coolcrabs.brachyura.util.Util;
+import net.fabricmc.mappingio.MappingVisitor;
+import net.fabricmc.mappingio.adapter.MappingSourceNsSwitch;
+import net.fabricmc.mappingio.format.ProGuardReader;
+import net.fabricmc.mappingio.tree.MappingTree;
+import net.fabricmc.mappingio.tree.MemoryMappingTree;
 
 public class Minecraft {
     private Minecraft() { }
@@ -87,6 +94,26 @@ public class Minecraft {
                 PathUtil.moveAtoB(tempPath, downloadPath);
             }
             return downloadPath;
+        } catch (Exception e) {
+            throw Util.sneak(e);
+        }
+    }
+
+    /**
+     * From obf to named. You likely want to merge this with intermediary
+     */
+    public static MappingTree getMojmap(String version, VersionMeta meta) {
+        try {
+            MemoryMappingTree r = new MemoryMappingTree(true);
+            try (
+                Reader a = Files.newBufferedReader(getDownload(version, meta, "client_mappings"));
+                Reader b = Files.newBufferedReader(getDownload(version, meta, "server_mappings"));
+            ) {
+                MappingVisitor v = new MappingSourceNsSwitch(r, Namespaces.OBF);
+                ProGuardReader.read(a, Namespaces.NAMED, Namespaces.OBF, v);
+                ProGuardReader.read(b, Namespaces.NAMED, Namespaces.OBF, v);
+            }
+            return r;
         } catch (Exception e) {
             throw Util.sneak(e);
         }
