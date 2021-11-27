@@ -64,6 +64,7 @@ class FabricProjectTest {
         fabricProject.getTasks(p -> {
             if (p.name.equals("vscode")) p.doTask(new String[]{});
             if (p.name.equals("netbeans")) p.doTask(new String[]{});
+            if (p.name.equals("idea")) p.doTask(new String[]{});
         });
         long b = System.currentTimeMillis();
         System.out.println(b - a);

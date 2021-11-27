@@ -3,3 +3,5 @@ build
 .brachyura
 run
 netbeans
+*.iml
+.idea

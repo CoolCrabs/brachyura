@@ -6,7 +6,8 @@ public interface Ide {
     public static Ide[] getIdes() {
         return new Ide[] {
             Vscode.INSTANCE,
-            Netbeans.INSTANCE
+            Netbeans.INSTANCE,
+            Intellijank.INSTANCE
         };
     }
 

@@ -67,6 +67,7 @@ class J8FabricProjectTest {
             try {
                 if (p.name.equals("vscode")) p.doTask(new String[]{});
                 if (p.name.equals("netbeans")) p.doTask(new String[]{});
+                if (p.name.equals("idea")) p.doTask(new String[]{});
             } catch (Exception e) {
                 e.printStackTrace();
                 throw e;
