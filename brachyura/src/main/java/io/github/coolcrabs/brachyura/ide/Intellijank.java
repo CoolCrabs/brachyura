@@ -1,9 +1,14 @@
 package io.github.coolcrabs.brachyura.ide;
 
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+
+import javax.xml.stream.XMLStreamException;
 
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
+import io.github.coolcrabs.brachyura.ide.IdeProject.RunConfig;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import io.github.coolcrabs.brachyura.util.Util;
 import io.github.coolcrabs.brachyura.util.XmlUtil;
@@ -131,8 +136,69 @@ public enum Intellijank implements Ide {
                     w.writeEndDocument();
                 }
             }
+            Path runConfigPath = PathUtil.resolveAndCreateDir(ideaPath, "runConfigurations");
+            for (RunConfig run : ideProject.runConfigs) {
+                try (FormattedXMLStreamWriter w = XmlUtil.newStreamWriter(Files.newBufferedWriter(runConfigPath.resolve(run.name + ".xml")))) {
+                    w.writeStartDocument();
+                    w.newline();
+                    w.writeStartElement("component");
+                    w.writeAttribute("name", "ProjectRunConfigurationManager");
+                    w.indent();
+                    w.newline();
+                        w.writeStartElement("configuration");
+                        w.writeAttribute("default", "false");
+                        w.writeAttribute("name", run.name);
+                        w.writeAttribute("type", "Application");
+                        w.writeAttribute("nameIsGenerated", "true"); // ?
+                        w.indent();
+                        option(w, "MAIN_CLASS_NAME", run.mainClass);
+                        option(w, "name", "main");
+                        option(w, "WORKING_DIRECTORY", run.cwd.toString());
+                        StringBuilder vmParam = new StringBuilder();
+                        for (String arg : run.vmArgs) {
+                            vmParam.append(quote(arg));
+                            vmParam.append(' ');
+                        }
+                        vmParam.append(" -cp ");
+                        ArrayList<Path> cp = new ArrayList<>(run.classpath);
+                        cp.add(projectDir.resolve(".brachyura").resolve("ideaout").resolve("production").resolve("main")); // ???
+                        StringBuilder cpbuilder = new StringBuilder();
+                        for (Path cp0 : cp) {
+                            cpbuilder.append(cp0.toString());
+                            cpbuilder.append(File.pathSeparatorChar);
+                        }
+                        cpbuilder.setLength(Math.max(cpbuilder.length() - 1, 0));
+                        vmParam.append(quote(cpbuilder.toString()));
+                        option(w, "VM_PARAMETERS", vmParam.toString());
+                        StringBuilder runArg = new StringBuilder();
+                        for (String arg : run.args) {
+                            runArg.append(quote(arg));
+                            runArg.append(' ');
+                        }
+                        runArg.setLength(Math.max(runArg.length() - 1, 0));
+                        option(w, "PROGRAM_PARAMETERS", runArg.toString());
+                        w.unindent();
+                        w.newline();
+                        w.writeEndElement();
+                    w.unindent();
+                    w.newline();
+                    w.writeEndElement();
+                    w.writeEndDocument();
+                }
+            }
         } catch (Exception e) {
             throw Util.sneak(e);
         }
     }
+
+    static void option(FormattedXMLStreamWriter w, String name, String value) throws XMLStreamException {
+        w.newline();
+        w.writeEmptyElement("option");
+        w.writeAttribute("name", name);
+        w.writeAttribute("value", value);
+    }
+
+    static String quote(String arg) {
+        return '"' + arg.replace("\\", "\\\\").replace("\"", "\\\"") + '"';
+    } 
 }
