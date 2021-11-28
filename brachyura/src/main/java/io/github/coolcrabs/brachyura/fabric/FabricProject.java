@@ -34,6 +34,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import org.jetbrains.annotations.Nullable;
+import org.objectweb.asm.Opcodes;
 import org.tinylog.Logger;
 
 import io.github.coolcrabs.brachyura.compiler.java.BrachyuraJavaFileManager;
@@ -87,7 +88,10 @@ import io.github.coolcrabs.brachyura.util.UnzipUtil;
 import io.github.coolcrabs.brachyura.util.Util;
 import io.github.coolcrabs.fabricmerge.JarMerger;
 import io.github.coolmineman.trieharder.FindReplaceSourceRemapper;
+import net.fabricmc.accesswidener.AccessWidener;
+import net.fabricmc.accesswidener.AccessWidenerClassVisitor;
 import net.fabricmc.accesswidener.AccessWidenerReader;
+import net.fabricmc.accesswidener.AccessWidenerVisitor;
 import net.fabricmc.accesswidener.AccessWidenerWriter;
 import net.fabricmc.mappingio.MappingReader;
 import net.fabricmc.mappingio.adapter.MappingSourceNsSwitch;
@@ -103,6 +107,9 @@ public abstract class FabricProject extends BaseJavaProject {
     public final Lazy<MappingTree> mappings = new Lazy<>(this::createMappings);
     public abstract MappingTree createMappings();
     public abstract FabricLoader getLoader();
+    public @Nullable Consumer<AccessWidenerVisitor> getAw() {
+        return null;
+    }
 
     public final Lazy<List<ModDependency>> modDependencies = new Lazy<>(() -> {
         ModDependencyCollector d = new ModDependencyCollector();
@@ -713,7 +720,7 @@ public abstract class FabricProject extends BaseJavaProject {
             Path result = fabricCache().resolve("intermediary").resolve(getMcVersion() + "-intermediary-" + intermediaryHash + ".jar");
             if (!Files.isRegularFile(result)) {
                 try (AtomicFile atomicFile = new AtomicFile(result)) {
-                    remapJar(intermediary.tree, Namespaces.OBF, Namespaces.INTERMEDIARY, mergedJar, atomicFile.tempPath, mcClasspathPaths.get());
+                    remapJar(intermediary.tree, null, Namespaces.OBF, Namespaces.INTERMEDIARY, mergedJar, atomicFile.tempPath, mcClasspathPaths.get());
                     atomicFile.commit();
                 }
             }
@@ -724,11 +731,14 @@ public abstract class FabricProject extends BaseJavaProject {
     public RemappedJar createNamedJar() {
         Path intermediaryJar2 = intermediaryjar.get().jar;
         Intermediary intermediary = getIntermediary();
-        String mappingHash = MappingHasher.hashSha256(intermediary.tree, mappings.get());
+        MessageDigest md = MessageDigestUtil.messageDigest(MessageDigestUtil.SHA256);
+        MappingHasher.hash(md, intermediary.tree, mappings.get());
+        if (getAw() != null) AccessWidenerHasher.hash(md, getAw());
+        String mappingHash = MessageDigestUtil.toHexHash(md.digest());
         Path result = fabricCache().resolve("named").resolve(getMcVersion() + "-named-" + mappingHash + ".jar");
         if (!Files.isRegularFile(result)) {
             try (AtomicFile atomicFile = new AtomicFile(result)) {
-                remapJar(mappings.get(), Namespaces.INTERMEDIARY, Namespaces.NAMED, intermediaryJar2, atomicFile.tempPath, mcClasspathPaths.get());
+                remapJar(mappings.get(), getAw(), Namespaces.INTERMEDIARY, Namespaces.NAMED, intermediaryJar2, atomicFile.tempPath, mcClasspathPaths.get());
                 atomicFile.commit();
             }
         }
@@ -763,13 +773,18 @@ public abstract class FabricProject extends BaseJavaProject {
         return new JavaJarDependency(result3, result, null);
     }
 
-    public void remapJar(MappingTree mappings, String src, String dst, Path inputJar, Path outputJar, List<Path> classpath) {
-        TinyRemapper remapper = TinyRemapper.newRemapper()
+    public void remapJar(MappingTree mappings, @Nullable Consumer<AccessWidenerVisitor> aw, String src, String dst, Path inputJar, Path outputJar, List<Path> classpath) {
+        TinyRemapper.Builder remapperBuilder = TinyRemapper.newRemapper()
             .withMappings(new MappingTreeMappingProvider(mappings, src, dst))
             .withMappings(Jsr2JetbrainsMappingProvider.INSTANCE)
             .renameInvalidLocals(true)
-            .rebuildSourceFilenames(true)
-            .build();
+            .rebuildSourceFilenames(true);
+        if (aw != null) {
+            AccessWidener accessWidener = new AccessWidener();
+            aw.accept(accessWidener);
+            remapperBuilder.extraPostApplyVisitor((cls, next) -> AccessWidenerClassVisitor.createClassVisitor(Opcodes.ASM9, next, accessWidener));
+        }
+        TinyRemapper remapper = remapperBuilder.build();
         try {
             Files.deleteIfExists(outputJar);
         } catch (IOException e) {

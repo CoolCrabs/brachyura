@@ -100,4 +100,12 @@
         </plugins>
     </build>
 
+    <distributionManagement>
+        <repository>
+            <id>hydos-repository-releases</id>
+            <name>hydos's maven</name>
+            <url>https://maven.hydos.cf/releases</url>
+        </repository>
+    </distributionManagement>
+
 </project>

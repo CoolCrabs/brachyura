@@ -19,7 +19,12 @@ public class MappingHasher implements MappingVisitor {
 
     public static String hashSha256(MappingTree... trees) {
         MessageDigest digest = MessageDigestUtil.messageDigest(MessageDigestUtil.SHA256);
-        MappingHasher mappingHasher = new MappingHasher(digest);
+        hash(digest, trees);
+        return MessageDigestUtil.toHexHash(digest.digest());
+    }
+
+    public static void hash(MessageDigest md, MappingTree... trees) {
+        MappingHasher mappingHasher = new MappingHasher(md);
         try {
             for (MappingTree tree : trees) {
                 tree.accept(mappingHasher);
@@ -27,7 +32,6 @@ public class MappingHasher implements MappingVisitor {
         } catch (IOException e) {
             throw Util.sneak(e);
         }
-        return MessageDigestUtil.toHexHash(digest.digest());
     }
 
     private void update(String string) {

@@ -2,14 +2,20 @@ package io.github.coolcrabs.brachyura.fabric;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.function.Consumer;
 
 import org.junit.jupiter.api.Test;
 
 import io.github.coolcrabs.brachyura.decompiler.BrachyuraDecompiler;
+import io.github.coolcrabs.brachyura.mappings.Namespaces;
 import io.github.coolcrabs.brachyura.maven.MavenId;
 import io.github.coolcrabs.brachyura.util.PathUtil;
+import net.fabricmc.accesswidener.AccessWidenerReader;
+import net.fabricmc.accesswidener.AccessWidenerVisitor;
 import net.fabricmc.mappingio.tree.MappingTree;
 
 class J8FabricProjectTest {
@@ -18,6 +24,16 @@ class J8FabricProjectTest {
         public String getMcVersion() {
             return "1.16.5";
         }
+
+        public Consumer<AccessWidenerVisitor> getAw() {
+            return (v) -> {
+                try {
+                    new AccessWidenerReader(v).read(Files.newBufferedReader(getResourcesDir().resolve("testaw.accesswidener")), Namespaces.NAMED);
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            };
+        };
 
         @Override
         public MappingTree createMappings() {

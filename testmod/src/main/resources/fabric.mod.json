@@ -7,9 +7,13 @@
     "entrypoints": {
         "main": [
             "io.github.coolcrabs.testmod.TestMod"
+        ],
+        "client": [
+            "io.github.coolcrabs.testmod.TestModClient"
         ]
     },
     "mixins": [
         "brachyuratestmod.mixins.json"
-    ]
+    ],
+    "accessWidener" : "testaw.accesswidener"
 }
