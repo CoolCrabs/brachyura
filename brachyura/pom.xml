@@ -5,7 +5,7 @@
 
     <groupId>io.github.coolcrabs</groupId>
     <artifactId>brachyura</artifactId>
-    <version>0.23</version>
+    <version>0.24</version>
 
     <properties>
         <java.version>1.8</java.version>
@@ -85,7 +85,7 @@
         <dependency>
             <groupId>net.fabricmc</groupId>
             <artifactId>tiny-remapper</artifactId>
-            <version>0.4.2</version>
+            <version>0.7.0</version>
         </dependency>
         <dependency>
             <groupId>net.fabricmc</groupId>

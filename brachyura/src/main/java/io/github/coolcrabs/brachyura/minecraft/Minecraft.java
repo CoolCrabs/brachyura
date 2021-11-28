@@ -100,6 +100,10 @@ public class Minecraft {
     }
 
     /**
+     * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+     * !!!DON'T USE THIS IF YOU DON'T KNOW EXACTLY WHAT YOU ARE DOING!!!
+     * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+     * 
      * From obf to named. You likely want to merge this with intermediary
      */
     public static MappingTree getMojmap(String version, VersionMeta meta) {

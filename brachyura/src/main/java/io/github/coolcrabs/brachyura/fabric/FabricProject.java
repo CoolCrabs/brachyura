@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -99,6 +100,9 @@ import net.fabricmc.mappingio.format.MappingFormat;
 import net.fabricmc.mappingio.format.Tiny2Writer;
 import net.fabricmc.mappingio.tree.MappingTree;
 import net.fabricmc.mappingio.tree.MemoryMappingTree;
+import net.fabricmc.mappingio.tree.MappingTree.ClassMapping;
+import net.fabricmc.mappingio.tree.MappingTree.FieldMapping;
+import net.fabricmc.mappingio.tree.MappingTree.MethodMapping;
 import net.fabricmc.tinyremapper.InputTag;
 import net.fabricmc.tinyremapper.TinyRemapper;
 
@@ -124,6 +128,36 @@ public abstract class FabricProject extends BaseJavaProject {
 
     public String getVersion() {
         return fmjParseThingy.get()[1];
+    }
+
+    public MappingTree createMojmap() {
+        try {
+            MemoryMappingTree r = new MemoryMappingTree(true);
+            getIntermediary().tree.accept(r);
+            Minecraft.getMojmap(getMcVersion(), Minecraft.getVersion(getMcVersion())).accept(r);
+            int intId = r.getNamespaceId(Namespaces.INTERMEDIARY);
+            Iterator<? extends ClassMapping> clsIt = ((MappingTree)r).getClasses().iterator();
+            while (clsIt.hasNext()) {
+                ClassMapping cls = clsIt.next();
+                if (cls.getName(intId) == null) {
+                    clsIt.remove();
+                } else {
+                    Iterator<? extends MethodMapping> methodIt = cls.getMethods().iterator();
+                    while (methodIt.hasNext()) {
+                        MethodMapping method = methodIt.next();
+                        if (method.getName(intId) == null) methodIt.remove();
+                    }
+                    Iterator<? extends FieldMapping> fieldIt = cls.getFields().iterator();
+                    while (fieldIt.hasNext()) {
+                        FieldMapping field = fieldIt.next();
+                        if (field.getName(intId) == null) fieldIt.remove();
+                    }
+                }
+            }
+            return r;
+        } catch (IOException e) {
+            throw Util.sneak(e);
+        }
     }
 
     private Lazy<String[]> fmjParseThingy = new Lazy<>(() -> {
