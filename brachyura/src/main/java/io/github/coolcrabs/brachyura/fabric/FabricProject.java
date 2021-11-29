@@ -769,7 +769,7 @@ public abstract class FabricProject extends BaseJavaProject {
         MappingHasher.hash(md, intermediary.tree, mappings.get());
         if (getAw() != null) AccessWidenerHasher.hash(md, getAw());
         String mappingHash = MessageDigestUtil.toHexHash(md.digest());
-        Path result = fabricCache().resolve("named").resolve(getMcVersion() + "-named-" + mappingHash + ".jar");
+        Path result = fabricCache().resolve("named").resolve(getMcVersion() + TinyRemapperHelper.getFileVersionTag() + "-named-" + mappingHash + ".jar");
         if (!Files.isRegularFile(result)) {
             try (AtomicFile atomicFile = new AtomicFile(result)) {
                 remapJar(mappings.get(), getAw(), Namespaces.INTERMEDIARY, Namespaces.NAMED, intermediaryJar2, atomicFile.tempPath, mcClasspathPaths.get());
@@ -784,8 +784,8 @@ public abstract class FabricProject extends BaseJavaProject {
         RemappedJar named = namedJar.get();
         BrachyuraDecompiler decompiler = decompiler();
         if (decompiler == null) return new JavaJarDependency(named.jar, null, null);
-        Path result = fabricCache().resolve("decompiled").resolve(getMcVersion() + "-named-" + named.mappingHash + "-decomp-" + decompiler.getName() + "-" + decompiler.getVersion() + "-sources.jar");
-        Path result2 = fabricCache().resolve("decompiled").resolve(getMcVersion() + "-named-" + named.mappingHash + "-decomp-" + decompiler.getName() + "-" + decompiler.getVersion() + ".linemappings");
+        Path result = fabricCache().resolve("decompiled").resolve(getMcVersion() + TinyRemapperHelper.getFileVersionTag() + "-named-" + named.mappingHash + "-decomp-" + decompiler.getName() + "-" + decompiler.getVersion() + "-sources.jar");
+        Path result2 = fabricCache().resolve("decompiled").resolve(getMcVersion() + TinyRemapperHelper.getFileVersionTag() + "-named-" + named.mappingHash + "-decomp-" + decompiler.getName() + "-" + decompiler.getVersion() + ".linemappings");
         if (!(Files.isRegularFile(result) && Files.isRegularFile(result2))) {
             try (
                 AtomicFile atomicFile = new AtomicFile(result);
@@ -800,7 +800,7 @@ public abstract class FabricProject extends BaseJavaProject {
                 atomicFile2.commit();
             }
         }
-        Path result3 = fabricCache().resolve("decompiled").resolve(getMcVersion() + "-named-" + named.mappingHash + "-lineremapped-" + decompiler.getName() + "-" + decompiler.getVersion() + ".jar");
+        Path result3 = fabricCache().resolve("decompiled").resolve(getMcVersion() + TinyRemapperHelper.getFileVersionTag() + "-named-" + named.mappingHash + "-lineremapped-" + decompiler.getName() + "-" + decompiler.getVersion() + ".jar");
         if (!Files.isRegularFile(result3)) {
             LineNumberTableReplacer.replaceLineNumbers(named.jar, result3, new DecompileLineNumberTable().read(result2));
         }

@@ -19,6 +19,12 @@ import net.fabricmc.tinyremapper.TinyRemapper;
 public class TinyRemapperHelper {
     private TinyRemapperHelper() { }
 
+    public static final String VERSION = "0.7.0";
+
+    public static String getFileVersionTag() {
+        return "-TRv" + VERSION + "-"; 
+    }
+
     public enum JarType {
         CLASSPATH,
         INPUT
