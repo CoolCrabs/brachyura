@@ -92,7 +92,6 @@ public class PathUtil {
 
     public static InputStream inputStream(Path path) {
         try {
-            Files.createDirectories(path.getParent());
             return new BufferedInputStream(Files.newInputStream(path));
         } catch (IOException e) {
             throw Util.sneak(e);

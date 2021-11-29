@@ -3,6 +3,7 @@ package io.github.coolcrabs.brachyura.decompiler;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.File;
+import java.io.InputStream;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -36,6 +37,8 @@ class CfrMixinBugDontHappenAhh {
     }
 
     static class B {
+        InputStream is;
+
         void bruh() {
             B b = new B();
         }

@@ -59,10 +59,10 @@ class J8FabricProjectTest {
             d.addMaven(FabricMaven.URL, new MavenId(FabricMaven.GROUP_ID + ".fabric-api", "fabric-game-rule-api-v1", "1.0.7+3cc0f0907d"), ModDependencyFlag.RUNTIME, ModDependencyFlag.COMPILE, ModDependencyFlag.JIJ);
         };
 
-        @Override
-        public BrachyuraDecompiler decompiler() {
-            return null;
-        };
+        // @Override
+        // public BrachyuraDecompiler decompiler() {
+        //     return null;
+        // };
     };
 
     @Test

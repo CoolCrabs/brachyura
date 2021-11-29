@@ -135,7 +135,9 @@ class BrachyuraCfrClassFileSource implements ClassFileSource, Closeable {
                     return null;
                 }
             } catch (Exception e) {
-                throw Util.sneak(e);
+                Logger.warn("Unable to find " + path);
+                Logger.warn(e);
+                return null;
             }
         });
         return new Pair<>(content, path);
