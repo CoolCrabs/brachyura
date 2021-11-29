@@ -751,7 +751,7 @@ public abstract class FabricProject extends BaseJavaProject {
             Path mergedJar = getMergedJar();
             Intermediary intermediary = getIntermediary();
             String intermediaryHash = MappingHasher.hashSha256(intermediary.tree);
-            Path result = fabricCache().resolve("intermediary").resolve(getMcVersion() + "-intermediary-" + intermediaryHash + ".jar");
+            Path result = fabricCache().resolve("intermediary").resolve(getMcVersion() + TinyRemapperHelper.getFileVersionTag() + "intermediary-" + intermediaryHash + ".jar");
             if (!Files.isRegularFile(result)) {
                 try (AtomicFile atomicFile = new AtomicFile(result)) {
                     remapJar(intermediary.tree, null, Namespaces.OBF, Namespaces.INTERMEDIARY, mergedJar, atomicFile.tempPath, mcClasspathPaths.get());
@@ -769,7 +769,7 @@ public abstract class FabricProject extends BaseJavaProject {
         MappingHasher.hash(md, intermediary.tree, mappings.get());
         if (getAw() != null) AccessWidenerHasher.hash(md, getAw());
         String mappingHash = MessageDigestUtil.toHexHash(md.digest());
-        Path result = fabricCache().resolve("named").resolve(getMcVersion() + TinyRemapperHelper.getFileVersionTag() + "-named-" + mappingHash + ".jar");
+        Path result = fabricCache().resolve("named").resolve(getMcVersion() + TinyRemapperHelper.getFileVersionTag() + "named-" + mappingHash + ".jar");
         if (!Files.isRegularFile(result)) {
             try (AtomicFile atomicFile = new AtomicFile(result)) {
                 remapJar(mappings.get(), getAw(), Namespaces.INTERMEDIARY, Namespaces.NAMED, intermediaryJar2, atomicFile.tempPath, mcClasspathPaths.get());
