@@ -38,9 +38,14 @@ class BrachyuraCfrOutputSinkFactory implements OutputSinkFactory, Closeable {
     
 
     public BrachyuraCfrOutputSinkFactory(@Nullable Path outputJar, @Nullable Path lineNumberMappingsPath) {
-        PathUtil.deleteIfExists(outputJar);
-        fileSystem = FileSystemUtil.newJarFileSystem(outputJar);
-        decompiledSink = outputJar == null ? null : new DecompiledSink(fileSystem);
+        if (outputJar != null) {
+            PathUtil.deleteIfExists(outputJar);
+            fileSystem = FileSystemUtil.newJarFileSystem(outputJar);
+            decompiledSink = new DecompiledSink(fileSystem);
+        } else {
+            fileSystem = null;
+            decompiledSink = null;
+        }
         this.lineNumberMappingsPath = lineNumberMappingsPath;
         if (lineNumberMappingsPath != null) {
             lineNumberMappingSink = new LineNumberMappingSink();
@@ -129,7 +134,7 @@ class BrachyuraCfrOutputSinkFactory implements OutputSinkFactory, Closeable {
 
     @Override
     public void close() throws IOException {
-        fileSystem.close();
+        if (fileSystem != null) fileSystem.close();
         decompileLineNumberTable.write(lineNumberMappingsPath);
     }
     

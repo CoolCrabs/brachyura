@@ -6,7 +6,7 @@
 
     <groupId>io.github.coolcrabs</groupId>
     <artifactId>cfr</artifactId>
-    <version>0.4</version>
+    <version>0.5</version>
 
     <name>cfr</name>
     <description>CFR Java decompiler</description>

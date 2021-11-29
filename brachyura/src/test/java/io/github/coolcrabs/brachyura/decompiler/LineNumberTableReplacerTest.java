@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 import io.github.coolcrabs.brachyura.decompiler.LineNumberTableReplacer.ClassFile;
 import io.github.coolcrabs.brachyura.util.StreamUtil;
 
-public class LineNumberTableReplacerTest {
+class LineNumberTableReplacerTest {
     final double a = 5;
 
     @Test

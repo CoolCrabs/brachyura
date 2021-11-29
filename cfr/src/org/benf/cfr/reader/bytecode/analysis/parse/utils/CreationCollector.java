@@ -2,6 +2,8 @@ package org.benf.cfr.reader.bytecode.analysis.parse.utils;
 
 import org.benf.cfr.reader.bytecode.AnonymousClassUsage;
 import org.benf.cfr.reader.bytecode.analysis.loc.BytecodeLoc;
+import org.benf.cfr.reader.bytecode.analysis.loc.BytecodeLocCollector;
+import org.benf.cfr.reader.bytecode.analysis.loc.HasByteCodeLoc;
 import org.benf.cfr.reader.bytecode.analysis.opgraph.InstrIndex;
 import org.benf.cfr.reader.bytecode.analysis.opgraph.Op03SimpleStatement;
 import org.benf.cfr.reader.bytecode.analysis.parse.Expression;
@@ -28,6 +30,7 @@ import org.benf.cfr.reader.util.collections.ListFactory;
 import org.benf.cfr.reader.util.collections.MapFactory;
 import org.benf.cfr.reader.util.functors.UnaryFunction;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -219,7 +222,13 @@ public class CreationCollector {
             if (lValue == null) {
                 replacement = new ExpressionStatement(constructorInvokation);
             } else {
-                replacement = new AssignmentSimple(constructorInvokation.getLoc(), lValue, constructorInvokation);
+                // Include NEW and similar stuff in the bytecode loc
+                List<StatementContainer> statementContainers = collectedCreations.get(lValue);
+                ArrayList<Statement> statements = new ArrayList<Statement>(statementContainers.size());
+                for (StatementContainer container : statementContainers) {
+                    statements.add((Statement)container.getStatement());
+                }
+                replacement = new AssignmentSimple(BytecodeLoc.combine(constructorInvokation, statements), lValue, constructorInvokation);
 
                 if (lValue instanceof StackSSALabel) {
                     StackSSALabel stackSSALabel = (StackSSALabel) lValue;
