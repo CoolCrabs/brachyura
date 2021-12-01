@@ -70,7 +70,6 @@ import io.github.coolcrabs.brachyura.processing.Processor;
 import io.github.coolcrabs.brachyura.processing.ProcessorChain;
 import io.github.coolcrabs.brachyura.processing.sinks.AtomicZipProcessingSink;
 import io.github.coolcrabs.brachyura.processing.sinks.DirectoryProcessingSink;
-import io.github.coolcrabs.brachyura.processing.sinks.ZipProcessingSink;
 import io.github.coolcrabs.brachyura.processing.sources.DirectoryProcessingSource;
 import io.github.coolcrabs.brachyura.processing.sources.FilteringProcessingSource;
 import io.github.coolcrabs.brachyura.processing.sources.ProcessingSponge;

@@ -9,7 +9,6 @@ import org.tinylog.Logger;
 
 import io.github.coolcrabs.brachyura.plugins.Plugin;
 import io.github.coolcrabs.brachyura.plugins.Plugins;
-import io.github.coolcrabs.brachyura.util.Util;
 
 public class BrachyuraEntry {
     private BrachyuraEntry() { }

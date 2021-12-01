@@ -11,8 +11,6 @@ import io.github.coolcrabs.brachyura.processing.ProcessorChain;
 import io.github.coolcrabs.brachyura.project.Project;
 import io.github.coolcrabs.brachyura.project.Task;
 import io.github.coolcrabs.brachyura.util.PathUtil;
-import io.github.coolcrabs.javacompilelib.JavaCompilation;
-import io.github.coolcrabs.javacompilelib.LocalJavaCompilation;
 
 public abstract class BaseJavaProject extends Project {
     public abstract IdeProject getIdeProject();
@@ -55,9 +53,5 @@ public abstract class BaseJavaProject extends Project {
 
     public Path getResourcesDir() {
         return getProjectDir().resolve("src").resolve("main").resolve("resources");
-    }
-    
-    public JavaCompilation getCompiler() {
-        return LocalJavaCompilation.INSTANCE;
     }
 }
