@@ -80,7 +80,7 @@ class BuildscriptProject extends BaseJavaProject {
         PathUtil.deleteDirectoryChildren(buildClassesDir);
         JavaCompilation compilation = new JavaCompilation()
             .addSourceDir(getSrcDir())
-            .addClasspath(getBuildClassesDir())
+            .addClasspath(getCompileDependencies())
             .addOption(JvmUtil.compileArgs(JvmUtil.CURRENT_JAVA_VERSION, 8));
         if (!compilation.compile(new DirectoryProcessingSink(buildClassesDir))) {
             Logger.warn("Buildscript compilation failed!");
