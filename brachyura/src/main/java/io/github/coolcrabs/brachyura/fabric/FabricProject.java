@@ -354,7 +354,10 @@ public abstract class FabricProject extends BaseJavaProject {
             ProcessingEntry mixinMappings = compilationOutput.popEntry(mixinOut);
             if (mixinMappings != null) {
                 try (Reader reader = new InputStreamReader(mixinMappings.in.get())) {
-                    MappingReader.read(reader, MappingFormat.TINY_2, compmappings);
+                    // For easier debugging a seperate tree is made here
+                    MemoryMappingTree mixinMappingsTree = new MemoryMappingTree();
+                    MappingReader.read(reader, MappingFormat.TINY_2, mixinMappingsTree);
+                    mixinMappingsTree.accept(compmappings);
                 }
             }
             ProcessingSponge trout = new ProcessingSponge();

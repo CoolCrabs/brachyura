@@ -60,10 +60,10 @@ class BrachyuraMappingWriter implements IMappingWriter {
                     for (Map.Entry<String, MethodsAndFields> e : classMap.entrySet()) {
                         writer.write("c\t"); writer.write(e.getKey()); writer.write("\t\n"); // Empty dst since we don't remap classes
                         for (MappingSet.Pair<MappingField> field : e.getValue().fields) {
-                            writer.write("\tf\t"); writer.write(field.from.getDesc()); writer.write('\t'); writer.write(field.from.getName()); writer.write('\t'); writer.write(field.to.getName()); writer.write('\n');
+                            writer.write("\tf\t"); writer.write(field.from.getDesc()); writer.write('\t'); writer.write(field.from.getSimpleName()); writer.write('\t'); writer.write(field.to.getSimpleName()); writer.write('\n');
                         }
-                        for (MappingSet.Pair<MappingMethod> field : e.getValue().methods) {
-                            writer.write("\tm\t"); writer.write(field.from.getDesc()); writer.write('\t'); writer.write(field.from.getName()); writer.write('\t'); writer.write(field.to.getName()); writer.write('\n');
+                        for (MappingSet.Pair<MappingMethod> method : e.getValue().methods) {
+                            writer.write("\tm\t"); writer.write(method.from.getDesc()); writer.write('\t'); writer.write(method.from.getSimpleName()); writer.write('\t'); writer.write(method.to.getSimpleName()); writer.write('\n');
                         }
                     }
                 } finally {
