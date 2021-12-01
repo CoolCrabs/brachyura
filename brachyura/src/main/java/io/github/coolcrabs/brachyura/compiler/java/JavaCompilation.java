@@ -2,7 +2,6 @@ package io.github.coolcrabs.brachyura.compiler.java;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -13,13 +12,13 @@ import java.util.Collections;
 import java.util.List;
 
 import javax.tools.JavaCompiler;
-import javax.tools.StandardJavaFileManager;
 import javax.tools.StandardLocation;
 import javax.tools.ToolProvider;
 import javax.tools.JavaCompiler.CompilationTask;
 
 import org.tinylog.Logger;
 
+import io.github.coolcrabs.brachyura.processing.ProcessingSink;
 import io.github.coolcrabs.brachyura.util.Util;
 
 public class JavaCompilation {
@@ -105,16 +104,21 @@ public class JavaCompilation {
         return r;
     }
 
-    public boolean compile(StandardJavaFileManager fileManager) {
+    public boolean compile(ProcessingSink sink) {
         try {
-            fileManager.setLocation(StandardLocation.CLASS_PATH, bruh(classpath));
-            fileManager.setLocation(StandardLocation.SOURCE_PATH, bruh(sourcePath));
+            try (BrachyuraJavaFileManager fileManager = new BrachyuraJavaFileManager()) {
+                boolean result = false;
+                fileManager.setLocation(StandardLocation.CLASS_PATH, bruh(classpath));
+                fileManager.setLocation(StandardLocation.SOURCE_PATH, bruh(sourcePath));
+                try (LoggerWriter w = new LoggerWriter()) {
+                    CompilationTask compilationTask = compiler.getTask(w, fileManager, BrachyuraDiagnosticListener.INSTANCE, options, null, fileManager.getJavaFileObjectsFromFiles(bruh(sourceFiles)));
+                    result = compilationTask.call();
+                }
+                fileManager.getProcessingSource().getInputs(sink);
+                return result;
+            }
         } catch (IOException e) {
             throw Util.sneak(e);
-        }
-        try (PrintWriter w = new PrintWriter(System.err)) {
-            CompilationTask compilationTask = compiler.getTask(w, fileManager, null, options, null, fileManager.getJavaFileObjectsFromFiles(bruh(sourceFiles)));
-            return compilationTask.call();
         }
     }
 }

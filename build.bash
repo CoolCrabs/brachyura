@@ -11,9 +11,6 @@ fi
 cd cfr
 mvn -Dmaven.compiler.fork=true -Dmaven.compiler.executable=$JAVAC6 -DjavadocExecutable=/usr/bin/javadoc clean package verify install
 cd ..
-cd javacompilelib
-mvn -Dmaven.compiler.fork=true -Dmaven.compiler.executable=$JAVAC6 -Djvm=$JAVA6 clean package verify install
-cd ..
 cd fabricmerge
 mvn clean package verify install
 cd ..

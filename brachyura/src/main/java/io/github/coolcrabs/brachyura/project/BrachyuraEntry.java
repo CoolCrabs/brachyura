@@ -18,6 +18,7 @@ public class BrachyuraEntry {
 
     // Called via reflection by bootstrap
     public static void main(String[] args, Path projectDir, List<Path> classpath) {
+        int exitcode = 0;
         List<Plugin> plugins = Plugins.getPlugins();
         for (Plugin plugin : plugins) {
             plugin.onEntry();
@@ -52,13 +53,13 @@ public class BrachyuraEntry {
                 }
             }
         } catch (Exception e) {
-            for (Plugin plugin : plugins) {
-                plugin.onExit();
-            }
-            throw Util.sneak(e);
+            Logger.error("Task Failed");
+            Logger.error(e);
+            exitcode = 1;
         }
         for (Plugin plugin : plugins) {
             plugin.onExit();
         }
+        System.exit(exitcode);
     }
 }

@@ -3,6 +3,8 @@ package io.github.coolcrabs.brachyura.project;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 
+import io.github.coolcrabs.brachyura.exception.TaskFailedException;
+
 public abstract class Task {
     public final String name;
 
@@ -34,7 +36,7 @@ public abstract class Task {
 
         @Override
         public void doTask(String[] args) {
-            if (!runnable.getAsBoolean()) System.exit(1);
+            if (!runnable.getAsBoolean()) throw new TaskFailedException("Task returned false");
         }
     }
 

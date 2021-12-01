@@ -38,7 +38,6 @@ import org.jetbrains.annotations.Nullable;
 import org.objectweb.asm.Opcodes;
 import org.tinylog.Logger;
 
-import io.github.coolcrabs.brachyura.compiler.java.BrachyuraJavaFileManager;
 import io.github.coolcrabs.brachyura.compiler.java.JavaCompilation;
 import io.github.coolcrabs.brachyura.decompiler.BrachyuraDecompiler;
 import io.github.coolcrabs.brachyura.decompiler.DecompileLineNumberTable;
@@ -69,6 +68,7 @@ import io.github.coolcrabs.brachyura.processing.ProcessingId;
 import io.github.coolcrabs.brachyura.processing.ProcessingSink;
 import io.github.coolcrabs.brachyura.processing.Processor;
 import io.github.coolcrabs.brachyura.processing.ProcessorChain;
+import io.github.coolcrabs.brachyura.processing.sinks.AtomicZipProcessingSink;
 import io.github.coolcrabs.brachyura.processing.sinks.DirectoryProcessingSink;
 import io.github.coolcrabs.brachyura.processing.sinks.ZipProcessingSink;
 import io.github.coolcrabs.brachyura.processing.sources.DirectoryProcessingSource;
@@ -337,7 +337,7 @@ public abstract class FabricProject extends BaseJavaProject {
         try {
             String mixinOut = "mixinmapout.tiny";
             JavaCompilation compilation = new JavaCompilation()
-                .addOption(JvmUtil.compileArgs(JvmUtil.CURRENT_JAVA_VERSION, 8))
+                .addOption(JvmUtil.compileArgs(JvmUtil.CURRENT_JAVA_VERSION, getJavaVersion()))
                 .addOption(
                     "-AbrachyuraInMap=" + writeMappings4FabricStuff().toAbsolutePath().toString(),
                     "-AbrachyuraOutMap=" + mixinOut, // Remaps shadows etc
@@ -348,10 +348,8 @@ public abstract class FabricProject extends BaseJavaProject {
                 )
                 .addClasspath(getCompileDependencies())
                 .addSourceDir(getSrcDir());
-            BrachyuraJavaFileManager fm = new BrachyuraJavaFileManager();
-            if (!compilation.compile(fm)) return false;
             ProcessingSponge compilationOutput = new ProcessingSponge();
-            fm.getProcessingSource().getInputs(compilationOutput);
+            if (!compilation.compile(compilationOutput)) return false;
             MemoryMappingTree compmappings = new MemoryMappingTree(true);
             mappings.get().accept(new MappingSourceNsSwitch(compmappings, Namespaces.NAMED));
             ProcessingEntry mixinMappings = compilationOutput.popEntry(mixinOut);
@@ -364,13 +362,9 @@ public abstract class FabricProject extends BaseJavaProject {
             new ProcessorChain(
                 new RemapperProcessor(TinyRemapper.newRemapper().withMappings(new MappingTreeMappingProvider(compmappings, Namespaces.NAMED, Namespaces.INTERMEDIARY)), getCompileDependencies())
             ).apply(trout, compilationOutput);
-            try (AtomicFile atomicFile = new AtomicFile(getBuildJarPath())) {
-                Files.deleteIfExists(atomicFile.tempPath);
-                try (ZipProcessingSink out = new ZipProcessingSink(atomicFile.tempPath)) {
-                    processResourcesChain().apply(out, new DirectoryProcessingSource(getResourcesDir()));
-                    trout.getInputs(out);
-                }
-                atomicFile.commit();
+            try (AtomicZipProcessingSink out = new AtomicZipProcessingSink(getBuildJarPath())) {
+                resourcesProcessingChain().apply(out, new DirectoryProcessingSource(getResourcesDir()));
+                trout.getInputs(out);
             }
             return true;
         } catch (Exception e) {
@@ -496,7 +490,8 @@ public abstract class FabricProject extends BaseJavaProject {
         }
     }
 
-    public ProcessorChain processResourcesChain() {
+    @Override
+    public ProcessorChain resourcesProcessingChain() {
         List<Path> jij = new ArrayList<>();
         for (ModDependency modDependency : modDependencies.get()) {
             if (modDependency.flags.contains(ModDependencyFlag.JIJ)) {

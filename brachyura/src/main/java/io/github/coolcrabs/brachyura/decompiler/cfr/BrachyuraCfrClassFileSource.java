@@ -30,7 +30,6 @@ import io.github.coolcrabs.brachyura.util.FileSystemUtil;
 import io.github.coolcrabs.brachyura.util.JvmUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import io.github.coolcrabs.brachyura.util.StreamUtil;
-import io.github.coolcrabs.brachyura.util.Util;
 
 class BrachyuraCfrClassFileSource implements ClassFileSource, Closeable {
     private final Map<String, Path> allClasses = new HashMap<>();

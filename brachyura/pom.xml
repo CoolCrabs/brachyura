@@ -5,7 +5,7 @@
 
     <groupId>io.github.coolcrabs</groupId>
     <artifactId>brachyura</artifactId>
-    <version>0.28</version>
+    <version>0.29</version>
 
     <properties>
         <java.version>1.8</java.version>
@@ -61,11 +61,6 @@
             <groupId>io.github.coolcrabs</groupId>
             <artifactId>cfr</artifactId>
             <version>0.6</version>
-        </dependency>
-        <dependency>
-            <groupId>io.github.coolcrabs</groupId>
-            <artifactId>javacompilelib</artifactId>
-            <version>0.2</version>
         </dependency>
         <dependency>
             <groupId>io.github.coolcrabs</groupId>

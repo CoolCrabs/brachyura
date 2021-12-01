@@ -31,7 +31,7 @@ import io.github.coolcrabs.brachyura.util.Util;
 // https://www.soulmachine.me/blog/2015/07/22/compile-and-run-java-source-code-in-memory/
 // https://github.com/OpenHFT/Java-Runtime-Compiler
 
-public class BrachyuraJavaFileManager extends ForwardingJavaFileManager<StandardJavaFileManager> implements StandardJavaFileManager {
+class BrachyuraJavaFileManager extends ForwardingJavaFileManager<StandardJavaFileManager> implements StandardJavaFileManager {
     HashMap<URI, OutputFile> output = new HashMap<>();
 
     public BrachyuraJavaFileManager() {
