@@ -6,7 +6,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
 
 import javax.tools.FileObject;
@@ -118,6 +121,23 @@ class BrachyuraJavaFileManager extends ForwardingJavaFileManager<StandardJavaFil
             return false; // Bypass's filer's restrictions that break mixin
         }
         return super.isSameFile(a, b);
+    }
+
+    // Overriden to ignore brachyura's classpath
+    // https://github.com/openjdk/jdk/blob/41daa88dcc89e509f21d1685c436874d6479cf62/src/jdk.compiler/share/classes/com/sun/tools/javac/file/JavacFileManager.java#L742
+    // Problem: https://github.com/openjdk/jdk/blob/41daa88dcc89e509f21d1685c436874d6479cf62/src/jdk.compiler/share/classes/com/sun/tools/javac/file/BaseFileManager.java#L199
+    @Override
+    public ClassLoader getClassLoader(Location location) {
+        try {
+            ArrayList<URL> urls = new ArrayList<>();
+            for (File f : getLocation(location)) {
+                urls.add(f.toURI().toURL());
+            }
+            ClassLoader platformClassloader = ClassLoader.getSystemClassLoader().getParent(); // null (bootstrap) in java 8, an actual classloader in java 9
+            return new URLClassLoader(urls.toArray(new URL[0]), platformClassloader);
+        } catch (Exception e) {
+            throw Util.sneak(e);
+        }
     }
 
     //---
