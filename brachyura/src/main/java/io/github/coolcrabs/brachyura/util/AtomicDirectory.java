@@ -2,6 +2,8 @@ package io.github.coolcrabs.brachyura.util;
 
 import java.nio.file.Path;
 
+import org.tinylog.Logger;
+
 public class AtomicDirectory implements AutoCloseable {
     boolean commited = false;
     final Path target;
