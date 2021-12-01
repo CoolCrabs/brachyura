@@ -3,6 +3,8 @@ package io.github.coolcrabs.brachyura.util;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import org.tinylog.Logger;
+
 public class AtomicFile implements AutoCloseable {
     boolean commited = false;
     private final Path target;
@@ -21,6 +23,7 @@ public class AtomicFile implements AutoCloseable {
     @Override
     public void close() {
         if (!commited) {
+            Logger.warn("Atomic {} not commited", target.toString());
             try {
                 Files.delete(tempPath);
             } catch (Exception e) {

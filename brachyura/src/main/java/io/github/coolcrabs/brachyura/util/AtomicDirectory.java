@@ -20,6 +20,7 @@ public class AtomicDirectory implements AutoCloseable {
     @Override
     public void close() {
         if (!commited) {
+            Logger.warn("Atomic {} not commited", target.toString());
             try {
                 PathUtil.deleteDirectory(tempPath);
             } catch (Exception e) {

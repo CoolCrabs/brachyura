@@ -364,6 +364,7 @@ public abstract class FabricProject extends BaseJavaProject {
             try (AtomicZipProcessingSink out = new AtomicZipProcessingSink(getBuildJarPath())) {
                 resourcesProcessingChain().apply(out, new DirectoryProcessingSource(getResourcesDir()));
                 trout.getInputs(out);
+                out.commit();
             }
             return true;
         } catch (Exception e) {
