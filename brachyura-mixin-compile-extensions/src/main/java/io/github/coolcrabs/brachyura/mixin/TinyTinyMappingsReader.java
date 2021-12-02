@@ -109,7 +109,8 @@ class TinyTinyMappingsReader {
                     if (clsEnd < 0) throw new IllegalArgumentException();
 
                     String cls = desc.substring(clsStart + 1, clsEnd);
-                    String mappedCls = tinyTree.classmaps[src].get(cls).names[dst];
+                    TinyClass tcls = tinyTree.classmaps[src].get(cls);
+                    String mappedCls = tcls == null ? null : tcls.names[dst];
 
                     if (mappedCls != null) {
                         if (ret == null) ret = new StringBuilder(end - start);
