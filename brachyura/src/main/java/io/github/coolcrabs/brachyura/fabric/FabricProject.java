@@ -17,6 +17,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -82,10 +83,12 @@ import io.github.coolcrabs.brachyura.util.GsonUtil;
 import io.github.coolcrabs.brachyura.util.JvmUtil;
 import io.github.coolcrabs.brachyura.util.Lazy;
 import io.github.coolcrabs.brachyura.util.MessageDigestUtil;
+import io.github.coolcrabs.brachyura.util.OsUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import io.github.coolcrabs.brachyura.util.StreamUtil;
 import io.github.coolcrabs.brachyura.util.UnzipUtil;
 import io.github.coolcrabs.brachyura.util.Util;
+import io.github.coolcrabs.brachyura.util.OsUtil.Os;
 import io.github.coolcrabs.fabricmerge.JarMerger;
 import io.github.coolmineman.trieharder.FindReplaceSourceRemapper;
 import net.fabricmc.accesswidener.AccessWidener;
@@ -221,6 +224,14 @@ public abstract class FabricProject extends BaseJavaProject {
         }
         classpath.add(mappingsClasspath);
         Path launchConfig = writeLaunchCfg();
+        ArrayList<String> clientArgs = new ArrayList<>(Arrays.asList(
+            "-Dfabric.dli.config=" + launchConfig.toString(),
+            "-Dfabric.dli.env=client",
+            "-Dfabric.dli.main=net.fabricmc.loader.launch.knot.KnotClient"
+        ));
+        if (OsUtil.OS == Os.OSX) {
+            clientArgs.add("-XstartOnFirstThread");
+        }
         return new IdeProjectBuilder()
             .dependencies(ideDependencies.get())
             .sourcePaths(getSrcDir())
@@ -232,9 +243,7 @@ public abstract class FabricProject extends BaseJavaProject {
                     .mainClass("net.fabricmc.devlaunchinjector.Main")
                     .classpath(classpath)
                     .vmArgs(
-                        "-Dfabric.dli.config=" + launchConfig.toString(),
-                        "-Dfabric.dli.env=client",
-                        "-Dfabric.dli.main=net.fabricmc.loader.launch.knot.KnotClient"
+                        clientArgs
                     )
                 .build(),
                 new RunConfigBuilder()
@@ -261,6 +270,7 @@ public abstract class FabricProject extends BaseJavaProject {
                 writer.write("\tfabric.development=true\n");
                 //TOOD: fabric.remapClasspathFile
                 writer.write("\tlog4j.configurationFile="); writer.write(writeLog4jXml().toAbsolutePath().toString()); writer.write('\n');
+                writer.write("\tlog4j2.formatMsgNoLookups=true"); // Prob overkill but won't hurt
                 writer.write("\tfabric.log.disableAnsi=false\n");
                 writer.write("clientArgs\n");
                 writer.write("\t--assetIndex\n");

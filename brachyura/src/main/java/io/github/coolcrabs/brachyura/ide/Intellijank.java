@@ -149,7 +149,7 @@ public enum Intellijank implements Ide {
                         w.writeAttribute("default", "false");
                         w.writeAttribute("name", run.name);
                         w.writeAttribute("type", "Application");
-                        w.writeAttribute("nameIsGenerated", "true"); // ?
+                        w.writeAttribute("nameIsGenerated", "false"); // Yeet
                         w.indent();
                         option(w, "MAIN_CLASS_NAME", run.mainClass);
                         option(w, "name", "main");
