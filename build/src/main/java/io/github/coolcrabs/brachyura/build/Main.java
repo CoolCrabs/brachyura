@@ -26,7 +26,7 @@ import org.kohsuke.github.GitHub;
 import org.kohsuke.github.GitHubBuilder;
 
 public class Main {
-    static String[] localLibs = new String[] {"fabricmerge", "cfr", "brachyura", "bootstrap", "brachyura-mixin-compile-extensions"};
+    static String[] localLibs = new String[] {"fabricmerge", "cfr", "brachyura", "bootstrap", "brachyura-mixin-compile-extensions", "trieharder"};
     static String[] mavenLibs = new String[] {
         "https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.2/asm-9.2.jar",
         "https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.2/asm-9.2-sources.jar",
@@ -50,8 +50,6 @@ public class Main {
         "https://maven.fabricmc.net/net/fabricmc/tiny-remapper/0.7.0/tiny-remapper-0.7.0-sources.jar",
         "https://maven.fabricmc.net/net/fabricmc/access-widener/2.0.0/access-widener-2.0.0.jar",
         "https://maven.fabricmc.net/net/fabricmc/access-widener/2.0.0/access-widener-2.0.0-sources.jar",
-        "https://maven.hydos.cf/releases/io/github/coolmineman/trieharder/0.1.2/trieharder-0.1.2.jar",
-        "https://maven.hydos.cf/releases/io/github/coolmineman/trieharder/0.1.2/trieharder-0.1.2-sources.jar"
     };
     static boolean github = Boolean.parseBoolean(System.getenv("CI"));
     static String commit = github ? getCommitHash() : null;
