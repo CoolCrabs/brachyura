@@ -16,9 +16,9 @@ import javax.tools.StandardLocation;
 import javax.tools.ToolProvider;
 import javax.tools.JavaCompiler.CompilationTask;
 
+import org.jetbrains.annotations.Nullable;
 import org.tinylog.Logger;
 
-import io.github.coolcrabs.brachyura.processing.ProcessingSink;
 import io.github.coolcrabs.brachyura.util.Util;
 
 public class JavaCompilation {
@@ -104,18 +104,20 @@ public class JavaCompilation {
         return r;
     }
 
-    public boolean compile(ProcessingSink sink) {
+    public @Nullable JavaCompilationResult compile() {
         try {
             try (BrachyuraJavaFileManager fileManager = new BrachyuraJavaFileManager()) {
-                boolean result = false;
+                boolean success;
                 fileManager.setLocation(StandardLocation.CLASS_PATH, bruh(classpath));
                 fileManager.setLocation(StandardLocation.SOURCE_PATH, bruh(sourcePath));
                 try (LoggerWriter w = new LoggerWriter()) {
                     CompilationTask compilationTask = compiler.getTask(w, fileManager, BrachyuraDiagnosticListener.INSTANCE, options, null, fileManager.getJavaFileObjectsFromFiles(bruh(sourceFiles)));
-                    result = compilationTask.call();
+                    success = compilationTask.call();
                 }
-                fileManager.getProcessingSource().getInputs(sink);
-                return result;
+                if (success) {
+                    return new JavaCompilationResult(fileManager);
+                }
+                return null;
             }
         } catch (IOException e) {
             throw Util.sneak(e);

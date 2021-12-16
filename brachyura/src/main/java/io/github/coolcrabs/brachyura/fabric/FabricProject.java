@@ -40,6 +40,7 @@ import org.objectweb.asm.Opcodes;
 import org.tinylog.Logger;
 
 import io.github.coolcrabs.brachyura.compiler.java.JavaCompilation;
+import io.github.coolcrabs.brachyura.compiler.java.JavaCompilationResult;
 import io.github.coolcrabs.brachyura.decompiler.BrachyuraDecompiler;
 import io.github.coolcrabs.brachyura.decompiler.DecompileLineNumberTable;
 import io.github.coolcrabs.brachyura.decompiler.LineNumberTableReplacer;
@@ -342,10 +343,10 @@ public abstract class FabricProject extends BaseJavaProject {
         return result;
     }
 
-    public boolean build() {
+    public void build() {
         try {
             String mixinOut = "mixinmapout.tiny";
-            JavaCompilation compilation = new JavaCompilation()
+            JavaCompilationResult compilation = new JavaCompilation()
                 .addOption(JvmUtil.compileArgs(JvmUtil.CURRENT_JAVA_VERSION, getJavaVersion()))
                 .addOption(
                     "-AbrachyuraInMap=" + writeMappings4FabricStuff().toAbsolutePath().toString(),
@@ -356,9 +357,10 @@ public abstract class FabricProject extends BaseJavaProject {
                     "-AdefaultObfuscationEnv=brachyura"
                 )
                 .addClasspath(getCompileDependencies())
-                .addSourceDir(getSrcDir());
+                .addSourceDir(getSrcDir())
+                .compile();
             ProcessingSponge compilationOutput = new ProcessingSponge();
-            if (!compilation.compile(compilationOutput)) return false;
+            compilation.getInputs(compilationOutput);
             MemoryMappingTree compmappings = new MemoryMappingTree(true);
             mappings.get().accept(new MappingSourceNsSwitch(compmappings, Namespaces.NAMED));
             ProcessingEntry mixinMappings = compilationOutput.popEntry(mixinOut);
@@ -379,7 +381,6 @@ public abstract class FabricProject extends BaseJavaProject {
                 trout.getInputs(out);
                 out.commit();
             }
-            return true;
         } catch (Exception e) {
             throw Util.sneak(e);
         }

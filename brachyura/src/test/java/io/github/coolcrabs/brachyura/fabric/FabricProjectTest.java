@@ -90,7 +90,7 @@ class FabricProjectTest {
     void compile() {
         if (JvmUtil.CURRENT_JAVA_VERSION >= 16) {
             try {
-                assertTrue(fabricProject.build());
+                fabricProject.build();
             } catch (Exception e) {
                 e.printStackTrace();
                 throw e;

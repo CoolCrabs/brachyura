@@ -68,7 +68,7 @@ class J8FabricProjectTest {
     @Test
     void compile() {
         try {
-            assertTrue(fabricProject.build());
+            fabricProject.build();
         } catch (Exception e) {
             e.printStackTrace();
             throw e;

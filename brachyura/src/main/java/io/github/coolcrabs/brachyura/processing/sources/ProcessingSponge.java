@@ -19,7 +19,7 @@ public class ProcessingSponge extends ProcessingSource implements ProcessingSink
 
     @Override
     public void sink(Supplier<InputStream> in, ProcessingId id) {
-        a.put(id.path, new ProcessingEntry(in, new ProcessingId(id.path, this)));
+        a.put(id.path, new ProcessingEntry(in, id));
     }
 
     @Override

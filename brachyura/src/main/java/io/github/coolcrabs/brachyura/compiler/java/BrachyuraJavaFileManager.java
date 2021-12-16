@@ -20,7 +20,6 @@ import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
 import javax.tools.JavaFileObject.Kind;
 
-import io.github.coolcrabs.brachyura.processing.ProcessingSource;
 import io.github.coolcrabs.brachyura.util.ByteArrayOutputStreamEx;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import io.github.coolcrabs.brachyura.util.Util;
@@ -41,10 +40,6 @@ class BrachyuraJavaFileManager extends ForwardingJavaFileManager<StandardJavaFil
         super(ToolProvider.getSystemJavaCompiler().getStandardFileManager(null, null, StandardCharsets.UTF_8));
     }
 
-    public ProcessingSource getProcessingSource() {
-        return new BrachyuraJavaFileManagerProcessingSource(this);
-    }
-
     private URI uri(Location location, String packageName, String relativeName) {
         if (packageName != null) {
             return uri(location, packageName.replace('.', '/') + relativeName);
@@ -63,10 +58,12 @@ class BrachyuraJavaFileManager extends ForwardingJavaFileManager<StandardJavaFil
     }
 
     static class OutputFile extends SimpleJavaFileObject {
-        ByteArrayOutputStreamEx bytes = new ByteArrayOutputStreamEx();
+        final ByteArrayOutputStreamEx bytes = new ByteArrayOutputStreamEx();
+        final FileObject sibling;
 
-        protected OutputFile(URI uri, Kind kind) {
+        protected OutputFile(URI uri, Kind kind, FileObject sibling) {
             super(uri, kind);
+            this.sibling = sibling;
         }
 
         URI rawUri() {
@@ -106,13 +103,13 @@ class BrachyuraJavaFileManager extends ForwardingJavaFileManager<StandardJavaFil
     @Override
     public JavaFileObject getJavaFileForOutput(Location location, String className, Kind kind, FileObject sibling) throws IOException {
         URI uri = uri(location, className.replace('.', '/') + kind.extension);
-        return output.computeIfAbsent(uri, u -> new OutputFile(uri, kind));
+        return output.computeIfAbsent(uri, u -> new OutputFile(uri, kind, sibling));
     }
 
     @Override
     public FileObject getFileForOutput(Location location, String packageName, String relativeName, FileObject sibling) throws IOException {
         URI uri = uri(location, packageName, relativeName);
-        return output.computeIfAbsent(uri, u -> new OutputFile(uri, Kind.OTHER));
+        return output.computeIfAbsent(uri, u -> new OutputFile(uri, Kind.OTHER, sibling));
     }
 
     @Override

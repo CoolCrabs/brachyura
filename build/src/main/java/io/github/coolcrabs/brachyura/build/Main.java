@@ -50,6 +50,8 @@ public class Main {
         "https://maven.fabricmc.net/net/fabricmc/tiny-remapper/0.7.0/tiny-remapper-0.7.0-sources.jar",
         "https://maven.fabricmc.net/net/fabricmc/access-widener/2.0.0/access-widener-2.0.0.jar",
         "https://maven.fabricmc.net/net/fabricmc/access-widener/2.0.0/access-widener-2.0.0-sources.jar",
+        "https://repo.maven.apache.org/maven2/org/jetbrains/annotations/23.0.0/annotations-23.0.0.jar",
+        "https://repo.maven.apache.org/maven2/org/jetbrains/annotations/23.0.0/annotations-23.0.0-sources.jar"
     };
     static boolean github = Boolean.parseBoolean(System.getenv("CI"));
     static String commit = github ? getCommitHash() : null;

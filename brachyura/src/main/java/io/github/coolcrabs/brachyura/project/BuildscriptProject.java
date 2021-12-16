@@ -12,6 +12,7 @@ import org.jetbrains.annotations.Nullable;
 import org.tinylog.Logger;
 
 import io.github.coolcrabs.brachyura.compiler.java.JavaCompilation;
+import io.github.coolcrabs.brachyura.compiler.java.JavaCompilationResult;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 import io.github.coolcrabs.brachyura.exception.TaskFailedException;
 import io.github.coolcrabs.brachyura.ide.IdeProject;
@@ -78,13 +79,16 @@ class BuildscriptProject extends BaseJavaProject {
     public @Nullable Path getBuildscriptClaspath() {
         Path buildClassesDir = getBuildClassesDir();
         PathUtil.deleteDirectoryChildren(buildClassesDir);
-        JavaCompilation compilation = new JavaCompilation()
+        JavaCompilationResult compilation = new JavaCompilation()
             .addSourceDir(getSrcDir())
             .addClasspath(getCompileDependencies())
-            .addOption(JvmUtil.compileArgs(JvmUtil.CURRENT_JAVA_VERSION, 8));
-        if (!compilation.compile(new DirectoryProcessingSink(buildClassesDir))) {
+            .addOption(JvmUtil.compileArgs(JvmUtil.CURRENT_JAVA_VERSION, 8))
+            .compile();
+        if (compilation == null) {
             Logger.warn("Buildscript compilation failed!");
             return null;
+        } else {
+            compilation.getInputs(new DirectoryProcessingSink(buildClassesDir)); // TODO replace with custom classloader
         }
         return buildClassesDir;
     }

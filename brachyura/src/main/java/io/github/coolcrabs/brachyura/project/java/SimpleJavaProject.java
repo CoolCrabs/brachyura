@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.function.Consumer;
 
 import io.github.coolcrabs.brachyura.compiler.java.JavaCompilation;
+import io.github.coolcrabs.brachyura.compiler.java.JavaCompilationResult;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 import io.github.coolcrabs.brachyura.ide.IdeProject;
 import io.github.coolcrabs.brachyura.ide.IdeProject.IdeProjectBuilder;
@@ -39,12 +40,13 @@ public abstract class SimpleJavaProject extends BaseJavaProject {
     }
 
     public boolean build() {
-        JavaCompilation compilation = new JavaCompilation()
+        JavaCompilationResult compilation = new JavaCompilation()
             .addSourceDir(getSrcDir())
             .addClasspath(getCompileDependencies())
-            .addOption(JvmUtil.compileArgs(JvmUtil.CURRENT_JAVA_VERSION, getJavaVersion()));
+            .addOption(JvmUtil.compileArgs(JvmUtil.CURRENT_JAVA_VERSION, getJavaVersion()))
+            .compile();
         ProcessingSponge classes = new ProcessingSponge();
-        if (!compilation.compile(classes)) return false;
+        compilation.getInputs(classes);
         Path outjar = getBuildLibsDir().resolve(getJarBaseName() + ".jar");
         Path outjarsources = getBuildLibsDir().resolve(getJarBaseName() + "-sources.jar");
         try (
