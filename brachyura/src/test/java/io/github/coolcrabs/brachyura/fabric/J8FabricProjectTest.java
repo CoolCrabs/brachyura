@@ -17,6 +17,7 @@ import io.github.coolcrabs.brachyura.util.PathUtil;
 import net.fabricmc.accesswidener.AccessWidenerReader;
 import net.fabricmc.accesswidener.AccessWidenerVisitor;
 import net.fabricmc.mappingio.tree.MappingTree;
+import org.junit.jupiter.api.Disabled;
 
 class J8FabricProjectTest {
     FabricProject fabricProject = new FabricProject() {
@@ -91,5 +92,21 @@ class J8FabricProjectTest {
         });
         long b = System.currentTimeMillis();
         System.out.println(b - a);
+    }
+    
+    @Disabled
+    @Test
+    void bruh() {
+        fabricProject.getTasks(p -> {
+            System.out.println(p.name);
+            if (p.name.equals("runMinecraftClient"))
+                try {
+                    p.doTask(new String[]{}); 
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    throw e;
+                }
+
+        });
     }
 }
