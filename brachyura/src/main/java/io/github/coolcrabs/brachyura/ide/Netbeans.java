@@ -17,6 +17,8 @@ import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 import io.github.coolcrabs.brachyura.util.AtomicDirectory;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import io.github.coolcrabs.brachyura.util.Util;
+import io.github.coolcrabs.brachyura.util.XmlUtil;
+import java.util.HashSet;
 
 public enum Netbeans implements Ide {
     INSTANCE;
@@ -42,15 +44,20 @@ public enum Netbeans implements Ide {
     public void updateProject(Path projectDir, IdeProject ideProject) {
         Path nb = PathUtil.resolveAndCreateDir(projectDir, "netbeans");
         PathUtil.deleteDirectoryChildren(nb);
-        new NetbeansProject(nb.resolve("NetbeansProject"), ideProject).write();
+        new NetbeansProject(nb.resolve(ideProject.name), ideProject).write();
     }
 
     static class NetbeansProject {
-        final Properties projectProperties = new Properties(defaultProperties);
+        final Properties projectProperties = new Properties() {{
+            putAll(defaultProperties);
+        }};
+        
         final Path dir;
+        final IdeProject ideProject;
 
         NetbeansProject(Path dir, IdeProject ideProject) {
             if (ideProject.sourcePaths.size() != 1) throw new UnsupportedOperationException("Netbeans support for >1 source path not impl");
+            projectProperties.setProperty("application.title", ideProject.name);
             projectProperties.setProperty("src.dir", ideProject.sourcePaths.get(0).toString());
             StringBuilder javacClasspath = new StringBuilder();
             for (JavaJarDependency j : ideProject.dependencies) {
@@ -58,7 +65,21 @@ public enum Netbeans implements Ide {
                 javacClasspath.append(createFileReference(j).getListString());
             }
             projectProperties.setProperty("javac.classpath", javacClasspath.toString());
+            //TODO: finish crabloader
+            HashSet<Path> runCp = new HashSet<>();
+            runCp.addAll(ideProject.resourcePaths);
+            for (IdeProject.RunConfig rc : ideProject.runConfigs) {
+                runCp.addAll(rc.classpath);
+            }
+            StringBuilder runCpStr = new StringBuilder();
+            runCpStr.append("${build.classes.dir}");
+            for (Path p : runCp) {
+                runCpStr.append(File.pathSeparator);
+                runCpStr.append(p.toString());
+            }
+            projectProperties.setProperty("run.classpath", runCpStr.toString());
             this.dir = dir;
+            this.ideProject = ideProject;
         }
 
         @SuppressWarnings("all")
@@ -69,7 +90,7 @@ public enum Netbeans implements Ide {
                     cp(d.tempPath, "manifest.mf");
                     cp(d.tempPath, "nbproject", "build-impl.xml");
                     cp(d.tempPath, "nbproject", "genfiles.properties");
-                    cp(d.tempPath, "nbproject", "project.xml");
+                    writeProjectXml(d.tempPath);
                     try (OutputStream o = PathUtil.outputStream(d.tempPath.resolve("nbproject").resolve("project.properties"))) {
                         projectProperties.store(o, null);
                     }
@@ -77,6 +98,56 @@ public enum Netbeans implements Ide {
                 } 
             } catch (Exception e) {
                 throw Util.sneak(e);
+            }
+        }
+        
+        void writeProjectXml(Path dir) {
+            try {
+                Path p = dir.resolve("nbproject").resolve("project.xml");
+                try (XmlUtil.FormattedXMLStreamWriter w = XmlUtil.newStreamWriter(Files.newBufferedWriter(p))) {
+                    w.writeStartDocument("UTF-8", "1.0");
+                    w.newline();
+                    w.writeStartElement("project");
+                    w.writeAttribute("xmlns", "http://www.netbeans.org/ns/project/1");
+                    w.indent();
+                    w.newline();
+                        w.writeStartElement("type");
+                        w.writeCharacters("org.netbeans.modules.java.j2seproject");
+                        w.writeEndElement();
+                        w.newline();
+                        w.writeStartElement("configuration");
+                        w.indent();
+                        w.newline();
+                            w.writeStartElement("data");
+                            w.writeAttribute("xmlns", "http://www.netbeans.org/ns/j2se-project/3");
+                            w.indent();
+                            w.newline();
+                                w.writeStartElement("name");
+                                w.writeCharacters(ideProject.name);
+                                w.writeEndElement();
+                                w.newline();
+                                w.writeStartElement("source-roots");
+                                w.indent();
+                                w.newline();
+                                    w.writeEmptyElement("root");
+                                    w.writeAttribute("id", "src.dir");
+                                w.unindent();
+                                w.newline();
+                                w.writeEndElement();
+                                w.newline();
+                                w.writeEmptyElement("test-roots");
+                            w.unindent();
+                            w.newline();
+                            w.writeEndElement();
+                        w.unindent();
+                        w.newline();
+                        w.writeEndElement();
+                    w.unindent();
+                    w.newline();
+                    w.writeEndElement();
+                }
+            } catch (Exception ex) {
+                throw Util.sneak(ex);
             }
         }
 

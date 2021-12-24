@@ -8,12 +8,14 @@ import java.util.List;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 
 public final class IdeProject {
+    public final String name;
     public final List<JavaJarDependency> dependencies;
     public final List<RunConfig> runConfigs;
     public final List<Path> sourcePaths;
     public final List<Path> resourcePaths;
 
-    IdeProject(List<JavaJarDependency> dependencies, List<RunConfig> runConfigs, List<Path> sourcePaths, List<Path> resourcePaths) {
+    IdeProject(String name, List<JavaJarDependency> dependencies, List<RunConfig> runConfigs, List<Path> sourcePaths, List<Path> resourcePaths) {
+        this.name = name;
         this.dependencies = dependencies;
         this.runConfigs = runConfigs;
         this.sourcePaths = sourcePaths;
@@ -21,10 +23,16 @@ public final class IdeProject {
     }
 
     public static class IdeProjectBuilder {
+        private String name = "BrachyuraProject";
         private List<JavaJarDependency> dependencies = Collections.emptyList();
         private List<RunConfig> runConfigs = Collections.emptyList();
         private List<Path> sourcePaths = Collections.emptyList();
         private List<Path> resourcePaths = Collections.emptyList();
+        
+        public IdeProjectBuilder name(String name) {
+            this.name = name;
+            return this;
+        }
         
         public IdeProjectBuilder dependencies(List<JavaJarDependency> dependencies) {
             this.dependencies = dependencies;
@@ -67,7 +75,7 @@ public final class IdeProject {
         }
 
         public IdeProject build() {
-            return new IdeProject(dependencies, runConfigs, sourcePaths, resourcePaths);
+            return new IdeProject(name, dependencies, runConfigs, sourcePaths, resourcePaths);
         }
     }
 

@@ -96,7 +96,7 @@ public enum Intellijank implements Ide {
             Path libsPath = PathUtil.resolveAndCreateDir(ideaPath, "libraries");
             for (JavaJarDependency dep : ideProject.dependencies) {
                 try (FormattedXMLStreamWriter w = XmlUtil.newStreamWriter(Files.newBufferedWriter(libsPath.resolve(dep.jar.getFileName().toString() + ".xml")))) {
-                    w.writeStartDocument();
+                    w.writeStartDocument("UTF-8", "1.0");
                     w.newline();
                     w.writeStartElement("component");
                     w.writeAttribute("name", "libraryTable");
@@ -139,7 +139,7 @@ public enum Intellijank implements Ide {
             Path runConfigPath = PathUtil.resolveAndCreateDir(ideaPath, "runConfigurations");
             for (RunConfig run : ideProject.runConfigs) {
                 try (FormattedXMLStreamWriter w = XmlUtil.newStreamWriter(Files.newBufferedWriter(runConfigPath.resolve(run.name + ".xml")))) {
-                    w.writeStartDocument();
+                    w.writeStartDocument("UTF-8", "1.0");
                     w.newline();
                     w.writeStartElement("component");
                     w.writeAttribute("name", "ProjectRunConfigurationManager");

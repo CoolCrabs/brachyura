@@ -234,6 +234,7 @@ public abstract class FabricProject extends BaseJavaProject {
             clientArgs.add("-XstartOnFirstThread");
         }
         return new IdeProjectBuilder()
+            .name(getModId())
             .dependencies(ideDependencies.get())
             .sourcePaths(getSrcDir())
             .resourcePaths(getResourcesDir())
