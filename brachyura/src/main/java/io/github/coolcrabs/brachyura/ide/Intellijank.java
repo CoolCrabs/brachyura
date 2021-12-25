@@ -200,5 +200,5 @@ public enum Intellijank implements Ide {
 
     static String quote(String arg) {
         return '"' + arg.replace("\\", "\\\\").replace("\"", "\\\"") + '"';
-    } 
+    }
 }

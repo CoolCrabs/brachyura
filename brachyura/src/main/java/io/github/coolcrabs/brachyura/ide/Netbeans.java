@@ -18,6 +18,7 @@ import io.github.coolcrabs.brachyura.util.AtomicDirectory;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import io.github.coolcrabs.brachyura.util.Util;
 import io.github.coolcrabs.brachyura.util.XmlUtil;
+import java.util.ArrayList;
 import java.util.HashSet;
 
 public enum Netbeans implements Ide {
@@ -65,19 +66,6 @@ public enum Netbeans implements Ide {
                 javacClasspath.append(createFileReference(j).getListString());
             }
             projectProperties.setProperty("javac.classpath", javacClasspath.toString());
-            //TODO: finish crabloader
-            HashSet<Path> runCp = new HashSet<>();
-            runCp.addAll(ideProject.resourcePaths);
-            for (IdeProject.RunConfig rc : ideProject.runConfigs) {
-                runCp.addAll(rc.classpath);
-            }
-            StringBuilder runCpStr = new StringBuilder();
-            runCpStr.append("${build.classes.dir}");
-            for (Path p : runCp) {
-                runCpStr.append(File.pathSeparator);
-                runCpStr.append(p.toString());
-            }
-            projectProperties.setProperty("run.classpath", runCpStr.toString());
             this.dir = dir;
             this.ideProject = ideProject;
         }
@@ -93,6 +81,10 @@ public enum Netbeans implements Ide {
                     writeProjectXml(d.tempPath);
                     try (OutputStream o = PathUtil.outputStream(d.tempPath.resolve("nbproject").resolve("project.properties"))) {
                         projectProperties.store(o, null);
+                    }
+                    Path configs = PathUtil.resolveAndCreateDir(d.tempPath.resolve("nbproject"), "configs");
+                    for (IdeProject.RunConfig rc : ideProject.runConfigs) {
+                        writeRunConfig(configs.resolve(rc.name.replace(' ', '_') + ".properties"), rc);
                     }
                     d.commit();
                 } 
@@ -150,6 +142,37 @@ public enum Netbeans implements Ide {
                 throw Util.sneak(ex);
             }
         }
+        
+        void writeRunConfig(Path file, IdeProject.RunConfig rc) throws IOException {
+            Properties config = new Properties();
+            config.setProperty("$label", rc.name);
+            config.setProperty("main.class", rc.mainClass);
+            StringBuilder vmargs = new StringBuilder();
+            for (String arg : rc.vmArgs) {
+                vmargs.append(quote(arg));
+                vmargs.append(' ');
+            }
+            config.setProperty("run.jvmargs", vmargs.toString());
+            StringBuilder args = new StringBuilder();
+            for (String arg : rc.args) {
+                args.append(quote(arg));
+                args.append(' ');
+            }
+            config.setProperty("application.args", args.toString());
+            config.setProperty("work.dir", rc.cwd.toString());
+            StringBuilder runCpStr = new StringBuilder();
+            runCpStr.append("${build.classes.dir}");
+            ArrayList<Path> cp = new ArrayList<>(rc.classpath);
+            cp.addAll(ideProject.resourcePaths);
+            for (Path p : cp) {
+                runCpStr.append(File.pathSeparator);
+                runCpStr.append(p.toString());
+            }
+            config.setProperty("run.classpath", runCpStr.toString());
+            try (OutputStream o = PathUtil.outputStream(file)) {
+                config.store(o, null);
+            }
+        }
 
         void cp(Path dir, String... p) throws IOException {
             Path target = dir;
@@ -193,5 +216,8 @@ public enum Netbeans implements Ide {
             return createFileReference(dependency.jar, dependency.sourcesJar);
         }
     }
-
+    
+    static String quote(String arg) {
+        return '"' + arg.replace("\\", "\\\\").replace("\"", "\\\"") + '"';
+    }
 }
