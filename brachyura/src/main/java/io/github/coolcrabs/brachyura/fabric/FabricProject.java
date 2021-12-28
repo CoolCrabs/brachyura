@@ -68,17 +68,21 @@ import io.github.coolcrabs.brachyura.mixin.BrachyuraMixinCompileExtensions;
 import io.github.coolcrabs.brachyura.processing.ProcessingEntry;
 import io.github.coolcrabs.brachyura.processing.ProcessingId;
 import io.github.coolcrabs.brachyura.processing.ProcessingSink;
+import io.github.coolcrabs.brachyura.processing.ProcessingSource;
 import io.github.coolcrabs.brachyura.processing.Processor;
 import io.github.coolcrabs.brachyura.processing.ProcessorChain;
 import io.github.coolcrabs.brachyura.processing.sinks.AtomicZipProcessingSink;
 import io.github.coolcrabs.brachyura.processing.sinks.DirectoryProcessingSink;
+import io.github.coolcrabs.brachyura.processing.sinks.ZipProcessingSink;
 import io.github.coolcrabs.brachyura.processing.sources.DirectoryProcessingSource;
 import io.github.coolcrabs.brachyura.processing.sources.FilteringProcessingSource;
 import io.github.coolcrabs.brachyura.processing.sources.ProcessingSponge;
+import io.github.coolcrabs.brachyura.processing.sources.ZipProcessingSource;
 import io.github.coolcrabs.brachyura.project.Task;
 import io.github.coolcrabs.brachyura.project.java.BaseJavaProject;
 import io.github.coolcrabs.brachyura.util.AtomicDirectory;
 import io.github.coolcrabs.brachyura.util.AtomicFile;
+import io.github.coolcrabs.brachyura.util.CloseableArrayList;
 import io.github.coolcrabs.brachyura.util.FileSystemUtil;
 import io.github.coolcrabs.brachyura.util.GsonUtil;
 import io.github.coolcrabs.brachyura.util.JvmUtil;
@@ -581,12 +585,17 @@ public abstract class FabricProject extends BaseJavaProject {
      * 🍝
      */
     public List<ModDependency> createRemappedModDependencies() {
+        class RemapInfo {
+            ModDependency source;
+            ModDependency target;
+        }
         try {
             List<ModDependency> unmapped = modDependencies.get();
-            if (unmapped == null) return Collections.emptyList();
-            List<ModDependency> result = new ArrayList<>(unmapped.size());
+            if (unmapped == null || unmapped.isEmpty()) return Collections.emptyList();
+            List<RemapInfo> remapinfo = new ArrayList<>(unmapped.size());
+            List<ModDependency> remapped = new ArrayList<>(unmapped.size());
             MessageDigest dephasher = MessageDigestUtil.messageDigest(MessageDigestUtil.SHA256);
-            dephasher.update((byte) 3); // Bump this if the logic changes
+            dephasher.update((byte) 4); // Bump this if the logic changes
             for (ModDependency dep : unmapped) {
                 hashDep(dephasher, dep);
             }
@@ -595,90 +604,68 @@ public abstract class FabricProject extends BaseJavaProject {
             }
             dephasher.update(namedJar.get().mappingHash.getBytes(StandardCharsets.UTF_8));
             dephasher.update(intermediaryjar.get().mappingHash.getBytes(StandardCharsets.UTF_8));
+            MessageDigestUtil.update(dephasher, TinyRemapperHelper.VERSION);
             String dephash = MessageDigestUtil.toHexHash(dephasher.digest());
             Path depdir = getLocalBrachyuraPath().resolve("deps");
             Path resultdir = depdir.resolve(dephash);
+            for (ModDependency u : unmapped) {
+                RemapInfo ri = new RemapInfo();
+                remapinfo.add(ri);
+                ri.source = u;
+                ri.target = new ModDependency(
+                    new JavaJarDependency(
+                        resultdir.resolve(
+                            u.jarDependency.jar.getFileName().toString()
+                        ),
+                        u.jarDependency.sourcesJar == null ? null : resultdir.resolve(u.jarDependency.jar.getFileName().toString().replace(".jar", "-sources.jar")),
+                        u.jarDependency.mavenId
+                    ),
+                    u.flags
+                );
+                remapped.add(ri.target);
+            }
             if (!Files.isDirectory(resultdir)) {
                 if (Files.isDirectory(depdir)) {
                     PathUtil.deleteDirectoryChildren(depdir);
                 }
                 try (AtomicDirectory a = new AtomicDirectory(resultdir)) {
-                    TinyRemapper tr = TinyRemapper.newRemapper()
+                    TinyRemapper.Builder tr = TinyRemapper.newRemapper()
                         .withMappings(new MappingTreeMappingProvider(mappings.get(), Namespaces.INTERMEDIARY, Namespaces.NAMED))
-                        .renameInvalidLocals(false)
-                        .build();
-                    TinyRemapperHelper.readJar(tr, intermediaryjar.get().jar, JarType.CLASSPATH);
+                        .renameInvalidLocals(false);
+                    ArrayList<Path> cp = new ArrayList<>();
+                    cp.add(intermediaryjar.get().jar);
                     for (JavaJarDependency dep : mcClasspath.get()) {
-                        TinyRemapperHelper.readJar(tr, dep.jar, JarType.CLASSPATH);
+                        cp.add(dep.jar);
                     }
-                    class RemapInfo {
-                        ModDependency dep;
-                        FileSystem fs;
-                        FileSystem outFs;
-                        Path outPath;
-                        InputTag tag;
-                    }
-                    List<RemapInfo> b = new ArrayList<>();
-                    try {
-                        for (ModDependency u : unmapped) {
-                            RemapInfo ri = new RemapInfo();
-                            b.add(ri);
-                            ri.dep = u;
-                            ri.tag = tr.createInputTag();
-                            ri.outPath = a.tempPath.resolve(u.jarDependency.jar.getFileName().toString());
-                            ri.fs = FileSystemUtil.newJarFileSystem(u.jarDependency.jar);
-                            ri.outFs = FileSystemUtil.newJarFileSystem(ri.outPath);
+                    HashMap<ProcessingSource, ZipProcessingSink> b = new HashMap<>();
+                    try (CloseableArrayList toClose = new CloseableArrayList()) {
+                        for (RemapInfo ri : remapinfo) {
+                            ZipProcessingSource s = new ZipProcessingSource(ri.source.jarDependency.jar);
+                            toClose.add(s);
+                            ZipProcessingSink si = new ZipProcessingSink(a.tempPath.resolve(ri.target.jarDependency.jar.getFileName()));
+                            toClose.add(si);
+                            b.put(s, si);
                         }
-                        Logger.info("Remapping " + b.size() + " mods");
-                        for (RemapInfo ri : b) {
-                            TinyRemapperHelper.readFileSystem(tr, ri.fs, JarType.INPUT, ri.tag);
-                        }
-                        for (RemapInfo ri : b) {
-                            tr.apply(new PathFileConsumer(ri.outFs.getPath("/")), ri.tag);
-                            // TODO strip jij?
-                            // TODO add fmj for non mod for jij
-                            new ProcessorChain(new AccessWidenerRemapper(mappings.get(), mappings.get().getNamespaceId(Namespaces.NAMED)))
-                                .apply(
-                                    new DirectoryProcessingSink(ri.outFs.getPath("/")),
-                                    new FilteringProcessingSource(new DirectoryProcessingSource(ri.fs.getPath("/")), e -> !e.id.path.endsWith(".class"))
-                                );
-                        }
-                    } finally {
-                        for (RemapInfo c : b) {
-                            if (c.fs != null) c.fs.close();
-                            if (c.outFs != null) c.outFs.close();
-                        }
-                        tr.finish();
+                        Logger.info("Remapping {} mods", b.size());
+                        new ProcessorChain(
+                            new RemapperProcessor(tr, cp),
+                            new AccessWidenerRemapper(mappings.get(), mappings.get().getNamespaceId(Namespaces.NAMED))
+                        ).apply(
+                            (in, id) -> b.get(id.source).sink(in, id),
+                            b.keySet()
+                        );
                     }
                     FindReplaceSourceRemapper sourceRemapper = new FindReplaceSourceRemapper(mappings.get(), mappings.get().getNamespaceId(Namespaces.INTERMEDIARY), mappings.get().getNamespaceId(Namespaces.NAMED));
                     for (ModDependency u : unmapped) { 
                         if (u.jarDependency.sourcesJar != null) {
-                            Logger.info("Remapping " + u.jarDependency.sourcesJar.getFileName());
-                            long start = System.currentTimeMillis();
                             Path target = a.tempPath.resolve(u.jarDependency.jar.getFileName().toString().replace(".jar", "-sources.jar"));
                             sourceRemapper.remapSourcesJar(u.jarDependency.sourcesJar, target);
-                            long end = System.currentTimeMillis() - start;
-                            Logger.info("Remapped " + u.jarDependency.sourcesJar.getFileName() + " in " + end + "ms");
                         }
                     }
                     a.commit();
                 }
             }
-            for (ModDependency unmapdep : unmapped) {
-                result.add(
-                    new ModDependency(
-                        new JavaJarDependency(
-                            resultdir.resolve(
-                                unmapdep.jarDependency.jar.getFileName().toString()
-                            ),
-                            unmapdep.jarDependency.sourcesJar == null ? null : resultdir.resolve(unmapdep.jarDependency.jar.getFileName().toString().replace(".jar", "-sources.jar")),
-                            unmapdep.jarDependency.mavenId
-                        ),
-                        unmapdep.flags
-                    )
-                );
-            }
-            return result;
+            return remapped;
         } catch (Exception e) {
             throw Util.sneak(e);
         }

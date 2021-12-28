@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.function.Supplier;
 
 import io.github.coolcrabs.brachyura.util.Util;
+import java.util.Arrays;
 
 public class ProcessorChain {
     final Processor[] processors;
@@ -13,8 +14,12 @@ public class ProcessorChain {
     public ProcessorChain(Processor...processors) {
         this.processors = processors;
     }
-
+    
     public void apply(ProcessingSink out, ProcessingSource... in) {
+        apply(out, Arrays.asList(in));
+    }
+
+    public void apply(ProcessingSink out, Iterable<? extends ProcessingSource> in) {
         try {
             Collector c = new Collector();
             for (ProcessingSource s : in) {
