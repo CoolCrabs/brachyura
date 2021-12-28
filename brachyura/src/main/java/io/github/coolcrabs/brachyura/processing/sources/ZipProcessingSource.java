@@ -40,7 +40,11 @@ public class ZipProcessingSource extends ProcessingSource implements Closeable {
     }
 
     @Override
-    public void close() throws IOException {
-        fs.close();
+    public void close() {
+        try {
+            fs.close();
+        } catch (IOException e) {
+            throw Util.sneak(e);
+        }
     }
 }

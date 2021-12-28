@@ -9,7 +9,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -22,7 +21,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -53,13 +51,12 @@ import io.github.coolcrabs.brachyura.ide.IdeProject;
 import io.github.coolcrabs.brachyura.ide.IdeProject.IdeProjectBuilder;
 import io.github.coolcrabs.brachyura.ide.IdeProject.RunConfig.RunConfigBuilder;
 import io.github.coolcrabs.brachyura.mappings.MappingHasher;
+import io.github.coolcrabs.brachyura.mappings.MappingHelper;
 import io.github.coolcrabs.brachyura.mappings.Namespaces;
 import io.github.coolcrabs.brachyura.mappings.tinyremapper.Jsr2JetbrainsMappingProvider;
 import io.github.coolcrabs.brachyura.mappings.tinyremapper.MappingTreeMappingProvider;
-import io.github.coolcrabs.brachyura.mappings.tinyremapper.PathFileConsumer;
 import io.github.coolcrabs.brachyura.mappings.tinyremapper.RemapperProcessor;
 import io.github.coolcrabs.brachyura.mappings.tinyremapper.TinyRemapperHelper;
-import io.github.coolcrabs.brachyura.mappings.tinyremapper.TinyRemapperHelper.JarType;
 import io.github.coolcrabs.brachyura.maven.Maven;
 import io.github.coolcrabs.brachyura.maven.MavenId;
 import io.github.coolcrabs.brachyura.minecraft.Minecraft;
@@ -72,10 +69,8 @@ import io.github.coolcrabs.brachyura.processing.ProcessingSource;
 import io.github.coolcrabs.brachyura.processing.Processor;
 import io.github.coolcrabs.brachyura.processing.ProcessorChain;
 import io.github.coolcrabs.brachyura.processing.sinks.AtomicZipProcessingSink;
-import io.github.coolcrabs.brachyura.processing.sinks.DirectoryProcessingSink;
 import io.github.coolcrabs.brachyura.processing.sinks.ZipProcessingSink;
 import io.github.coolcrabs.brachyura.processing.sources.DirectoryProcessingSource;
-import io.github.coolcrabs.brachyura.processing.sources.FilteringProcessingSource;
 import io.github.coolcrabs.brachyura.processing.sources.ProcessingSponge;
 import io.github.coolcrabs.brachyura.processing.sources.ZipProcessingSource;
 import io.github.coolcrabs.brachyura.project.Task;
@@ -83,7 +78,6 @@ import io.github.coolcrabs.brachyura.project.java.BaseJavaProject;
 import io.github.coolcrabs.brachyura.util.AtomicDirectory;
 import io.github.coolcrabs.brachyura.util.AtomicFile;
 import io.github.coolcrabs.brachyura.util.CloseableArrayList;
-import io.github.coolcrabs.brachyura.util.FileSystemUtil;
 import io.github.coolcrabs.brachyura.util.GsonUtil;
 import io.github.coolcrabs.brachyura.util.JvmUtil;
 import io.github.coolcrabs.brachyura.util.Lazy;
@@ -107,10 +101,6 @@ import net.fabricmc.mappingio.format.MappingFormat;
 import net.fabricmc.mappingio.format.Tiny2Writer;
 import net.fabricmc.mappingio.tree.MappingTree;
 import net.fabricmc.mappingio.tree.MemoryMappingTree;
-import net.fabricmc.mappingio.tree.MappingTree.ClassMapping;
-import net.fabricmc.mappingio.tree.MappingTree.FieldMapping;
-import net.fabricmc.mappingio.tree.MappingTree.MethodMapping;
-import net.fabricmc.tinyremapper.InputTag;
 import net.fabricmc.tinyremapper.TinyRemapper;
 
 public abstract class FabricProject extends BaseJavaProject {
@@ -142,25 +132,7 @@ public abstract class FabricProject extends BaseJavaProject {
             MemoryMappingTree r = new MemoryMappingTree(true);
             getIntermediary().tree.accept(r);
             Minecraft.getMojmap(getMcVersion(), Minecraft.getVersion(getMcVersion())).accept(r);
-            int intId = r.getNamespaceId(Namespaces.INTERMEDIARY);
-            Iterator<? extends ClassMapping> clsIt = ((MappingTree)r).getClasses().iterator();
-            while (clsIt.hasNext()) {
-                ClassMapping cls = clsIt.next();
-                if (cls.getName(intId) == null) {
-                    clsIt.remove();
-                } else {
-                    Iterator<? extends MethodMapping> methodIt = cls.getMethods().iterator();
-                    while (methodIt.hasNext()) {
-                        MethodMapping method = methodIt.next();
-                        if (method.getName(intId) == null) methodIt.remove();
-                    }
-                    Iterator<? extends FieldMapping> fieldIt = cls.getFields().iterator();
-                    while (fieldIt.hasNext()) {
-                        FieldMapping field = fieldIt.next();
-                        if (field.getName(intId) == null) fieldIt.remove();
-                    }
-                }
-            }
+            MappingHelper.dropNullInNamespace(r, Namespaces.INTERMEDIARY);
             return r;
         } catch (IOException e) {
             throw Util.sneak(e);
@@ -815,26 +787,16 @@ public abstract class FabricProject extends BaseJavaProject {
             aw.accept(accessWidener);
             remapperBuilder.extraPostApplyVisitor((cls, next) -> AccessWidenerClassVisitor.createClassVisitor(Opcodes.ASM9, next, accessWidener));
         }
-        TinyRemapper remapper = remapperBuilder.build();
         try {
             Files.deleteIfExists(outputJar);
         } catch (IOException e) {
             throw Util.sneak(e);
         }
-        try (FileSystem outputFileSystem = FileSystemUtil.newJarFileSystem(outputJar)) {
-            Path outputRoot = outputFileSystem.getPath("/");
-            for (Path path : classpath) {
-                TinyRemapperHelper.readJar(remapper, path, JarType.CLASSPATH);
-            }
-            try (FileSystem inputFileSystem = FileSystemUtil.newJarFileSystem(inputJar)) {
-                TinyRemapperHelper.readFileSystem(remapper, inputFileSystem, JarType.INPUT);
-                TinyRemapperHelper.copyNonClassfilesFromFileSystem(inputFileSystem, outputFileSystem);
-            }
-            remapper.apply(new PathFileConsumer(outputRoot));
-        } catch (IOException e) {
-            throw Util.sneak(e);
-        } finally {
-            remapper.finish();
+        try (
+            ZipProcessingSource source = new ZipProcessingSource(inputJar);
+            ZipProcessingSink sink = new ZipProcessingSink(outputJar)
+        ) {
+            new ProcessorChain(new RemapperProcessor(remapperBuilder, classpath)).apply(sink, source);
         }
     }
 
