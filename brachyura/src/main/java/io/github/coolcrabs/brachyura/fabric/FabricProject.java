@@ -75,6 +75,7 @@ import io.github.coolcrabs.brachyura.processing.sources.ProcessingSponge;
 import io.github.coolcrabs.brachyura.processing.sources.ZipProcessingSource;
 import io.github.coolcrabs.brachyura.project.Task;
 import io.github.coolcrabs.brachyura.project.java.BaseJavaProject;
+import io.github.coolcrabs.brachyura.project.java.SimpleJavaProject;
 import io.github.coolcrabs.brachyura.util.AtomicDirectory;
 import io.github.coolcrabs.brachyura.util.AtomicFile;
 import io.github.coolcrabs.brachyura.util.CloseableArrayList;
@@ -108,8 +109,14 @@ public abstract class FabricProject extends BaseJavaProject {
     public final Lazy<MappingTree> mappings = new Lazy<>(this::createMappings);
     public abstract MappingTree createMappings();
     public abstract FabricLoader getLoader();
+    public String getMavenGroup() {
+        return null;
+    }
     public @Nullable Consumer<AccessWidenerVisitor> getAw() {
         return null;
+    }
+    public MavenId getId() {
+        return getMavenGroup() == null ? null : new MavenId(getMavenGroup(), getModId(), getVersion());
     }
 
     public final Lazy<List<ModDependency>> modDependencies = new Lazy<>(() -> {
@@ -188,6 +195,10 @@ public abstract class FabricProject extends BaseJavaProject {
     public void getTasks(Consumer<Task> p) {
         super.getTasks(p);
         p.accept(Task.of("build", this::build));
+    }
+    
+    public void getPublishTasks(Consumer<Task> p) {
+        SimpleJavaProject.createPublishTasks(p, this::build);
     }
 
     @Override
@@ -320,7 +331,7 @@ public abstract class FabricProject extends BaseJavaProject {
         return result;
     }
 
-    public void build() {
+    public JavaJarDependency build() {
         try {
             String mixinOut = "mixinmapout.tiny";
             JavaCompilationResult compilation = new JavaCompilation()
@@ -358,6 +369,7 @@ public abstract class FabricProject extends BaseJavaProject {
                 trout.getInputs(out);
                 out.commit();
             }
+            return new JavaJarDependency(getBuildJarPath(), null, getId());
         } catch (Exception e) {
             throw Util.sneak(e);
         }

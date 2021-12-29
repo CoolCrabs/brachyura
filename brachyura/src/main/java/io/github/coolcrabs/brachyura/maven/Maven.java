@@ -29,6 +29,7 @@ public class Maven {
     private Maven() { }
 
     public static final String MAVEN_CENTRAL = "https://repo.maven.apache.org/maven2/";
+    public static final String MAVEN_LOCAL = PathUtil.HOME.resolve(".m2").resolve("repository").toUri().toString(); // This is wrong, too bad https://stackoverflow.com/a/47833316
 
     public static JavaJarDependency getMavenJarDep(String mavenRepo, MavenId dep) {
         return (JavaJarDependency) getMavenDep(mavenRepo, dep, ".jar", true, true);
@@ -109,7 +110,7 @@ public class Maven {
         PathUtil.moveAtoB(tempPath, path);
     }
 
-    private static String addTrailSlash(String string) {
+    static String addTrailSlash(String string) {
         return string.endsWith("/") ? string : string + "/";
     }
 

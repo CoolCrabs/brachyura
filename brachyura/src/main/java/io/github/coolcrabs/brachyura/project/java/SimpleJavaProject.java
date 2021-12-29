@@ -11,23 +11,38 @@ import io.github.coolcrabs.brachyura.compiler.java.JavaCompilationResult;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 import io.github.coolcrabs.brachyura.ide.IdeProject;
 import io.github.coolcrabs.brachyura.ide.IdeProject.IdeProjectBuilder;
+import io.github.coolcrabs.brachyura.maven.Maven;
+import io.github.coolcrabs.brachyura.maven.MavenId;
+import io.github.coolcrabs.brachyura.maven.MavenPublishing;
 import io.github.coolcrabs.brachyura.processing.sinks.AtomicZipProcessingSink;
 import io.github.coolcrabs.brachyura.processing.sources.DirectoryProcessingSource;
 import io.github.coolcrabs.brachyura.processing.sources.ProcessingSponge;
 import io.github.coolcrabs.brachyura.project.Task;
 import io.github.coolcrabs.brachyura.util.JvmUtil;
 import io.github.coolcrabs.brachyura.util.Lazy;
+import java.util.function.Supplier;
 
 public abstract class SimpleJavaProject extends BaseJavaProject {
-    /**
-     * Eg: examplegame-0.1
-     */
-    public abstract String getJarBaseName();
+    public abstract MavenId getId();
+    
+    public String getJarBaseName() {
+        return getId().artifactId + "-" + getId().version;
+    }
 
     @Override
     public void getTasks(Consumer<Task> p) {
         super.getTasks(p);
         p.accept(Task.of("build", this::build));
+        getPublishTasks(p);
+    }
+    
+    public void getPublishTasks(Consumer<Task> p) {
+        createPublishTasks(p, this::build);
+    }
+    
+    public static void createPublishTasks(Consumer<Task> p, Supplier<JavaJarDependency> build) {
+        p.accept(Task.of("publish", () -> MavenPublishing.publish(MavenPublishing.AuthenticatedMaven.ofEnv(), build.get())));
+        p.accept(Task.of("publishToMavenLocal", () -> MavenPublishing.publish(MavenPublishing.AuthenticatedMaven.ofMavenLocal(), build.get())));
     }
 
     @Override
@@ -39,7 +54,7 @@ public abstract class SimpleJavaProject extends BaseJavaProject {
             .build();
     }
 
-    public boolean build() {
+    public JavaJarDependency build() {
         JavaCompilationResult compilation = new JavaCompilation()
             .addSourceDir(getSrcDir())
             .addClasspath(getCompileDependencies())
@@ -59,7 +74,7 @@ public abstract class SimpleJavaProject extends BaseJavaProject {
             jarSink.commit();
             jarSourcesSink.commit();
         }
-        return true;
+        return new JavaJarDependency(outjar, outjar, getId());
     }
 
     public final Lazy<List<JavaJarDependency>> dependencies = new Lazy<>(this::getDependencies);

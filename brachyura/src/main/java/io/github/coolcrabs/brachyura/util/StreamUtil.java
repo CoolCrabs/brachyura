@@ -1,12 +1,26 @@
 package io.github.coolcrabs.brachyura.util;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.StandardCharsets;
 
 public class StreamUtil {
     private StreamUtil() {
+    }
+    
+    public static void copy(InputStream is, OutputStream os) {
+        try {
+            byte[] buffer = new byte[1024];
+            int length = 0;
+            while ((length = is.read(buffer)) != -1) {
+                os.write(buffer, 0, length);
+            }
+        } catch (IOException e) {
+            throw Util.sneak(e);
+        }
     }
 
     public static String readFullyAsString(InputStream inputStream) {
@@ -25,11 +39,7 @@ public class StreamUtil {
     private static ByteArrayOutputStream readFully(InputStream inputStream) {
         try {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            byte[] buffer = new byte[1024];
-            int length = 0;
-            while ((length = inputStream.read(buffer)) != -1) {
-                baos.write(buffer, 0, length);
-            }
+            copy(inputStream, baos);
             return baos;
         } catch (Exception e) {
             throw Util.sneak(e);
