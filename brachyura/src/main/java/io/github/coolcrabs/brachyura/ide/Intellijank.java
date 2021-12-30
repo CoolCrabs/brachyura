@@ -161,6 +161,7 @@ public enum Intellijank implements Ide {
                         }
                         vmParam.append(" -cp ");
                         ArrayList<Path> cp = new ArrayList<>(run.classpath);
+                        cp.addAll(run.resourcePaths);
                         cp.add(projectDir.resolve(".brachyura").resolve("ideaout").resolve("production").resolve("main")); // ???
                         StringBuilder cpbuilder = new StringBuilder();
                         for (Path cp0 : cp) {

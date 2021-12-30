@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.List;
 
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
+import java.util.Objects;
 
 public final class IdeProject {
     public final String name;
@@ -13,13 +14,15 @@ public final class IdeProject {
     public final List<RunConfig> runConfigs;
     public final List<Path> sourcePaths;
     public final List<Path> resourcePaths;
+    public final int javaVersion;
 
-    IdeProject(String name, List<JavaJarDependency> dependencies, List<RunConfig> runConfigs, List<Path> sourcePaths, List<Path> resourcePaths) {
+    IdeProject(String name, List<JavaJarDependency> dependencies, List<RunConfig> runConfigs, List<Path> sourcePaths, List<Path> resourcePaths, int javaVersion) {
         this.name = name;
         this.dependencies = dependencies;
         this.runConfigs = runConfigs;
         this.sourcePaths = sourcePaths;
         this.resourcePaths = resourcePaths;
+        this.javaVersion = javaVersion;
     }
 
     public static class IdeProjectBuilder {
@@ -28,6 +31,7 @@ public final class IdeProject {
         private List<RunConfig> runConfigs = Collections.emptyList();
         private List<Path> sourcePaths = Collections.emptyList();
         private List<Path> resourcePaths = Collections.emptyList();
+        private int javaVersion = 8;
         
         public IdeProjectBuilder name(String name) {
             this.name = name;
@@ -73,9 +77,14 @@ public final class IdeProject {
             this.resourcePaths = Arrays.asList(resourcePaths);
             return this;
         }
+        
+        public IdeProjectBuilder javaVersion(int javaVersion) {
+            this.javaVersion = javaVersion;
+            return this;
+        }
 
         public IdeProject build() {
-            return new IdeProject(name, dependencies, runConfigs, sourcePaths, resourcePaths);
+            return new IdeProject(name, dependencies, runConfigs, sourcePaths, resourcePaths, javaVersion);
         }
     }
 
@@ -86,14 +95,16 @@ public final class IdeProject {
         public final List<String> vmArgs;
         public final List<String> args;
         public final List<Path> classpath;
+        public final List<Path> resourcePaths;
 
-        RunConfig(String name, String mainClass, Path cwd, List<String> vmArgs, List<String> args, List<Path> classpath) {
+        RunConfig(String name, String mainClass, Path cwd, List<String> vmArgs, List<String> args, List<Path> classpath, List<Path> resourcePaths) {
             this.name = name;
             this.mainClass = mainClass;
             this.cwd = cwd;
             this.vmArgs = vmArgs;
             this.args = args;
             this.classpath = classpath;
+            this.resourcePaths = resourcePaths;
         }
 
         public static class RunConfigBuilder {
@@ -103,6 +114,7 @@ public final class IdeProject {
             private List<String> vmArgs = Collections.emptyList();
             private List<String> args = Collections.emptyList();
             private List<Path> classpath = Collections.emptyList();
+            private List<Path> resourcePaths = Collections.emptyList();
 
             public RunConfigBuilder name(String name) {
                 this.name = name;
@@ -148,9 +160,22 @@ public final class IdeProject {
                 this.classpath = Arrays.asList(classpath);
                 return this;
             }
+            
+            public RunConfigBuilder resourcePaths(List<Path> resoutcePaths) {
+                this.resourcePaths = resoutcePaths;
+                return this;
+            }
+
+            public RunConfigBuilder resourcePaths(Path... resourcePaths) {
+                this.resourcePaths = Arrays.asList(resourcePaths);
+                return this;
+            }
 
             public RunConfig build() {
-                return new RunConfig(name, mainClass, cwd, vmArgs, args, classpath);
+                Objects.requireNonNull(name, "Null name");
+                Objects.requireNonNull(mainClass, "Null mainClass");
+                Objects.requireNonNull(cwd, "Null cwd");
+                return new RunConfig(name, mainClass, cwd, vmArgs, args, classpath, resourcePaths);
             }
         }
     }

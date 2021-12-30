@@ -15,7 +15,7 @@ class LauncherMetaDownloader {
     public static LauncherMeta getLauncherMeta() {
         if (meta == null) {
             try {
-                meta = (new Gson()).fromJson(new InputStreamReader(NetUtil.url("https://launchermeta.mojang.com/mc/game/version_manifest.json").openStream()), LauncherMeta.class);
+                meta = (new Gson()).fromJson(new InputStreamReader(NetUtil.inputStream(NetUtil.url("https://launchermeta.mojang.com/mc/game/version_manifest.json"))), LauncherMeta.class);
             } catch (Exception e) {
                 throw Util.sneak(e);
             }

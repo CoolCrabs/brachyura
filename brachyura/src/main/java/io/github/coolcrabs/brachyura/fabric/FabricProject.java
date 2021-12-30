@@ -133,12 +133,16 @@ public abstract class FabricProject extends BaseJavaProject {
     public String getVersion() {
         return fmjParseThingy.get()[1];
     }
-
+    
     public MappingTree createMojmap() {
+        return createMojmap(getIntermediary().tree, getMcVersion());
+    }
+
+    public static MappingTree createMojmap(MappingTree intermediary, String mcVersion) {
         try {
             MemoryMappingTree r = new MemoryMappingTree(true);
-            getIntermediary().tree.accept(r);
-            Minecraft.getMojmap(getMcVersion(), Minecraft.getVersion(getMcVersion())).accept(r);
+            intermediary.accept(r);
+            Minecraft.getMojmap(mcVersion, Minecraft.getVersion(mcVersion)).accept(r);
             MappingHelper.dropNullInNamespace(r, Namespaces.INTERMEDIARY);
             return r;
         } catch (IOException e) {
@@ -222,6 +226,7 @@ public abstract class FabricProject extends BaseJavaProject {
         }
         return new IdeProjectBuilder()
             .name(getModId())
+            .javaVersion(getJavaVersion())
             .dependencies(ideDependencies.get())
             .sourcePaths(getSrcDir())
             .resourcePaths(getResourcesDir())
@@ -231,6 +236,7 @@ public abstract class FabricProject extends BaseJavaProject {
                     .cwd(cwd)
                     .mainClass("net.fabricmc.devlaunchinjector.Main")
                     .classpath(classpath)
+                    .resourcePaths(getResourcesDir())
                     .vmArgs(
                         clientArgs
                     )
@@ -240,6 +246,7 @@ public abstract class FabricProject extends BaseJavaProject {
                     .cwd(cwd)
                     .mainClass("net.fabricmc.devlaunchinjector.Main")
                     .classpath(classpath)
+                    .resourcePaths(getResourcesDir())
                     .vmArgs(
                         "-Dfabric.dli.config=" + launchConfig.toString(),
                         "-Dfabric.dli.env=server",

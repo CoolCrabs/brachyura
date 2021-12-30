@@ -146,7 +146,7 @@ public class Minecraft {
                             URL sourcesHashUrl = new URL(sourcesUrl + ".sha1");
                             String targetHash;
                             try {
-                                try (InputStream hashStream = sourcesHashUrl.openStream()) {
+                                try (InputStream hashStream = NetUtil.inputStream(sourcesHashUrl)) {
                                     targetHash = StreamUtil.readFullyAsString(hashStream);
                                 }
                                 // If we got this far sources exist
@@ -156,7 +156,7 @@ public class Minecraft {
                                 try {
                                     sourcesUrl = sourcesUrl.replace("https://libraries.minecraft.net/", Maven.MAVEN_CENTRAL); // WHY ???
                                     sourcesHashUrl = new URL(sourcesUrl + ".sha1");
-                                    try (InputStream hashStream = sourcesHashUrl.openStream()) {
+                                    try (InputStream hashStream = NetUtil.inputStream(sourcesHashUrl)) {
                                         targetHash = StreamUtil.readFullyAsString(hashStream);
                                     }
                                     // If we got this far sources exist

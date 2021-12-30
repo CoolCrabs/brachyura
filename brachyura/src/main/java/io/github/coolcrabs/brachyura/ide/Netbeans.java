@@ -15,11 +15,11 @@ import org.tinylog.Logger;
 
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 import io.github.coolcrabs.brachyura.util.AtomicDirectory;
+import io.github.coolcrabs.brachyura.util.JvmUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import io.github.coolcrabs.brachyura.util.Util;
 import io.github.coolcrabs.brachyura.util.XmlUtil;
 import java.util.ArrayList;
-import java.util.HashSet;
 
 public enum Netbeans implements Ide {
     INSTANCE;
@@ -66,6 +66,8 @@ public enum Netbeans implements Ide {
                 javacClasspath.append(createFileReference(j).getListString());
             }
             projectProperties.setProperty("javac.classpath", javacClasspath.toString());
+            projectProperties.setProperty("javac.source", JvmUtil.javaVersionString(ideProject.javaVersion));
+            projectProperties.setProperty("javac.target", JvmUtil.javaVersionString(ideProject.javaVersion));
             this.dir = dir;
             this.ideProject = ideProject;
         }
@@ -163,7 +165,7 @@ public enum Netbeans implements Ide {
             StringBuilder runCpStr = new StringBuilder();
             runCpStr.append("${build.classes.dir}");
             ArrayList<Path> cp = new ArrayList<>(rc.classpath);
-            cp.addAll(ideProject.resourcePaths);
+            cp.addAll(rc.resourcePaths);
             for (Path p : cp) {
                 runCpStr.append(File.pathSeparator);
                 runCpStr.append(p.toString());

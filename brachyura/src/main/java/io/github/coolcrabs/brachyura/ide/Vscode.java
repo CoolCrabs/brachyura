@@ -18,6 +18,7 @@ import io.github.coolcrabs.brachyura.util.AtomicFile;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import io.github.coolcrabs.brachyura.util.Util;
 
+//TODO: how to set project java version?
 public enum Vscode implements Ide {
     INSTANCE;
 
@@ -118,7 +119,7 @@ public enum Vscode implements Ide {
                     jsonWriter.name("classPaths");
                     jsonWriter.beginArray();
                     jsonWriter.value(projectDir.resolve(".brachyura").resolve("vscodeout").toString());
-                    for (Path path : ideProject.resourcePaths) {
+                    for (Path path : runConfig.resourcePaths) {
                         jsonWriter.value(path.toString());
                     }
                     for (Path path : runConfig.classpath) {

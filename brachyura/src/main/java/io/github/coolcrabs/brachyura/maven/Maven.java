@@ -21,6 +21,7 @@ import io.github.coolcrabs.brachyura.dependency.FileDependency;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 import io.github.coolcrabs.brachyura.exception.IncorrectHashException;
 import io.github.coolcrabs.brachyura.util.MessageDigestUtil;
+import io.github.coolcrabs.brachyura.util.NetUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import io.github.coolcrabs.brachyura.util.StreamUtil;
 import io.github.coolcrabs.brachyura.util.Util;
@@ -92,11 +93,11 @@ public class Maven {
         try {
             URI targetUri = mavenRepoUri.resolve(relativeDownload);
             String targetHash;
-            try (InputStream hashStream = mavenRepoUri.resolve(relativeDownload + ".sha1").toURL().openStream()) {
+            try (InputStream hashStream = NetUtil.inputStream(mavenRepoUri.resolve(relativeDownload + ".sha1").toURL())) {
                 targetHash = StreamUtil.readFullyAsString(hashStream);
             }
             MessageDigest messageDigest = MessageDigestUtil.messageDigest(MessageDigestUtil.SHA1);
-            try (DigestInputStream inputStream = new DigestInputStream(targetUri.toURL().openStream(), messageDigest)) {
+            try (DigestInputStream inputStream = new DigestInputStream(NetUtil.inputStream(targetUri.toURL()), messageDigest)) {
                 Files.copy(inputStream, tempPath, StandardCopyOption.REPLACE_EXISTING);
             }
             String hash = MessageDigestUtil.toHexHash(messageDigest.digest());

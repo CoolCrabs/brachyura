@@ -10,7 +10,10 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
+import java.text.CharacterIterator;
+import java.text.StringCharacterIterator;
 import java.util.Base64;
+import java.util.zip.GZIPInputStream;
 import org.jetbrains.annotations.Nullable;
 import org.tinylog.Logger;
 
@@ -35,10 +38,31 @@ public class NetUtil {
 
     public static InputStream inputStream(URL url) {
         try {
-            return url.openStream();
+            URLConnection con = url.openConnection();
+            con.addRequestProperty("Accept-Encoding", "gzip");
+            long size = con.getContentLengthLong();
+            Logger.info("Downloading {} ({})", size == -1 ? "unknown size" : humanReadableByteCountSI(size));
+            if ("gzip".equals(con.getContentEncoding())) {
+                return new GZIPInputStream(con.getInputStream());
+            } else {
+                return con.getInputStream();
+            }
         } catch (IOException e) {
             throw Util.sneak(e);
         }
+    }
+    
+    // https://stackoverflow.com/a/3758880
+    public static String humanReadableByteCountSI(long bytes) {
+        if (-1000 < bytes && bytes < 1000) {
+            return bytes + " B";
+        }
+        CharacterIterator ci = new StringCharacterIterator("kMGTPE");
+        while (bytes <= -999_950 || bytes >= 999_950) {
+            bytes /= 1000;
+            ci.next();
+        }
+        return String.format("%.1f %cB", bytes / 1000.0, ci.current());
     }
     
     // https://gist.github.com/luankevinferreira/5221ea62e874a9b29d86b13a2637517b
