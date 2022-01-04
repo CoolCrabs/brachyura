@@ -28,16 +28,16 @@ import io.github.coolcrabs.brachyura.decompiler.DecompileLineNumberTable.MethodI
 import io.github.coolcrabs.brachyura.util.FileSystemUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import io.github.coolcrabs.brachyura.util.Util;
+import java.util.HashMap;
+import java.util.Iterator;
 
 class BrachyuraCfrOutputSinkFactory implements OutputSinkFactory, Closeable {
     private final FileSystem fileSystem;
-    private final Path lineNumberMappingsPath;
-    private final DecompileLineNumberTable decompileLineNumberTable = new DecompileLineNumberTable();
-    private final @Nullable LineNumberMappingSink lineNumberMappingSink;
+    private final DecompileLineNumberTable decompileLineNumberTable;
+    private final LineNumberMappingSink lineNumberMappingSink;
     private final @Nullable DecompiledSink decompiledSink;
-    
 
-    public BrachyuraCfrOutputSinkFactory(@Nullable Path outputJar, @Nullable Path lineNumberMappingsPath) {
+    public BrachyuraCfrOutputSinkFactory(@Nullable Path outputJar, DecompileLineNumberTable mapping, boolean replace) {
         if (outputJar != null) {
             PathUtil.deleteIfExists(outputJar);
             fileSystem = FileSystemUtil.newJarFileSystem(outputJar);
@@ -46,12 +46,8 @@ class BrachyuraCfrOutputSinkFactory implements OutputSinkFactory, Closeable {
             fileSystem = null;
             decompiledSink = null;
         }
-        this.lineNumberMappingsPath = lineNumberMappingsPath;
-        if (lineNumberMappingsPath != null) {
-            lineNumberMappingSink = new LineNumberMappingSink();
-        } else {
-            lineNumberMappingSink = null;
-        }
+        decompileLineNumberTable = mapping;
+        lineNumberMappingSink = new LineNumberMappingSink(replace);
     }
 
     @Override
@@ -117,25 +113,59 @@ class BrachyuraCfrOutputSinkFactory implements OutputSinkFactory, Closeable {
     }
 
     private class LineNumberMappingSink implements Sink<SinkReturns.LineNumberMapping> {
+        final boolean replace;
+        
+        public LineNumberMappingSink(boolean replace) {
+            this.replace = replace;
+        }
+        
         @Override
         public void write(LineNumberMapping sinkable) {
-            List<LineNumberTableEntry> a = decompileLineNumberTable.classes.computeIfAbsent(
+            Map<MethodId, DecompileLineNumberTable.MethodLineMap> a = decompileLineNumberTable.classes.computeIfAbsent(
                 sinkable.className().replace('.', '/'),
                 k -> new ConcurrentHashMap<>()
-            ).computeIfAbsent(
-                new MethodId(sinkable.methodName(), sinkable.methodDescriptor()),
-                k -> new ArrayList<>()
             );
-            for (Map.Entry<Integer, Integer> entry : sinkable.getMappings().entrySet()) {
-                a.add(new LineNumberTableEntry(entry.getKey(), entry.getValue()));
+            MethodId id = new MethodId(sinkable.methodName(), sinkable.methodDescriptor());
+            if (replace) {
+                List<LineNumberTableEntry> newLineNumbers = new ArrayList<>();
+                for (Map.Entry<Integer, Integer> entry : sinkable.getMappings().entrySet()) {
+                    newLineNumbers.add(new LineNumberTableEntry(entry.getKey(), entry.getValue()));
+                }
+                a.put(id, new DecompileLineNumberTable.MethodLineMap(newLineNumbers));
+            } else {
+                // Bruh
+                HashMap<Integer, Integer> remap = new HashMap<>();
+                finish: {
+                    Iterator<Map.Entry<Integer, Integer>> origOff2Line = sinkable.getClassFileMappings().entrySet().iterator();
+                    Iterator<Map.Entry<Integer, Integer>> decompOff2Line = sinkable.getMappings().entrySet().iterator();
+                    if (!decompOff2Line.hasNext()) break finish;
+                    Map.Entry<Integer, Integer> currDecomp = decompOff2Line.next();
+                    Map.Entry<Integer, Integer> nextDecomp = null;
+                    while (origOff2Line.hasNext()) {
+                        Map.Entry<Integer, Integer> origOff2LineE = origOff2Line.next();
+                        for (;;) {
+                            if (nextDecomp == null && decompOff2Line.hasNext()) {
+                                nextDecomp = decompOff2Line.next();
+                            }
+                            if (nextDecomp != null && nextDecomp.getKey() <= origOff2LineE.getKey()) {
+                                currDecomp = nextDecomp;
+                                nextDecomp = null;
+                            } else {
+                                break;
+                            }
+                        }
+                        remap.put(origOff2LineE.getValue(), currDecomp.getValue());
+                    }
+                }
+                a.put(id, new DecompileLineNumberTable.MethodLineMap(remap));
             }
+            
         }
     }
 
     @Override
     public void close() throws IOException {
         if (fileSystem != null) fileSystem.close();
-        decompileLineNumberTable.write(lineNumberMappingsPath);
     }
     
 }

@@ -12,15 +12,16 @@ import java.util.concurrent.TimeUnit;
 
 import org.benf.cfr.reader.api.CfrDriver;
 import org.benf.cfr.reader.util.CfrVersionInfo;
-import org.jetbrains.annotations.Nullable;
 import org.tinylog.Logger;
 
 import io.github.coolcrabs.brachyura.decompiler.BrachyuraDecompiler;
+import io.github.coolcrabs.brachyura.decompiler.DecompileLineNumberTable;
+import io.github.coolcrabs.brachyura.decompiler.LineNumberTableReplacer;
 import io.github.coolcrabs.brachyura.util.Util;
 import net.fabricmc.mappingio.tree.MappingTree;
 import net.fabricmc.mappingio.tree.MemoryMappingTree;
 
-public class CfrDecompiler implements BrachyuraDecompiler {
+public class CfrDecompiler extends BrachyuraDecompiler {
     private static final Map<String, String> CFR_OPTIONS = new HashMap<>();
     private static final String VERSION;
 
@@ -34,22 +35,49 @@ public class CfrDecompiler implements BrachyuraDecompiler {
     }
 
     private final int threadCount;
-
+    private final boolean replaceLineNumbers;
+    
+    public CfrDecompiler() {
+        this(false);
+    }
+    
     public CfrDecompiler(int threadCount) {
-        this.threadCount = threadCount;
+        this(threadCount, false);
+    }
+    
+    public CfrDecompiler(boolean replaceLineNumbers) {
+        this(Runtime.getRuntime().availableProcessors(), replaceLineNumbers);
     }
 
-    public void decompile(Path jar, List<Path> classpath, @Nullable Path outputJar, @Nullable Path outputLineNumberMappings, @Nullable MappingTree tree, int namespace) {
+    /**
+     * Creates a new CFR instance
+     * @param threadCount should be the same as system CPU thread count for fastest decomp
+     * @param replaceLineNumbers should be false for MC because of Mixin bugs :(
+     */
+    public CfrDecompiler(int threadCount, boolean replaceLineNumbers) {
+        this.threadCount = threadCount;
+        this.replaceLineNumbers = replaceLineNumbers;
+    }
+
+    @Override
+    protected DecompileResult getDecompileResult(Path jar, Path resultDir) {
+        String jarFile = jar.getFileName().toString();
+        String sourcesFile = jarFile.replace(".jar", "-sources.jar");
+        return new DecompileResult(resultDir.resolve(jarFile), resultDir.resolve(sourcesFile));
+    }
+
+    @Override
+    protected void decompileAndLinemap(Path jar, List<Path> classpath, Path resultDir, MappingTree tree, int namespace) {
+        DecompileResult r = getDecompileResult(jar, resultDir);
         try {
             ArrayList<String> classes = new ArrayList<>();
+            DecompileLineNumberTable lineNumbers = new DecompileLineNumberTable();
             try (
                 BrachyuraCfrClassFileSource cfrClassFileSource = new BrachyuraCfrClassFileSource(jar, classpath, classes);
-                BrachyuraCfrOutputSinkFactory cfrOutputSinkFactory = new BrachyuraCfrOutputSinkFactory(outputJar, outputLineNumberMappings);
+                BrachyuraCfrOutputSinkFactory cfrOutputSinkFactory = new BrachyuraCfrOutputSinkFactory(r.sourcesJar, lineNumbers, replaceLineNumbers);
             ) {
                 CfrDriver.Builder cfrDriver = new CfrDriver.Builder();
-                if (outputLineNumberMappings != null) {
-                    cfrDriver.withOptions(CFR_OPTIONS);
-                }
+                cfrDriver.withOptions(CFR_OPTIONS);
                 cfrDriver.withClassFileSource(cfrClassFileSource);
                 cfrDriver.withOutputSink(cfrOutputSinkFactory);
                 if (tree != null) {
@@ -73,6 +101,8 @@ public class CfrDecompiler implements BrachyuraDecompiler {
                 }
                 executor.shutdown();
                 executor.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+                Logger.info("(CFR) Linemapping {}", jar.getFileName());
+                LineNumberTableReplacer.replaceLineNumbers(jar, r.jar, lineNumbers);
             }
         } catch (Exception e) {
             throw Util.sneak(e);
@@ -81,7 +111,7 @@ public class CfrDecompiler implements BrachyuraDecompiler {
 
     @Override
     public String getName() {
-        return "BrachyuraCFR";
+        return "BrachyuraCFR" + (replaceLineNumbers ? "-replace" : "-remap");
     }
 
     @Override
@@ -92,10 +122,5 @@ public class CfrDecompiler implements BrachyuraDecompiler {
     @Override
     public int getThreadCount() {
         return threadCount;
-    }
-
-    @Override
-    public boolean lineNumberMappingsSupport() {
-        return true;
     }
 }

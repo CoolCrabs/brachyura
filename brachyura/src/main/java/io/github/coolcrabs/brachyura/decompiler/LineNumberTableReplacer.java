@@ -11,7 +11,6 @@ import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 
 import io.github.coolcrabs.brachyura.decompiler.DecompileLineNumberTable.MethodId;
@@ -19,6 +18,7 @@ import io.github.coolcrabs.brachyura.util.AtomicFile;
 import io.github.coolcrabs.brachyura.util.FileSystemUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import io.github.coolcrabs.brachyura.util.Util;
+import org.tinylog.Logger;
 
 // Basically a mini class file reader + writer
 // Supports round trip with no unneeded changes
@@ -40,37 +40,55 @@ public class LineNumberTableReplacer {
                         @Override
                         public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                             if (file.toString().endsWith(".class")) {
+                                int lineNumberConstIndex = -1;
                                 ClassFile c;
                                 try (DataInputStream in = new DataInputStream(PathUtil.inputStream(file))) {
                                     c = readClassFile(in);
                                 }
                                 String cName = ((ConstantUtf8)cpEntry(c.constantPool, ((ConstantClass) cpEntry(c.constantPool, c.thisClass)).nameIndex)).data;
-                                Map<MethodId, List<LineNumberTableEntry>> mmap = table.classes.get(cName);
+                                Map<MethodId, DecompileLineNumberTable.MethodLineMap> mmap = table.classes.get(cName);
                                 if (mmap != null) {
                                     for (Method method : c.methods) {
                                         MethodId mid = new MethodId(((ConstantUtf8) cpEntry(c.constantPool, method.nameIndex)).data, ((ConstantUtf8) cpEntry(c.constantPool, method.descriptorIndex)).data);
-                                        List<LineNumberTableEntry> ln = mmap.get(mid);
-                                        if (ln != null) {
+                                        DecompileLineNumberTable.MethodLineMap mln = mmap.get(mid);
+                                        if (mln != null) {
                                             for (Attribute attr : method.attributes) {
                                                 if (attr instanceof AttributeCode) {
                                                     AttributeCode ac = (AttributeCode) attr;
-                                                    AttributeLineNumberTable lnAttr = null;
-                                                    boolean foundFirstLnTable = false;
-                                                    for (int i = 0; i < ac.attributes.length; i++) {
-                                                        if (ac.attributes[i] instanceof AttributeLineNumberTable) {
-                                                            if (foundFirstLnTable) {
-                                                                ((AttributeLineNumberTable)ac.attributes[i]).lineNumberTable = new LineNumberTableEntry[0];
-                                                            } else {
-                                                                lnAttr = (AttributeLineNumberTable) ac.attributes[i];
-                                                                foundFirstLnTable = true;
+                                                    if (mln.isReplace) {
+                                                       AttributeLineNumberTable lnAttr = null;
+                                                        boolean foundFirstLnTable = false;
+                                                        for (int i = 0; i < ac.attributes.length; i++) {
+                                                            if (ac.attributes[i] instanceof AttributeLineNumberTable) {
+                                                                if (foundFirstLnTable) {
+                                                                    ((AttributeLineNumberTable)ac.attributes[i]).lineNumberTable = new LineNumberTableEntry[0];
+                                                                } else {
+                                                                    lnAttr = (AttributeLineNumberTable) ac.attributes[i];
+                                                                    foundFirstLnTable = true;
+                                                                }
+                                                            }
+                                                        }
+                                                        if (!foundFirstLnTable) {
+                                                            ac.attributes = Arrays.copyOf(ac.attributes, ac.attributes.length + 1);
+                                                            ac.attributes[ac.attributes.length - 1] = lnAttr = new AttributeLineNumberTable();
+                                                            if (lineNumberConstIndex == -1) {
+                                                                lineNumberConstIndex = getOrCreateUtf8Const(LINE_NUMBER_TABLE_UTF8, c);
+                                                            }
+                                                        }
+
+                                                        lnAttr.lineNumberTable = mln.replace.toArray(new LineNumberTableEntry[mln.replace.size()]); 
+                                                    } else {
+                                                        for (int i = 0; i < ac.attributes.length; i++) {
+                                                            if (ac.attributes[i] instanceof AttributeLineNumberTable) {
+                                                                LineNumberTableEntry[] lnt = ((AttributeLineNumberTable)ac.attributes[i]).lineNumberTable;
+                                                                for (int j = 0; j < lnt.length; j++) {
+                                                                    Integer rmp = mln.remap.get((int)lnt[j].lineNumber);
+                                                                    if (rmp != null) lnt[j] = new LineNumberTableEntry(lnt[j].startPc, rmp);
+                                                                    else Logger.warn("Missing remap {} in {}", lnt[j].lineNumber, file);
+                                                                }
                                                             }
                                                         }
                                                     }
-                                                    if (!foundFirstLnTable) {
-                                                        ac.attributes = Arrays.copyOf(ac.attributes, ac.attributes.length + 1);
-                                                        ac.attributes[ac.attributes.length - 1] = lnAttr = new AttributeLineNumberTable();
-                                                    }
-                                                    lnAttr.lineNumberTable = ln.toArray(new LineNumberTableEntry[ln.size()]);
                                                 }
                                             }
                                         }
@@ -94,6 +112,25 @@ public class LineNumberTableReplacer {
         } catch (Exception e) {
             throw Util.sneak(e);
         }
+    }
+    
+    static int getOrCreateUtf8Const(String constant, ClassFile clazz) {
+        for (int i = 0; i < clazz.constantPool.length; i++) {
+            Constant c = clazz.constantPool[i];
+            if (c instanceof ConstantUtf8) {
+                ConstantUtf8 utf8 = (ConstantUtf8) c;
+                if (constant.equals(utf8.data)) {
+                    return i;
+                }
+            }
+        }
+        clazz.constantPool = Arrays.copyOf(clazz.constantPool, clazz.constantPool.length + 1);
+        int r = clazz.constantPool.length - 1;
+        ConstantUtf8 newConst = new ConstantUtf8();
+        newConst.tag = 1;
+        newConst.data = constant;
+        clazz.constantPool[r] = newConst;
+        return r;
     }
     
     static class ClassFile {

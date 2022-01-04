@@ -40,8 +40,6 @@ import org.tinylog.Logger;
 import io.github.coolcrabs.brachyura.compiler.java.JavaCompilation;
 import io.github.coolcrabs.brachyura.compiler.java.JavaCompilationResult;
 import io.github.coolcrabs.brachyura.decompiler.BrachyuraDecompiler;
-import io.github.coolcrabs.brachyura.decompiler.DecompileLineNumberTable;
-import io.github.coolcrabs.brachyura.decompiler.LineNumberTableReplacer;
 import io.github.coolcrabs.brachyura.decompiler.cfr.CfrDecompiler;
 import io.github.coolcrabs.brachyura.dependency.Dependency;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
@@ -772,27 +770,11 @@ public abstract class FabricProject extends BaseJavaProject {
         RemappedJar named = namedJar.get();
         BrachyuraDecompiler decompiler = decompiler();
         if (decompiler == null) return new JavaJarDependency(named.jar, null, null);
-        Path result = fabricCache().resolve("decompiled").resolve(getMcVersion() + TinyRemapperHelper.getFileVersionTag() + "-named-" + named.mappingHash + "-decomp-" + decompiler.getName() + "-" + decompiler.getVersion() + "-sources.jar");
-        Path result2 = fabricCache().resolve("decompiled").resolve(getMcVersion() + TinyRemapperHelper.getFileVersionTag() + "-named-" + named.mappingHash + "-decomp-" + decompiler.getName() + "-" + decompiler.getVersion() + ".linemappings");
-        if (!(Files.isRegularFile(result) && Files.isRegularFile(result2))) {
-            try (
-                AtomicFile atomicFile = new AtomicFile(result);
-                AtomicFile atomicFile2 = new AtomicFile(result2);
-            ) {
-                Logger.info("Decompiling " + named.jar.getFileName() + " using " + decompiler.getName() + " " + decompiler.getVersion() + " with " + decompiler.getThreadCount() + " threads"); 
-                long start = System.currentTimeMillis();
-                decompiler.decompile(named.jar, decompClasspath(), atomicFile.tempPath, atomicFile2.tempPath, mappings.get(), mappings.get().getNamespaceId(Namespaces.NAMED));
-                long end = System.currentTimeMillis();
-                Logger.info("Decompiled " + named.jar.getFileName() + " in " + (end - start) + "ms");
-                atomicFile.commit();
-                atomicFile2.commit();
-            }
-        }
-        Path result3 = fabricCache().resolve("decompiled").resolve(getMcVersion() + TinyRemapperHelper.getFileVersionTag() + "-named-" + named.mappingHash + "-lineremapped-" + decompiler.getName() + "-" + decompiler.getVersion() + ".jar");
-        if (!Files.isRegularFile(result3)) {
-            LineNumberTableReplacer.replaceLineNumbers(named.jar, result3, new DecompileLineNumberTable().read(result2));
-        }
-        return new JavaJarDependency(result3, result, null);
+        // Different Java Versions have different classes
+        // This will lead to missing classes if ran on an older jdk and MC uses newer jdk
+        // Adding the JVM version to the directory avoids this issue if you rerun with a newer jdk
+        Path resultDir = fabricCache().resolve("decompiled").resolve(decompiler.getName() + "-" + decompiler.getVersion()).resolve(getMcVersion() + TinyRemapperHelper.getFileVersionTag() + "named-" + named.mappingHash + "-J" + JvmUtil.CURRENT_JAVA_VERSION);
+        return decompiler.getDecompiled(named.jar, decompClasspath(), resultDir, mappings.get(), Namespaces.NAMED).toJavaJarDep(null);
     }
 
     public void remapJar(MappingTree mappings, @Nullable Consumer<AccessWidenerVisitor> aw, String src, String dst, Path inputJar, Path outputJar, List<Path> classpath) {
@@ -856,7 +838,7 @@ public abstract class FabricProject extends BaseJavaProject {
     }
 
     public @Nullable BrachyuraDecompiler decompiler() {
-        return new CfrDecompiler(Runtime.getRuntime().availableProcessors());
+        return new CfrDecompiler();
     }
 
     public Path getBuildJarPath() {
