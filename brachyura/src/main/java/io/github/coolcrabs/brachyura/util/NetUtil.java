@@ -41,7 +41,7 @@ public class NetUtil {
             URLConnection con = url.openConnection();
             con.addRequestProperty("Accept-Encoding", "gzip");
             long size = con.getContentLengthLong();
-            Logger.info("Downloading {} ({})", size == -1 ? "unknown size" : humanReadableByteCountSI(size));
+            Logger.info("Downloading {} ({})", url, size == -1 ? "unknown size" : humanReadableByteCountSI(size));
             if ("gzip".equals(con.getContentEncoding())) {
                 return new GZIPInputStream(con.getInputStream());
             } else {

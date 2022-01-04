@@ -1,8 +1,10 @@
 package io.github.coolcrabs.brachyura.util;
 
+import java.io.IOException;
 import java.io.Writer;
 
 import javax.xml.namespace.NamespaceContext;
+import javax.xml.stream.FactoryConfigurationError;
 import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
@@ -13,7 +15,7 @@ public class XmlUtil {
 
     public static FormattedXMLStreamWriter newStreamWriter(Writer writer) {
         try {
-            return new FormattedXMLStreamWriter(XMLOutputFactory.newFactory().createXMLStreamWriter(writer));
+            return new FormattedXMLStreamWriter(writer);
         } catch (Exception e) {
             throw Util.sneak(e);
         }
@@ -21,10 +23,12 @@ public class XmlUtil {
 
     public static class FormattedXMLStreamWriter implements XMLStreamWriter, AutoCloseable {
         final XMLStreamWriter parent;
+        final Writer w;
         int indent = 0;
 
-        public FormattedXMLStreamWriter(XMLStreamWriter parent) {
-            this.parent = parent;
+        public FormattedXMLStreamWriter(Writer w) throws XMLStreamException, FactoryConfigurationError {
+            this.parent = XMLOutputFactory.newFactory().createXMLStreamWriter(w);
+            this.w = w;
         }
 
         public void indent() {
@@ -85,6 +89,11 @@ public class XmlUtil {
         @Override
         public void close() throws XMLStreamException {
             parent.close();
+            try {
+                w.close(); // Cause the XMLStreamWriterImpl can't just be normal all the time
+            } catch (IOException e) {
+                throw Util.sneak(e);
+            }
         }
 
         @Override
