@@ -60,13 +60,6 @@ public class CfrDecompiler extends BrachyuraDecompiler {
     }
 
     @Override
-    protected DecompileResult getDecompileResult(Path jar, Path resultDir) {
-        String jarFile = jar.getFileName().toString();
-        String sourcesFile = jarFile.replace(".jar", "-sources.jar");
-        return new DecompileResult(resultDir.resolve(jarFile), resultDir.resolve(sourcesFile));
-    }
-
-    @Override
     protected void decompileAndLinemap(Path jar, List<Path> classpath, Path resultDir, MappingTree tree, int namespace) {
         DecompileResult r = getDecompileResult(jar, resultDir);
         try {

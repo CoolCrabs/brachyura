@@ -24,6 +24,7 @@ import org.tinylog.Logger;
 
 import io.github.coolcrabs.brachyura.decompiler.DecompileLineNumberTable;
 import io.github.coolcrabs.brachyura.decompiler.LineNumberTableEntry;
+import io.github.coolcrabs.brachyura.decompiler.DecompileLineNumberTable.ClassLineMap;
 import io.github.coolcrabs.brachyura.decompiler.DecompileLineNumberTable.MethodId;
 import io.github.coolcrabs.brachyura.util.FileSystemUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
@@ -123,8 +124,8 @@ class BrachyuraCfrOutputSinkFactory implements OutputSinkFactory, Closeable {
         public void write(LineNumberMapping sinkable) {
             Map<MethodId, DecompileLineNumberTable.MethodLineMap> a = decompileLineNumberTable.classes.computeIfAbsent(
                 sinkable.className().replace('.', '/'),
-                k -> new ConcurrentHashMap<>()
-            );
+                k -> new ClassLineMap(new ConcurrentHashMap<>())
+            ).methods;
             MethodId id = new MethodId(sinkable.methodName(), sinkable.methodDescriptor());
             if (replace) {
                 List<LineNumberTableEntry> newLineNumbers = new ArrayList<>();

@@ -13,6 +13,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.Map;
 
+import io.github.coolcrabs.brachyura.decompiler.DecompileLineNumberTable.ClassLineMap;
 import io.github.coolcrabs.brachyura.decompiler.DecompileLineNumberTable.MethodId;
 import io.github.coolcrabs.brachyura.util.AtomicFile;
 import io.github.coolcrabs.brachyura.util.FileSystemUtil;
@@ -46,46 +47,45 @@ public class LineNumberTableReplacer {
                                     c = readClassFile(in);
                                 }
                                 String cName = ((ConstantUtf8)cpEntry(c.constantPool, ((ConstantClass) cpEntry(c.constantPool, c.thisClass)).nameIndex)).data;
-                                Map<MethodId, DecompileLineNumberTable.MethodLineMap> mmap = table.classes.get(cName);
+                                ClassLineMap mmap = table.classes.get(cName);
                                 if (mmap != null) {
                                     for (Method method : c.methods) {
                                         MethodId mid = new MethodId(((ConstantUtf8) cpEntry(c.constantPool, method.nameIndex)).data, ((ConstantUtf8) cpEntry(c.constantPool, method.descriptorIndex)).data);
-                                        DecompileLineNumberTable.MethodLineMap mln = mmap.get(mid);
-                                        if (mln != null) {
-                                            for (Attribute attr : method.attributes) {
-                                                if (attr instanceof AttributeCode) {
-                                                    AttributeCode ac = (AttributeCode) attr;
-                                                    if (mln.isReplace) {
-                                                       AttributeLineNumberTable lnAttr = null;
-                                                        boolean foundFirstLnTable = false;
-                                                        for (int i = 0; i < ac.attributes.length; i++) {
-                                                            if (ac.attributes[i] instanceof AttributeLineNumberTable) {
-                                                                if (foundFirstLnTable) {
-                                                                    ((AttributeLineNumberTable)ac.attributes[i]).lineNumberTable = new LineNumberTableEntry[0];
-                                                                } else {
-                                                                    lnAttr = (AttributeLineNumberTable) ac.attributes[i];
-                                                                    foundFirstLnTable = true;
-                                                                }
+                                        DecompileLineNumberTable.MethodLineMap mln = mmap == null ? null : mmap.methods.get(mid);
+                                        for (Attribute attr : method.attributes) {
+                                            if (attr instanceof AttributeCode) {
+                                                AttributeCode ac = (AttributeCode) attr;
+                                                if (mln != null && mln.isReplace) {
+                                                    AttributeLineNumberTable lnAttr = null;
+                                                    boolean foundFirstLnTable = false;
+                                                    for (int i = 0; i < ac.attributes.length; i++) {
+                                                        if (ac.attributes[i] instanceof AttributeLineNumberTable) {
+                                                            if (foundFirstLnTable) {
+                                                                ((AttributeLineNumberTable)ac.attributes[i]).lineNumberTable = new LineNumberTableEntry[0];
+                                                            } else {
+                                                                lnAttr = (AttributeLineNumberTable) ac.attributes[i];
+                                                                foundFirstLnTable = true;
                                                             }
                                                         }
-                                                        if (!foundFirstLnTable) {
-                                                            ac.attributes = Arrays.copyOf(ac.attributes, ac.attributes.length + 1);
-                                                            ac.attributes[ac.attributes.length - 1] = lnAttr = new AttributeLineNumberTable();
-                                                            if (lineNumberConstIndex == -1) {
-                                                                lineNumberConstIndex = getOrCreateUtf8Const(LINE_NUMBER_TABLE_UTF8, c);
-                                                            }
+                                                    }
+                                                    if (!foundFirstLnTable) {
+                                                        ac.attributes = Arrays.copyOf(ac.attributes, ac.attributes.length + 1);
+                                                        ac.attributes[ac.attributes.length - 1] = lnAttr = new AttributeLineNumberTable();
+                                                        if (lineNumberConstIndex == -1) {
+                                                            lineNumberConstIndex = getOrCreateUtf8Const(LINE_NUMBER_TABLE_UTF8, c);
                                                         }
+                                                    }
 
-                                                        lnAttr.lineNumberTable = mln.replace.toArray(new LineNumberTableEntry[mln.replace.size()]); 
-                                                    } else {
-                                                        for (int i = 0; i < ac.attributes.length; i++) {
-                                                            if (ac.attributes[i] instanceof AttributeLineNumberTable) {
-                                                                LineNumberTableEntry[] lnt = ((AttributeLineNumberTable)ac.attributes[i]).lineNumberTable;
-                                                                for (int j = 0; j < lnt.length; j++) {
-                                                                    Integer rmp = mln.remap.get((int)lnt[j].lineNumber);
-                                                                    if (rmp != null) lnt[j] = new LineNumberTableEntry(lnt[j].startPc, rmp);
-                                                                    else Logger.warn("Missing remap {} in {}", lnt[j].lineNumber, file);
-                                                                }
+                                                    lnAttr.lineNumberTable = mln.replace.toArray(new LineNumberTableEntry[mln.replace.size()]); 
+                                                } else {
+                                                    Map<Integer, Integer> remap = mmap.isStupid ? mmap.stupid : mln.remap;
+                                                    for (int i = 0; i < ac.attributes.length; i++) {
+                                                        if (ac.attributes[i] instanceof AttributeLineNumberTable) {
+                                                            LineNumberTableEntry[] lnt = ((AttributeLineNumberTable)ac.attributes[i]).lineNumberTable;
+                                                            for (int j = 0; j < lnt.length; j++) {
+                                                                Integer rmp = remap.get((int)lnt[j].lineNumber);
+                                                                if (rmp != null) lnt[j] = new LineNumberTableEntry(lnt[j].startPc, rmp);
+                                                                else Logger.warn("Missing remap {} in {}", lnt[j].lineNumber, file);
                                                             }
                                                         }
                                                     }

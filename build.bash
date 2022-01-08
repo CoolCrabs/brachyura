@@ -25,6 +25,9 @@ cd brachyura-mixin-compile-extensions
 mvn clean package
 mvn clean install
 cd ..
+cd fernutil
+mvn clean package verify install
+cd ..
 cd brachyura
 mvn clean package verify
 cd ..

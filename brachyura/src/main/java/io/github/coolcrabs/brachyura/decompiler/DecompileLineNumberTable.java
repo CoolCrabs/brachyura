@@ -1,5 +1,6 @@
 package io.github.coolcrabs.brachyura.decompiler;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -7,7 +8,28 @@ import java.util.concurrent.ConcurrentHashMap;
 public class DecompileLineNumberTable {
     // If true replaces existing tables
     // If false remaps existing table
-    public final Map<String, Map<MethodId, MethodLineMap>> classes = new ConcurrentHashMap<>(); // In internal names
+    public final Map<String, ClassLineMap> classes = new ConcurrentHashMap<>(); // In internal names
+
+    public static class ClassLineMap {
+        final boolean isStupid;
+        public final Map<MethodId, MethodLineMap> methods;
+        final Map<Integer, Integer> stupid;
+
+        public ClassLineMap(Map<MethodId, MethodLineMap> methods) {
+            this.isStupid = false;
+            this.methods = methods;
+            this.stupid = null;
+        }
+
+        public ClassLineMap(int[] stupid) {
+            this.isStupid = true;
+            this.methods = null;
+            this.stupid = new HashMap<>();
+            for (int i = 0; i < stupid.length; i += 2) {
+                this.stupid.put(stupid[i], stupid[i + 1]);
+            }
+        }
+    }
     
     public static class MethodLineMap {
         final boolean isReplace;

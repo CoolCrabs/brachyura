@@ -40,7 +40,11 @@ public abstract class BrachyuraDecompiler {
     }
     
     // Result dir is already atomic
-    protected abstract DecompileResult getDecompileResult(Path jar, Path resultDir);
+    protected DecompileResult getDecompileResult(Path jar, Path resultDir) {
+        String jarFile = jar.getFileName().toString();
+        String sourcesFile = jarFile.replace(".jar", "-sources.jar");
+        return new DecompileResult(resultDir.resolve(jarFile), resultDir.resolve(sourcesFile));
+    }
     
     protected abstract void decompileAndLinemap(Path jar, List<Path> classpath, Path resultDir, @Nullable MappingTree tree, int namespace);
     

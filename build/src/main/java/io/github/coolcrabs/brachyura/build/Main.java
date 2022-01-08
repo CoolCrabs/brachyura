@@ -26,7 +26,7 @@ import org.kohsuke.github.GitHub;
 import org.kohsuke.github.GitHubBuilder;
 
 public class Main {
-    static String[] localLibs = new String[] {"fabricmerge", "cfr", "brachyura", "bootstrap", "brachyura-mixin-compile-extensions", "trieharder"};
+    static String[] localLibs = new String[] {"fabricmerge", "cfr", "brachyura", "bootstrap", "brachyura-mixin-compile-extensions", "trieharder", "fernutil"};
     static String[] mavenLibs = new String[] {
         "https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.2/asm-9.2.jar",
         "https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.2/asm-9.2-sources.jar",
