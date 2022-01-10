@@ -8,6 +8,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -24,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -262,6 +264,7 @@ public abstract class FabricProject extends BaseJavaProject {
             try (BufferedWriter writer = Files.newBufferedWriter(result)) {
                 writer.write("commonProperties\n");
                 writer.write("\tfabric.development=true\n");
+                writer.write("\tfabric.remapClasspathFile="); writer.write(writeRuntimeRemapClasspath().toString()); writer.write('\n');
                 //TOOD: fabric.remapClasspathFile
                 writer.write("\tlog4j.configurationFile="); writer.write(writeLog4jXml().toAbsolutePath().toString()); writer.write('\n');
                 writer.write("\tlog4j2.formatMsgNoLookups=true"); // Prob overkill but won't hurt
@@ -317,6 +320,24 @@ public abstract class FabricProject extends BaseJavaProject {
             throw Util.sneak(e);
         }
     }
+
+    public Path writeRuntimeRemapClasspath() throws IOException {
+        List<Path> result = new ArrayList<>();
+        for (Dependency dependency : dependencies.get()) {
+            if (dependency instanceof JavaJarDependency) {
+                result.add(((JavaJarDependency) dependency).jar);
+            }
+        }
+        result.add(intermediaryjar.get().jar);
+        for (ModDependency dep : modDependencies.get()) {
+            result.add(dep.jarDependency.jar);
+        }
+        Path target = PathUtil.resolveAndCreateDir(getLocalBrachyuraPath(), "remapclasspath").resolve("remapClasspath.txt");
+        Files.deleteIfExists(target);
+        Files.copy(new ByteArrayInputStream(result.stream().map(Path::toString).collect(Collectors.joining(File.pathSeparator)).getBytes(StandardCharsets.UTF_8)), target);
+        return target;
+    }
+
 
     public List<Path> getExtractedNatives() {
         List<Path> result = new ArrayList<>();
