@@ -47,7 +47,7 @@ class FabricProjectTest {
 
         @Override
         public FabricLoader getLoader() {
-            return new FabricLoader(FabricMaven.URL, FabricMaven.loader("0.11.6"));
+            return new FabricLoader(FabricMaven.URL, FabricMaven.loader("0.12.12"));
         }
 
         @Override

@@ -328,10 +328,10 @@ public abstract class FabricProject extends BaseJavaProject {
                 result.add(((JavaJarDependency) dependency).jar);
             }
         }
-        result.add(intermediaryjar.get().jar);
         for (ModDependency dep : modDependencies.get()) {
             result.add(dep.jarDependency.jar);
         }
+        result.add(intermediaryjar.get().jar);
         Path target = PathUtil.resolveAndCreateDir(getLocalBrachyuraPath(), "remapclasspath").resolve("remapClasspath.txt");
         Files.deleteIfExists(target);
         Files.copy(new ByteArrayInputStream(result.stream().map(Path::toString).collect(Collectors.joining(File.pathSeparator)).getBytes(StandardCharsets.UTF_8)), target);

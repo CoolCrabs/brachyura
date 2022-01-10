@@ -5,7 +5,7 @@
 
     <groupId>io.github.coolcrabs</groupId>
     <artifactId>brachyura</artifactId>
-    <version>0.45</version>
+    <version>0.46</version>
 
     <properties>
         <java.version>1.8</java.version>
