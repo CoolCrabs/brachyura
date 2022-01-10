@@ -12,4 +12,4 @@ public interface IFabricJavadocProvider {
     String getFieldDoc(StructClass structClass, StructField structField);
   
     String getMethodDoc(StructClass structClass, StructMethod structMethod);
-  }
+}

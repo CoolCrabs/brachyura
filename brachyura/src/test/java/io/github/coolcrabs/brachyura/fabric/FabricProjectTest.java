@@ -11,7 +11,10 @@ import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
 
 import io.github.coolcrabs.brachyura.decompiler.BrachyuraDecompiler;
+import io.github.coolcrabs.brachyura.decompiler.cfr.CfrDecompiler;
+import io.github.coolcrabs.brachyura.decompiler.fernflower.FernflowerDecompiler;
 import io.github.coolcrabs.brachyura.mappings.Namespaces;
+import io.github.coolcrabs.brachyura.maven.Maven;
 import io.github.coolcrabs.brachyura.maven.MavenId;
 import io.github.coolcrabs.brachyura.util.JvmUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
@@ -63,6 +66,8 @@ class FabricProjectTest {
         @Override
         public BrachyuraDecompiler decompiler() {
             return null;
+            // return new CfrDecompiler();
+            // return new FernflowerDecompiler(Maven.getMavenJarDep("https://maven.quiltmc.org/repository/release", new MavenId("org.quiltmc:quiltflower:1.7.0"))); 
         };
     };
 

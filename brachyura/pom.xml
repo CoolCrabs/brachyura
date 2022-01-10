@@ -5,7 +5,7 @@
 
     <groupId>io.github.coolcrabs</groupId>
     <artifactId>brachyura</artifactId>
-    <version>0.43</version>
+    <version>0.44</version>
 
     <properties>
         <java.version>1.8</java.version>
@@ -65,7 +65,7 @@
         <dependency>
             <groupId>io.github.coolcrabs</groupId>
             <artifactId>fernutil</artifactId>
-            <version>0.1</version>
+            <version>0.2</version>
         </dependency>
         <!-- <dependency>
             <groupId>io.github.coolcrabs</groupId>
@@ -108,8 +108,6 @@
             <version>5.5.2</version>
             <scope>test</scope>
         </dependency>
-
-
     </dependencies>
 
     <build>

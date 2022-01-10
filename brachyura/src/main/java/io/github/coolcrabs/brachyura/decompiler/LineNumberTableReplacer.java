@@ -19,6 +19,7 @@ import io.github.coolcrabs.brachyura.util.AtomicFile;
 import io.github.coolcrabs.brachyura.util.FileSystemUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import io.github.coolcrabs.brachyura.util.Util;
+
 import org.tinylog.Logger;
 
 // Basically a mini class file reader + writer
@@ -28,6 +29,7 @@ public class LineNumberTableReplacer {
 
     static final String CODE_UTF8 = "Code";
     static final String LINE_NUMBER_TABLE_UTF8 = "LineNumberTable";
+    static final boolean REMAP_DEBUG = Boolean.getBoolean("brachyura.debugLineNumberRemap");
 
     public static void replaceLineNumbers(Path sourceJar, Path targetJar, DecompileLineNumberTable table) {
         try {
@@ -51,7 +53,7 @@ public class LineNumberTableReplacer {
                                 if (mmap != null) {
                                     for (Method method : c.methods) {
                                         MethodId mid = new MethodId(((ConstantUtf8) cpEntry(c.constantPool, method.nameIndex)).data, ((ConstantUtf8) cpEntry(c.constantPool, method.descriptorIndex)).data);
-                                        DecompileLineNumberTable.MethodLineMap mln = mmap == null ? null : mmap.methods.get(mid);
+                                        DecompileLineNumberTable.MethodLineMap mln = mmap.isStupid ? null : mmap.methods.get(mid);
                                         for (Attribute attr : method.attributes) {
                                             if (attr instanceof AttributeCode) {
                                                 AttributeCode ac = (AttributeCode) attr;
@@ -78,14 +80,22 @@ public class LineNumberTableReplacer {
 
                                                     lnAttr.lineNumberTable = mln.replace.toArray(new LineNumberTableEntry[mln.replace.size()]); 
                                                 } else {
-                                                    Map<Integer, Integer> remap = mmap.isStupid ? mmap.stupid : mln.remap;
                                                     for (int i = 0; i < ac.attributes.length; i++) {
                                                         if (ac.attributes[i] instanceof AttributeLineNumberTable) {
+                                                            if (!mmap.isStupid && mln == null) {
+                                                                if (REMAP_DEBUG) Logger.info("Missing method map in {} {}", file, cpEntry(c.constantPool, method.nameIndex));
+                                                                continue;
+                                                            }
+                                                            Map<Integer, Integer> remap = mmap.isStupid ? mmap.stupid : mln.remap;
                                                             LineNumberTableEntry[] lnt = ((AttributeLineNumberTable)ac.attributes[i]).lineNumberTable;
                                                             for (int j = 0; j < lnt.length; j++) {
                                                                 Integer rmp = remap.get((int)lnt[j].lineNumber);
-                                                                if (rmp != null) lnt[j] = new LineNumberTableEntry(lnt[j].startPc, rmp);
-                                                                else Logger.warn("Missing remap {} in {}", lnt[j].lineNumber, file);
+                                                                if (rmp != null) {
+                                                                    if (REMAP_DEBUG) Logger.info("Remapping {} {} in {} {}", lnt[j].lineNumber, rmp, file, cpEntry(c.constantPool, method.nameIndex));
+                                                                    lnt[j] = new LineNumberTableEntry(lnt[j].startPc, rmp);
+                                                                } else {
+                                                                    if (REMAP_DEBUG) Logger.info("Missing remap {} in {} {}", lnt[j].lineNumber, file, cpEntry(c.constantPool, method.nameIndex));
+                                                                }
                                                             }
                                                         }
                                                     }
@@ -541,6 +551,11 @@ public class LineNumberTableReplacer {
 
     static class ConstantUtf8 extends Constant {
         String data;
+
+        @Override
+        public String toString() {
+            return data;
+        }
     }
 
     static class ConstantMethodHandle extends Constant {

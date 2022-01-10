@@ -43,7 +43,7 @@ class TJump {
                 options.put(IFernflowerPreferences.NEW_LINE_SEPARATOR, "\n");
                 // Threads configured by default in all ff forks
                 if (fabric) options.put(IFabricJavadocProvider.PROPERTY_NAME, new TJavadocProviderFabric(provider));
-                Fernflower ff = new Fernflower(bytecodeProvider, resultSaver, null, new TFFLogger());
+                Fernflower ff = new Fernflower(bytecodeProvider, resultSaver, options, new TFFLogger());
                 ff.addSource(inJar.toFile());
                 for (Path p : cp) {
                     ff.addLibrary(p.toFile());
