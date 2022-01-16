@@ -8,7 +8,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
-import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -207,23 +206,17 @@ public abstract class FabricProject extends BaseJavaProject {
 
     @Override
     public IdeProject getIdeProject() {
-        Path mappingsClasspath = writeMappings4FabricStuff().getParent().getParent();
-        Path cwd = getProjectDir().resolve("run");
-        PathUtil.createDirectories(cwd);
-        ArrayList<Path> classpath = new ArrayList<>(runtimeDependencies.get().size() + 1);
-        for (JavaJarDependency dependency : runtimeDependencies.get()) {
-            classpath.add(dependency.jar);
-        }
-        classpath.add(mappingsClasspath);
-        Path launchConfig = writeLaunchCfg();
-        ArrayList<String> clientArgs = new ArrayList<>(Arrays.asList(
-            "-Dfabric.dli.config=" + launchConfig.toString(),
-            "-Dfabric.dli.env=client",
-            "-Dfabric.dli.main=net.fabricmc.loader.launch.knot.KnotClient"
-        ));
-        if (OsUtil.OS == Os.OSX) {
-            clientArgs.add("-XstartOnFirstThread");
-        }
+        Path cwd = PathUtil.resolveAndCreateDir(getProjectDir(), "run");
+        Lazy<List<Path>> classpath = new Lazy<>(() -> {
+            Path mappingsClasspath = writeMappings4FabricStuff().getParent().getParent();
+            ArrayList<Path> r = new ArrayList<>(runtimeDependencies.get().size() + 1);
+            for (JavaJarDependency dependency : runtimeDependencies.get()) {
+                r.add(dependency.jar);
+            }
+            r.add(mappingsClasspath);
+            return r;
+        });
+        Lazy<Path> launchConfig = new Lazy<>(this::writeLaunchCfg);
         return new IdeProjectBuilder()
             .name(getModId())
             .javaVersion(getJavaVersion())
@@ -238,7 +231,17 @@ public abstract class FabricProject extends BaseJavaProject {
                     .classpath(classpath)
                     .resourcePaths(getResourcesDir())
                     .vmArgs(
-                        clientArgs
+                        () -> {
+                            ArrayList<String> clientArgs = new ArrayList<>(Arrays.asList(
+                                "-Dfabric.dli.config=" + launchConfig.get().toString(),
+                                "-Dfabric.dli.env=client",
+                                "-Dfabric.dli.main=net.fabricmc.loader.launch.knot.KnotClient"
+                            ));
+                            if (OsUtil.OS == Os.OSX) {
+                                clientArgs.add("-XstartOnFirstThread");
+                            }
+                            return clientArgs;
+                        }
                     )
                 .build(),
                 new RunConfigBuilder()
@@ -248,9 +251,11 @@ public abstract class FabricProject extends BaseJavaProject {
                     .classpath(classpath)
                     .resourcePaths(getResourcesDir())
                     .vmArgs(
-                        "-Dfabric.dli.config=" + launchConfig.toString(),
-                        "-Dfabric.dli.env=server",
-                        "-Dfabric.dli.main=net.fabricmc.loader.launch.knot.KnotServer"
+                        () -> Arrays.asList(
+                            "-Dfabric.dli.config=" + launchConfig.get().toString(),
+                            "-Dfabric.dli.env=server",
+                            "-Dfabric.dli.main=net.fabricmc.loader.launch.knot.KnotServer"
+                        )
                     )
                 .build()
             )

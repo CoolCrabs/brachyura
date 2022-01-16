@@ -6,7 +6,7 @@ import java.util.function.Supplier;
 // Based on https://dzone.com/articles/be-lazy-with-java-8
 // Modified to take the supplier in the constructor
 @SuppressWarnings("all")
-public final class Lazy<T> {
+public final class Lazy<T> implements Supplier<T> {
 
     private volatile T value;
     private final Supplier<T> supplier;

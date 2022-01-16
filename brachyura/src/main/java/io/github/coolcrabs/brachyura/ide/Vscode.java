@@ -69,7 +69,7 @@ public enum Vscode implements Ide {
         referencedLibraries.add("include", include);
         JsonObject sources = new JsonObject();
         referencedLibraries.add("sources", sources);
-        for (JavaJarDependency dependency : ideProject.dependencies) {
+        for (JavaJarDependency dependency : ideProject.dependencies.get()) {
             include.add(dependency.jar.toString());
             if (dependency.sourcesJar != null) {
                 sources.addProperty(dependency.jar.toString(), dependency.sourcesJar.toString());
@@ -105,13 +105,13 @@ public enum Vscode implements Ide {
                     jsonWriter.name("mainClass").value(runConfig.mainClass);
                     jsonWriter.name("vmArgs");
                     jsonWriter.beginArray();
-                    for (String vmArg : runConfig.vmArgs) {
+                    for (String vmArg : runConfig.vmArgs.get()) {
                         jsonWriter.value(vmArg);
                     }
                     jsonWriter.endArray();
                     jsonWriter.name("args");
                     jsonWriter.beginArray();
-                    for (String arg : runConfig.args) {
+                    for (String arg : runConfig.args.get()) {
                         jsonWriter.value(arg);
                     }
                     jsonWriter.endArray();
@@ -122,7 +122,7 @@ public enum Vscode implements Ide {
                     for (Path path : runConfig.resourcePaths) {
                         jsonWriter.value(path.toString());
                     }
-                    for (Path path : runConfig.classpath) {
+                    for (Path path : runConfig.classpath.get()) {
                         jsonWriter.value(path.toString());
                     }
                     jsonWriter.endArray();

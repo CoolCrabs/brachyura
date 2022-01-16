@@ -77,7 +77,7 @@ public enum Intellijank implements Ide {
                         w.writeEmptyElement("orderEntry");
                         w.writeAttribute("type", "sourceFolder");
                         w.writeAttribute("forTests", "false");
-                        for (JavaJarDependency dep : ideProject.dependencies) {
+                        for (JavaJarDependency dep : ideProject.dependencies.get()) {
                             w.newline();
                             w.writeEmptyElement("orderEntry");
                             w.writeAttribute("type", "library");
@@ -94,7 +94,7 @@ public enum Intellijank implements Ide {
                 w.writeEndDocument();
             }
             Path libsPath = PathUtil.resolveAndCreateDir(ideaPath, "libraries");
-            for (JavaJarDependency dep : ideProject.dependencies) {
+            for (JavaJarDependency dep : ideProject.dependencies.get()) {
                 try (FormattedXMLStreamWriter w = XmlUtil.newStreamWriter(Files.newBufferedWriter(libsPath.resolve(dep.jar.getFileName().toString() + ".xml")))) {
                     w.writeStartDocument("UTF-8", "1.0");
                     w.newline();
@@ -155,12 +155,12 @@ public enum Intellijank implements Ide {
                         option(w, "name", "main");
                         option(w, "WORKING_DIRECTORY", run.cwd.toString());
                         StringBuilder vmParam = new StringBuilder();
-                        for (String arg : run.vmArgs) {
+                        for (String arg : run.vmArgs.get()) {
                             vmParam.append(quote(arg));
                             vmParam.append(' ');
                         }
                         vmParam.append(" -cp ");
-                        ArrayList<Path> cp = new ArrayList<>(run.classpath);
+                        ArrayList<Path> cp = new ArrayList<>(run.classpath.get());
                         cp.addAll(run.resourcePaths);
                         cp.add(projectDir.resolve(".brachyura").resolve("ideaout").resolve("production").resolve("main")); // ???
                         StringBuilder cpbuilder = new StringBuilder();
@@ -172,7 +172,7 @@ public enum Intellijank implements Ide {
                         vmParam.append(quote(cpbuilder.toString()));
                         option(w, "VM_PARAMETERS", vmParam.toString());
                         StringBuilder runArg = new StringBuilder();
-                        for (String arg : run.args) {
+                        for (String arg : run.args.get()) {
                             runArg.append(quote(arg));
                             runArg.append(' ');
                         }

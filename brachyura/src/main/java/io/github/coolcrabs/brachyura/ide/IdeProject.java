@@ -6,19 +6,22 @@ import java.util.Collections;
 import java.util.List;
 
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
+import io.github.coolcrabs.brachyura.util.Lazy;
+
 import java.util.Objects;
+import java.util.function.Supplier;
 
 public final class IdeProject {
     public final String name;
-    public final List<JavaJarDependency> dependencies;
+    public final Lazy<List<JavaJarDependency>> dependencies;
     public final List<RunConfig> runConfigs;
     public final List<Path> sourcePaths;
     public final List<Path> resourcePaths;
     public final int javaVersion;
 
-    IdeProject(String name, List<JavaJarDependency> dependencies, List<RunConfig> runConfigs, List<Path> sourcePaths, List<Path> resourcePaths, int javaVersion) {
+    IdeProject(String name, Supplier<List<JavaJarDependency>> dependencies, List<RunConfig> runConfigs, List<Path> sourcePaths, List<Path> resourcePaths, int javaVersion) {
         this.name = name;
-        this.dependencies = dependencies;
+        this.dependencies = new Lazy<>(dependencies);
         this.runConfigs = runConfigs;
         this.sourcePaths = sourcePaths;
         this.resourcePaths = resourcePaths;
@@ -27,7 +30,7 @@ public final class IdeProject {
 
     public static class IdeProjectBuilder {
         private String name = "BrachyuraProject";
-        private List<JavaJarDependency> dependencies = Collections.emptyList();
+        private Supplier<List<JavaJarDependency>> dependencies = Collections::emptyList;
         private List<RunConfig> runConfigs = Collections.emptyList();
         private List<Path> sourcePaths = Collections.emptyList();
         private List<Path> resourcePaths = Collections.emptyList();
@@ -37,14 +40,19 @@ public final class IdeProject {
             this.name = name;
             return this;
         }
+
+        public IdeProjectBuilder dependencies(Supplier<List<JavaJarDependency>> dependencies) {
+            this.dependencies = dependencies;
+            return this;
+        }
         
         public IdeProjectBuilder dependencies(List<JavaJarDependency> dependencies) {
-            this.dependencies = dependencies;
+            this.dependencies = () -> dependencies;
             return this;
         }
 
         public IdeProjectBuilder dependencies(JavaJarDependency... dependencies) {
-            this.dependencies = Arrays.asList(dependencies);
+            this.dependencies = () -> Arrays.asList(dependencies);
             return this;
         }
 
@@ -92,18 +100,18 @@ public final class IdeProject {
         public final String name;
         public final String mainClass;
         public final Path cwd; // Make sure this exists
-        public final List<String> vmArgs;
-        public final List<String> args;
-        public final List<Path> classpath;
+        public final Lazy<List<String>> vmArgs;
+        public final Lazy<List<String>> args;
+        public final Lazy<List<Path>> classpath;
         public final List<Path> resourcePaths;
 
-        RunConfig(String name, String mainClass, Path cwd, List<String> vmArgs, List<String> args, List<Path> classpath, List<Path> resourcePaths) {
+        RunConfig(String name, String mainClass, Path cwd, Supplier<List<String>> vmArgs, Supplier<List<String>> args, Supplier<List<Path>> classpath, List<Path> resourcePaths) {
             this.name = name;
             this.mainClass = mainClass;
             this.cwd = cwd;
-            this.vmArgs = vmArgs;
-            this.args = args;
-            this.classpath = classpath;
+            this.vmArgs = new Lazy<>(vmArgs);
+            this.args = new Lazy<>(args);
+            this.classpath = new Lazy<>(classpath);
             this.resourcePaths = resourcePaths;
         }
 
@@ -111,9 +119,9 @@ public final class IdeProject {
             private String name;
             private String mainClass;
             private Path cwd;
-            private List<String> vmArgs = Collections.emptyList();
-            private List<String> args = Collections.emptyList();
-            private List<Path> classpath = Collections.emptyList();
+            private Supplier<List<String>> vmArgs = Collections::emptyList;
+            private Supplier<List<String>> args = Collections::emptyList;
+            private Supplier<List<Path>> classpath = Collections::emptyList;
             private List<Path> resourcePaths = Collections.emptyList();
 
             public RunConfigBuilder name(String name) {
@@ -131,38 +139,53 @@ public final class IdeProject {
                 return this;
             }
 
-            public RunConfigBuilder vmArgs(List<String> vmArgs) {
+            public RunConfigBuilder vmArgs(Supplier<List<String>> vmArgs) {
                 this.vmArgs = vmArgs;
                 return this;
             }
 
-            public RunConfigBuilder vmArgs(String... vmArgs) {
-                this.vmArgs = Arrays.asList(vmArgs);
+            public RunConfigBuilder vmArgs(List<String> vmArgs) {
+                this.vmArgs = () -> vmArgs;
                 return this;
             }
 
-            public RunConfigBuilder args(List<String> args) {
+            public RunConfigBuilder vmArgs(String... vmArgs) {
+                this.vmArgs = () -> Arrays.asList(vmArgs);
+                return this;
+            }
+
+            public RunConfigBuilder args(Supplier<List<String>> args) {
                 this.args = args;
                 return this;
             }
 
-            public RunConfigBuilder args(String... args) {
-                this.args = Arrays.asList(args);
+            public RunConfigBuilder args(List<String> args) {
+                this.args = () -> args;
                 return this;
             }
 
-            public RunConfigBuilder classpath(List<Path> classpath) {
+            public RunConfigBuilder args(String... args) {
+                this.args = () -> Arrays.asList(args);
+                return this;
+            }
+
+            public RunConfigBuilder classpath(Supplier<List<Path>> classpath) {
                 this.classpath = classpath;
                 return this;
             }
 
+            public RunConfigBuilder classpath(List<Path> classpath) {
+                this.classpath = () -> classpath;
+                return this;
+            }
+
             public RunConfigBuilder classpath(Path... classpath) {
-                this.classpath = Arrays.asList(classpath);
+                this.classpath = () -> Arrays.asList(classpath);
                 return this;
             }
             
-            public RunConfigBuilder resourcePaths(List<Path> resoutcePaths) {
-                this.resourcePaths = resoutcePaths;
+            public RunConfigBuilder resourcePaths(List<Path> resourcePaths) {
+                this.resourcePaths = resourcePaths;
                 return this;
             }
 

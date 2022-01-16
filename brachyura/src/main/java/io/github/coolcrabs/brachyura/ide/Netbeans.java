@@ -61,7 +61,7 @@ public enum Netbeans implements Ide {
             projectProperties.setProperty("application.title", ideProject.name);
             projectProperties.setProperty("src.dir", ideProject.sourcePaths.get(0).toString());
             StringBuilder javacClasspath = new StringBuilder();
-            for (JavaJarDependency j : ideProject.dependencies) {
+            for (JavaJarDependency j : ideProject.dependencies.get()) {
                 if (javacClasspath.length() > 0) javacClasspath.append(File.pathSeparator);
                 javacClasspath.append(createFileReference(j).getListString());
             }
@@ -150,13 +150,13 @@ public enum Netbeans implements Ide {
             config.setProperty("$label", rc.name);
             config.setProperty("main.class", rc.mainClass);
             StringBuilder vmargs = new StringBuilder();
-            for (String arg : rc.vmArgs) {
+            for (String arg : rc.vmArgs.get()) {
                 vmargs.append(quote(arg));
                 vmargs.append(' ');
             }
             config.setProperty("run.jvmargs", vmargs.toString());
             StringBuilder args = new StringBuilder();
-            for (String arg : rc.args) {
+            for (String arg : rc.args.get()) {
                 args.append(quote(arg));
                 args.append(' ');
             }
@@ -164,7 +164,7 @@ public enum Netbeans implements Ide {
             config.setProperty("work.dir", rc.cwd.toString());
             StringBuilder runCpStr = new StringBuilder();
             runCpStr.append("${build.classes.dir}");
-            ArrayList<Path> cp = new ArrayList<>(rc.classpath);
+            ArrayList<Path> cp = new ArrayList<>(rc.classpath.get());
             cp.addAll(rc.resourcePaths);
             for (Path p : cp) {
                 runCpStr.append(File.pathSeparator);
