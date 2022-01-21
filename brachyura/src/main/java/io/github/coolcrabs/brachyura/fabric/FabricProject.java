@@ -610,7 +610,7 @@ public abstract class FabricProject extends BaseJavaProject {
             List<RemapInfo> remapinfo = new ArrayList<>(unmapped.size());
             List<ModDependency> remapped = new ArrayList<>(unmapped.size());
             MessageDigest dephasher = MessageDigestUtil.messageDigest(MessageDigestUtil.SHA256);
-            dephasher.update((byte) 4); // Bump this if the logic changes
+            dephasher.update((byte) 5); // Bump this if the logic changes
             for (ModDependency dep : unmapped) {
                 hashDep(dephasher, dep);
             }
@@ -689,7 +689,7 @@ public abstract class FabricProject extends BaseJavaProject {
     public void hashDep(MessageDigest md, ModDependency dep) {
         hashDep(md, dep.jarDependency);
         for (ModDependencyFlag flag : dep.flags) {
-            MessageDigestUtil.update(md, flag.ordinal());
+            MessageDigestUtil.update(md, flag.toString());
         }
     }
 
@@ -712,6 +712,7 @@ public abstract class FabricProject extends BaseJavaProject {
             MessageDigestUtil.update(md, dep.mavenId.artifactId);
             MessageDigestUtil.update(md, dep.mavenId.groupId);
             MessageDigestUtil.update(md, dep.mavenId.version);
+            MessageDigestUtil.update(md, (byte)(dep.sourcesJar == null ? 0 : 1));
         }
     }
 

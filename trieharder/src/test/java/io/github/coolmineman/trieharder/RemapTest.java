@@ -60,7 +60,7 @@ class RemapTest {
             long end = System.currentTimeMillis() - start;
             System.out.println("Took " + end);
             assertEquals(
-                "import net.minecraft.util.registry.Registry;\n\npublic class Bruh {\n    String a = \"class_2378\"; // class_2378\n    /* class_2378 */\n    Registry b;\n    String c = \"\"\"\n               class_2378\\n\"\"\";\n    Registry d;\n}\n",
+                "import net.minecraft.util.registry.Registry;\n\npublic class Bruh {\n    String a = \"class_2378\"; // Registry\n    /* Registry */\n    Registry b;\n    String c = \"\"\"\n               class_2378\\n\"\"\";\n    Registry d;\n}\n",
                 remapped
             );
         }

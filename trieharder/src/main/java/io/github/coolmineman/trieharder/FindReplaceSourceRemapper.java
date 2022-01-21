@@ -62,7 +62,7 @@ public final class FindReplaceSourceRemapper {
     }
 
     public void remap(Reader in, Writer out) {
-        replacer.replace(new CommentStringSkipper(new UnicodeEscapeYeeterCharIn(new ReaderCharIn(in)), out), out);
+        replacer.replace(new CommentStringSkipper(new UnicodeEscapeYeeterCharIn(new ReaderCharIn(in)), out, false), out);
     }
 
     public void remapSourcesJar(Path in, Path out) {

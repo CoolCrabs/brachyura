@@ -7,10 +7,12 @@ public class CommentStringSkipper implements ReplacerCharIn {
     Appendable out;
     int[] readbuffer = new int[3];
     int readbuffersize = 0;
+    boolean skipComments;
 
-    public CommentStringSkipper(ReplacerCharIn in, Appendable out) {
+    public CommentStringSkipper(ReplacerCharIn in, Appendable out, boolean skipComments) {
         this.in = in;
         this.out = out;
+        this.skipComments = skipComments;
     }
 
     enum State {
@@ -69,20 +71,42 @@ public class CommentStringSkipper implements ReplacerCharIn {
                     }
                 }
             case EOL_COMMENT:
-                int r00 = 0;
-                while (r00 != '\n') {
-                    if (r00 < 0) return r00;
-                    r00 = rw();
-                }
-                state = State.NONE;
-                return d();
-            case TRADITIONAL_COMMENT:
-                for (;;) {
-                    int r0 = rw();
-                    if (r0 < 0) return r0;
-                    if (r0 == '*' && rw() == '/') {
+                if (skipComments) {
+                    int r00 = 0;
+                    while (r00 != '\n') {
+                        if (r00 < 0) return r00;
+                        r00 = rw();
+                    }
+                    state = State.NONE;
+                    return d();
+                } else {
+                    int r00 = r();
+                    if (r00 == '\n') {
                         state = State.NONE;
-                        return d();
+                    }
+                    return r00;
+                }
+            case TRADITIONAL_COMMENT:
+                if (skipComments) {
+                    for (;;) {
+                        int r0 = rw();
+                        if (r0 < 0) return r0;
+                        if (r0 == '*' && rw() == '/') {
+                            state = State.NONE;
+                            return d();
+                        }
+                    }
+                } else {
+                    int r0 = r();
+                    int r1 = r();
+                    if (r0 == '*' && r1 == '/') {
+                        state = State.NONE;
+                        w('*');
+                        w('/');
+                        return -2;
+                    } else {
+                        buffer(r1);
+                        return r0;
                     }
                 }
             default:

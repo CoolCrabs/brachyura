@@ -3,7 +3,7 @@
 
     <groupId>io.github.coolmineman</groupId>
     <artifactId>trieharder</artifactId>
-    <version>0.1.2</version>
+    <version>0.2.0</version>
 
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>
