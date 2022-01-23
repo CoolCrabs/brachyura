@@ -7,7 +7,8 @@ public interface Ide {
         return new Ide[] {
             Vscode.INSTANCE,
             Netbeans.INSTANCE,
-            Intellijank.INSTANCE
+            Intellijank.INSTANCE,
+            Eclipse.INSTANCE
         };
     }
 

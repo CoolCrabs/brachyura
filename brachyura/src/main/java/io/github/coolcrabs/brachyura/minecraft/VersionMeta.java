@@ -3,6 +3,7 @@ package io.github.coolcrabs.brachyura.minecraft;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 
 import com.google.gson.Gson;
@@ -34,13 +35,12 @@ public class VersionMeta {
 
     List<VMDependency> getDependencies() {
         Gson gson = new Gson();
-        ArrayList<VMDependency> result = new ArrayList<>();
+        LinkedHashMap<String, VMDependency> result = new LinkedHashMap<>();
         JsonArray libraries = json.getAsJsonObject().get("libraries").getAsJsonArray();
         for (int i = 0; i < libraries.size(); i++) {
             JsonObject library = libraries.get(i).getAsJsonObject();
             if (!Rules.allowed(library.get("rules"))) continue;
-            VMDependency dependency = new VMDependency();
-            dependency.name = library.get("name").getAsString();
+            VMDependency dependency = result.computeIfAbsent(library.get("name").getAsString(), VMDependency::new);
             boolean hasNatives = false;
             String natives = null;
             if (library.get("natives") != null) {
@@ -63,9 +63,8 @@ public class VersionMeta {
                     dependency.sources = gson.fromJson(classifiers.get("sources"), VMDependencyDownload.class);
                 }
             }
-            result.add(dependency);
         }
-        return result;
+        return new ArrayList<>(result.values());
     }
 
     VMAssets getVmAssets() {
@@ -98,5 +97,9 @@ public class VersionMeta {
         @Nullable VMDependencyDownload artifact;
         @Nullable VMDependencyDownload natives;
         @Nullable VMDependencyDownload sources;
+
+        VMDependency(String name) {
+            this.name = name;
+        }
     }
 }

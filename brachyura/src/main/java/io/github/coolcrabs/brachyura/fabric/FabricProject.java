@@ -220,8 +220,8 @@ public abstract class FabricProject extends BaseJavaProject {
         return new IdeProjectBuilder()
             .name(getModId())
             .javaVersion(getJavaVersion())
-            .dependencies(ideDependencies.get())
-            .sourcePaths(getSrcDir())
+            .dependencies(ideDependencies)
+            .sourcePath(getSrcDir())
             .resourcePaths(getResourcesDir())
             .runConfigs(
                 new RunConfigBuilder()

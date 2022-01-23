@@ -49,7 +49,7 @@ public abstract class SimpleJavaProject extends BaseJavaProject {
         return new IdeProjectBuilder()
             .name(getId().artifactId)
             .javaVersion(getJavaVersion())
-            .sourcePaths(getSrcDir())
+            .sourcePath(getSrcDir())
             .resourcePaths(getResourcesDir())
             .dependencies(dependencies.get())
             .build();

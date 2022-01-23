@@ -5,3 +5,6 @@ run
 netbeans
 *.iml
 .idea
+*.launch
+.project
+.classpath

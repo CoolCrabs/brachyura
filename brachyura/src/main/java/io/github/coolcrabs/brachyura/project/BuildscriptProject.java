@@ -53,7 +53,7 @@ class BuildscriptProject extends BaseJavaProject {
         }
         return new IdeProjectBuilder()
             .name("Buildscript")
-            .sourcePaths(getSrcDir())
+            .sourcePath(getSrcDir())
             .dependencies(getIdeDependencies())
             .runConfigs(runConfigs)
         .build();

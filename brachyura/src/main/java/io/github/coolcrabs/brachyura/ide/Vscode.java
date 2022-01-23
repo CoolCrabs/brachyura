@@ -60,7 +60,7 @@ public enum Vscode implements Ide {
         settingsJson.addProperty("java.project.outputPath", "./.brachyura/vscodeout");
         JsonArray sourcePaths = new JsonArray();
         settingsJson.add("java.project.sourcePaths", sourcePaths);
-        for (Path path : ideProject.sourcePaths) {
+        for (Path path : ideProject.sourcePaths.values()) {
             sourcePaths.add(projectDir.relativize(path).toString()); // Why does this have to be relative?
         }
         JsonObject referencedLibraries = new JsonObject();

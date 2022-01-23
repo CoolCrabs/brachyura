@@ -59,7 +59,7 @@ public enum Netbeans implements Ide {
         NetbeansProject(Path dir, IdeProject ideProject) {
             if (ideProject.sourcePaths.size() != 1) throw new UnsupportedOperationException("Netbeans support for >1 source path not impl");
             projectProperties.setProperty("application.title", ideProject.name);
-            projectProperties.setProperty("src.dir", ideProject.sourcePaths.get(0).toString());
+            projectProperties.setProperty("src.dir", ideProject.sourcePaths.values().iterator().next().toString());
             StringBuilder javacClasspath = new StringBuilder();
             for (JavaJarDependency j : ideProject.dependencies.get()) {
                 if (javacClasspath.length() > 0) javacClasspath.append(File.pathSeparator);
