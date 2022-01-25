@@ -1,35 +1,43 @@
 package io.github.coolcrabs.brachyura.project;
 
-import java.net.URL;
-import java.net.URLClassLoader;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
-import org.jetbrains.annotations.Nullable;
 import org.tinylog.Logger;
 
 import io.github.coolcrabs.brachyura.compiler.java.JavaCompilation;
 import io.github.coolcrabs.brachyura.compiler.java.JavaCompilationResult;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
-import io.github.coolcrabs.brachyura.exception.TaskFailedException;
 import io.github.coolcrabs.brachyura.ide.IdeProject;
 import io.github.coolcrabs.brachyura.ide.IdeProject.IdeProjectBuilder;
 import io.github.coolcrabs.brachyura.ide.IdeProject.RunConfig;
 import io.github.coolcrabs.brachyura.ide.IdeProject.RunConfig.RunConfigBuilder;
-import io.github.coolcrabs.brachyura.processing.sinks.DirectoryProcessingSink;
+import io.github.coolcrabs.brachyura.processing.ProcessingId;
+import io.github.coolcrabs.brachyura.processing.ProcessingSink;
 import io.github.coolcrabs.brachyura.project.java.BaseJavaProject;
 import io.github.coolcrabs.brachyura.util.JvmUtil;
 import io.github.coolcrabs.brachyura.util.Lazy;
 import io.github.coolcrabs.brachyura.util.PathUtil;
+import io.github.coolcrabs.brachyura.util.StreamUtil;
 import io.github.coolcrabs.brachyura.util.Util;
 
 class BuildscriptProject extends BaseJavaProject {
     @Override
     public Path getProjectDir() {
         return super.getProjectDir().resolve("buildscript");
+    }
+
+    @Override
+    public void getRunConfigTasks(Consumer<Task> p) {
+        //noop
     }
 
     @Override
@@ -54,7 +62,7 @@ class BuildscriptProject extends BaseJavaProject {
         return new IdeProjectBuilder()
             .name("Buildscript")
             .sourcePath(getSrcDir())
-            .dependencies(getIdeDependencies())
+            .dependencies(this::getIdeDependencies)
             .runConfigs(runConfigs)
         .build();
     }
@@ -63,23 +71,23 @@ class BuildscriptProject extends BaseJavaProject {
     @SuppressWarnings("all")
     public Optional<Project> createProject() {
         try {
-            Path b = getBuildscriptClaspath();
+            ClassLoader b = getBuildscriptClassLoader();
             if (b == null) return Optional.empty();
-            URLClassLoader classLoader = URLClassLoader.newInstance(new URL[] {getBuildscriptClaspath().toUri().toURL()}, BuildscriptProject.class.getClassLoader());
-            Class projectclass = Class.forName("Buildscript", true, classLoader);
+            Class projectclass = Class.forName("Buildscript", true, b);
             if (Project.class.isAssignableFrom(projectclass)) {
                 return Optional.of((Project) projectclass.getDeclaredConstructor().newInstance());
             } else {
-                throw new TaskFailedException("Buildscript must be instance of Project");
+                Logger.warn("Buildscript must be instance of Project");
+                return Optional.empty();
             }
         } catch (Exception e) {
-            throw Util.sneak(e);
+            Logger.warn("Error getting project:");
+            Logger.warn(e);
+            return Optional.empty();
         }
     }
 
-    public @Nullable Path getBuildscriptClaspath() {
-        Path buildClassesDir = getBuildClassesDir();
-        PathUtil.deleteDirectoryChildren(buildClassesDir);
+    public ClassLoader getBuildscriptClassLoader() {
         JavaCompilationResult compilation = new JavaCompilation()
             .addSourceDir(getSrcDir())
             .addClasspath(getCompileDependencies())
@@ -89,16 +97,19 @@ class BuildscriptProject extends BaseJavaProject {
             Logger.warn("Buildscript compilation failed!");
             return null;
         } else {
-            compilation.getInputs(new DirectoryProcessingSink(buildClassesDir)); // TODO replace with custom classloader
+            BuildscriptClassloader r = new BuildscriptClassloader(BuildscriptProject.class.getClassLoader());
+            compilation.getInputs(r); // TODO replace with custom classloader
+            return r;
         }
-        return buildClassesDir;
     }
 
     public List<JavaJarDependency> getIdeDependencies() {
         List<Path> compileDeps = getCompileDependencies();
         ArrayList<JavaJarDependency> result = new ArrayList<>(compileDeps.size());
         for (Path p : compileDeps) {
-            result.add(new JavaJarDependency(p, null, null));
+            Path source = p.getParent().resolve(p.getFileName().toString().replace(".jar", "-sources.jar"));
+            if (!Files.exists(source)) source = null;
+            result.add(new JavaJarDependency(p, source, null));
         }
         return result;
     }
@@ -108,7 +119,31 @@ class BuildscriptProject extends BaseJavaProject {
         return BrachyuraEntry.classpath;
     }
 
-    public Path getBuildClassesDir() {
-        return PathUtil.resolveAndCreateDir(getBuildDir(), "classes");
+    static class BuildscriptClassloader extends ClassLoader implements ProcessingSink {
+        HashMap<String, byte[]> classes = new HashMap<>();
+
+        BuildscriptClassloader(ClassLoader parent) {
+            super(parent);
+        }
+
+        @Override
+        public void sink(Supplier<InputStream> in, ProcessingId id) {
+            try {
+                if (id.path.endsWith(".class")) {
+                    try (InputStream i = in.get()) {
+                        classes.put(id.path.substring(0, id.path.length() - 6).replace("/", "."), StreamUtil.readFullyAsBytes(i));
+                    }
+                }
+            } catch (Exception e) {
+                throw Util.sneak(e);
+            }
+        }
+        
+        @Override
+        protected Class<?> findClass(String name) throws ClassNotFoundException {
+            byte[] data = classes.get(name);
+            if (data == null) return super.findClass(name);
+            return defineClass(name, data, 0, data.length);
+        }
     }
 }
