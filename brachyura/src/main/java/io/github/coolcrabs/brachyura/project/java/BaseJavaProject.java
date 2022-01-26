@@ -10,6 +10,7 @@ import java.util.function.Consumer;
 
 import io.github.coolcrabs.brachyura.ide.Ide;
 import io.github.coolcrabs.brachyura.ide.IdeProject;
+import io.github.coolcrabs.brachyura.ide.Intellijank;
 import io.github.coolcrabs.brachyura.processing.ProcessorChain;
 import io.github.coolcrabs.brachyura.processing.sinks.DirectoryProcessingSink;
 import io.github.coolcrabs.brachyura.project.Project;
@@ -38,7 +39,13 @@ public abstract class BaseJavaProject extends Project {
 
     public void getIdeTasks(Consumer<Task> p) {
         for (Ide ide : Ide.getIdes()) {
-            p.accept(Task.of(ide.ideName(), () -> ide.updateProject(getProjectDir(), getIdeProject())));
+            p.accept(Task.of(ide.ideName(), () -> {
+                if (ide instanceof Intellijank && getBuildscriptProject() != null) {
+                    ((Intellijank)ide).updateProject(getProjectDir(), getIdeProject(), getBuildscriptProject());
+                } else {
+                    ide.updateProject(getProjectDir(), getIdeProject());
+                }
+            }));
         }
     }
     

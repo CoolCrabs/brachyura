@@ -13,8 +13,6 @@ import io.github.coolcrabs.brachyura.plugins.Plugins;
 public class BrachyuraEntry {
     private BrachyuraEntry() { }
 
-    static List<Path> classpath;
-
     // Called via reflection by bootstrap
     public static void main(String[] args, Path projectDir, List<Path> classpath) {
         int exitcode = 0;
@@ -24,7 +22,7 @@ public class BrachyuraEntry {
         }
         try {
             EntryGlobals.projectDir = projectDir;
-            BrachyuraEntry.classpath = classpath;
+            EntryGlobals.buildscriptClasspath = classpath;
             BuildscriptProject buildscriptProject = new BuildscriptProject();
             if (args.length >= 1 && "buildscript".equals(args[0])) {
                 Tasks t = new Tasks();
@@ -39,6 +37,7 @@ public class BrachyuraEntry {
                 Optional<Project> o = buildscriptProject.project.get();
                 if (o.isPresent()) {
                     Project project = o.get();
+                    project.setIdeProject(buildscriptProject);
                     Tasks t = new Tasks();
                     project.getTasks(t);
                     if (args.length >= 1) {

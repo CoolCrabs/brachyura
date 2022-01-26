@@ -1,15 +1,18 @@
 package io.github.coolcrabs.brachyura.project;
 
+import java.io.File;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import org.tinylog.Logger;
 
@@ -55,7 +58,13 @@ class BuildscriptProject extends BaseJavaProject {
                     .cwd(cwd)
                     .mainClass("io.github.coolcrabs.brachyura.project.BuildscriptDevEntry")
                     .classpath(getCompileDependencies())
-                    .args(super.getProjectDir().toString(), e.getKey())
+                    .args(
+                        () -> Arrays.asList(
+                            super.getProjectDir().toString(),
+                            getCompileDependencies().stream().map(Path::toString).collect(Collectors.joining(File.pathSeparator)),
+                            e.getKey()
+                        )
+                    )
                 .build()
             );
         }
@@ -116,7 +125,7 @@ class BuildscriptProject extends BaseJavaProject {
 
     @Override
     public List<Path> getCompileDependencies() {
-        return BrachyuraEntry.classpath;
+        return EntryGlobals.buildscriptClasspath;
     }
 
     static class BuildscriptClassloader extends ClassLoader implements ProcessingSink {
