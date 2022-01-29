@@ -570,10 +570,30 @@ public abstract class FabricProject extends BaseJavaProject {
 
     @Override
     public ProcessorChain resourcesProcessingChain() {
+        Path fmjgen = getLocalBrachyuraPath().resolve("fmjgen");
+        if (Files.exists(fmjgen)) PathUtil.deleteDirectory(fmjgen);
         List<Path> jij = new ArrayList<>();
         for (ModDependency modDependency : modDependencies.get()) {
             if (modDependency.flags.contains(ModDependencyFlag.JIJ)) {
-                jij.add(modDependency.jarDependency.jar);
+                try {
+                    try (ZipFile f = new ZipFile(modDependency.jarDependency.jar.toFile())) {
+                        if (f.getEntry("fabric.mod.json") == null) {
+                            Path p = fmjgen.resolve(modDependency.jarDependency.jar.getFileName());
+                            try (
+                                ZipProcessingSource s = new ZipProcessingSource(modDependency.jarDependency.jar);
+                                AtomicZipProcessingSink sink = new AtomicZipProcessingSink(p)
+                            ) {
+                                new ProcessorChain(new FmjGenerator(Collections.singletonMap(s, modDependency.jarDependency.mavenId))).apply(sink, s);
+                                sink.commit();
+                            }
+                            jij.add(p);
+                        } else {
+                            jij.add(modDependency.jarDependency.jar);
+                        }
+                    }
+                } catch (Exception e) {
+                    throw Util.sneak(e);
+                }
             }
         }
         return new ProcessorChain(FMJRefmapApplier.INSTANCE, new FmjJijApplier(jij), new AccessWidenerRemapper(mappings.get(), mappings.get().getNamespaceId(Namespaces.INTERMEDIARY)));
