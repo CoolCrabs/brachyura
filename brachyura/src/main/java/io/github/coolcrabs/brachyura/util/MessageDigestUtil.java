@@ -10,6 +10,7 @@ public class MessageDigestUtil {
     public static final String SHA256 = "SHA-256";
 
     static final String HEXES = "0123456789ABCDEF";
+    static final String LOWER_HEXES = "0123456789abcdef";
 
     public static MessageDigest messageDigest(String algorithm) {
         try {
@@ -27,6 +28,17 @@ public class MessageDigestUtil {
         final StringBuilder hex = new StringBuilder(2 * hash.length);
         for (final byte b : hash) {
             hex.append(HEXES.charAt((b & 0xF0) >> 4)).append(HEXES.charAt((b & 0x0F)));
+        }
+        return hex.toString();
+    }
+
+    public static String toLowerCaseHexHash(byte[] hash) {
+        if (hash == null) {
+            return null;
+        }
+        final StringBuilder hex = new StringBuilder(2 * hash.length);
+        for (final byte b : hash) {
+            hex.append(LOWER_HEXES.charAt((b & 0xF0) >> 4)).append(LOWER_HEXES.charAt((b & 0x0F)));
         }
         return hex.toString();
     }

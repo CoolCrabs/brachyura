@@ -21,7 +21,10 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -524,6 +527,47 @@ public abstract class FabricProject extends BaseJavaProject {
         }
     }
 
+    // https://github.com/FabricMC/fabric-loom/blob/dev/0.11/src/main/java/net/fabricmc/loom/build/nesting/IncludedJarFactory.java
+    public static class FmjGenerator implements Processor {
+        final Map<ProcessingSource, MavenId> map;
+
+        public FmjGenerator(Map<ProcessingSource, MavenId> map) {
+            this.map = map;
+        }
+
+        @Override
+        public void process(Collection<ProcessingEntry> inputs, ProcessingSink sink) throws IOException {
+            HashSet<ProcessingSource> fmj = new HashSet<>();
+            for (ProcessingEntry e : inputs) {
+                if ("fabric.mod.json".equals(e.id.path)) {
+                    fmj.add(e.id.source);
+                }
+                sink.sink(e.in, e.id);
+            }
+            for (Map.Entry<ProcessingSource, MavenId> e : map.entrySet()) {
+                if (!fmj.contains(e.getKey())) {
+                    Logger.info("Generating fmj for {}", e.getValue());
+                    Gson gson = new GsonBuilder().setPrettyPrinting().create();
+                    String modId = (e.getValue().groupId + "_" + e.getValue().artifactId).replace('.', '_').toLowerCase(Locale.ENGLISH);
+                    if (modId.length() > 64) {
+                        MessageDigest md = MessageDigestUtil.messageDigest(MessageDigestUtil.SHA256);
+                        MessageDigestUtil.update(md, modId);
+                        modId = modId.substring(0, 50) + MessageDigestUtil.toHexHash(md.digest()).substring(0, 14);
+                    }
+                    final JsonObject jsonObject = new JsonObject();
+                    jsonObject.addProperty("schemaVersion", 1);
+                    jsonObject.addProperty("id", modId);
+                    jsonObject.addProperty("version", e.getValue().version);
+                    jsonObject.addProperty("name", e.getValue().artifactId);
+                    JsonObject custom = new JsonObject();
+                    custom.addProperty("fabric-loom:generated", true);
+                    jsonObject.add("custom", custom);
+                    sink.sink(() -> GsonUtil.toIs(jsonObject, gson), new ProcessingId("fabric.mod.json", e.getKey()));
+                }
+            }
+        }
+    }
+
     @Override
     public ProcessorChain resourcesProcessingChain() {
         List<Path> jij = new ArrayList<>();
@@ -653,6 +697,7 @@ public abstract class FabricProject extends BaseJavaProject {
                         cp.add(dep.jar);
                     }
                     HashMap<ProcessingSource, ZipProcessingSink> b = new HashMap<>();
+                    HashMap<ProcessingSource, MavenId> c = new HashMap<>();
                     try (CloseableArrayList toClose = new CloseableArrayList()) {
                         for (RemapInfo ri : remapinfo) {
                             ZipProcessingSource s = new ZipProcessingSource(ri.source.jarDependency.jar);
@@ -660,11 +705,13 @@ public abstract class FabricProject extends BaseJavaProject {
                             ZipProcessingSink si = new ZipProcessingSink(a.tempPath.resolve(ri.target.jarDependency.jar.getFileName()));
                             toClose.add(si);
                             b.put(s, si);
+                            c.put(s, ri.source.jarDependency.mavenId);
                         }
                         Logger.info("Remapping {} mods", b.size());
                         new ProcessorChain(
                             new RemapperProcessor(tr, cp),
-                            new AccessWidenerRemapper(mappings.get(), mappings.get().getNamespaceId(Namespaces.NAMED))
+                            new AccessWidenerRemapper(mappings.get(), mappings.get().getNamespaceId(Namespaces.NAMED)),
+                            new FmjGenerator(c)
                         ).apply(
                             (in, id) -> b.get(id.source).sink(in, id),
                             b.keySet()
