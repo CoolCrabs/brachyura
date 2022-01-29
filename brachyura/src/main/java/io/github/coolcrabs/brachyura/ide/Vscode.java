@@ -30,6 +30,7 @@ public enum Vscode implements Ide {
     @Override
     public void updateProject(Path projectDir, IdeProject ideProject) {
         try {
+            if (Files.exists(projectDir.resolve(".brachyura").resolve("vscodeout"))) PathUtil.deleteDirectoryChildren(projectDir.resolve(".brachyura").resolve("vscodeout"));
             Path vscodeDir = projectDir.resolve(".vscode");
             Files.createDirectories(vscodeDir);
             Path settingsJsonFile = vscodeDir.resolve("settings.json");

@@ -13,6 +13,7 @@ import javax.xml.stream.XMLStreamException;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 import io.github.coolcrabs.brachyura.ide.IdeProject.RunConfig;
 import io.github.coolcrabs.brachyura.util.JvmUtil;
+import io.github.coolcrabs.brachyura.util.PathUtil;
 import io.github.coolcrabs.brachyura.util.Util;
 import io.github.coolcrabs.brachyura.util.XmlUtil;
 import io.github.coolcrabs.brachyura.util.XmlUtil.FormattedXMLStreamWriter;
@@ -28,6 +29,7 @@ public enum Eclipse implements Ide {
     @Override
     public void updateProject(Path projectDir, IdeProject ideProject) {
         try {
+            if (Files.exists(projectDir.resolve(".brachyura").resolve("eclipseout"))) PathUtil.deleteDirectoryChildren(projectDir.resolve(".brachyura").resolve("eclipseout"));
             writeProject(ideProject, projectDir.resolve(".project"));
             writeClasspath(ideProject, projectDir.resolve(".classpath"));
             writeLaunchConfigs(projectDir, ideProject);
