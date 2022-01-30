@@ -49,7 +49,27 @@ public enum Intellijank implements Ide {
     public void updateProject(Path projectDir, IdeProject ideProject, @Nullable BaseJavaProject buildscript) {
         try {
             Path ideaPath = projectDir.resolve(".idea");
-            if (Files.exists(ideaPath)) PathUtil.deleteDirectory(ideaPath);
+
+            if (Files.exists(ideaPath)) {
+                // Delete unimportant files from .idea
+                Files.list(ideaPath).forEach(path -> {
+                    if (Files.isDirectory(path)) {
+                        // delete subdirectories
+                        PathUtil.deleteDirectory(path);
+                    } else if ("vcs.xml".equals(path.getFileName().toString())) {
+                        // do not delete vcs.xml, as it is important
+                        // otherwise we'll reset people's Git configurations
+                    } else {
+                        // delete other files
+                        try {
+                            Files.delete(path);
+                        } catch (IOException e) {
+                            Util.sneak(e);
+                        }
+                    }
+                });
+            }
+
             Files.walkFileTree(projectDir, Collections.emptySet(), 1, new SimpleFileVisitor<Path>() {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
