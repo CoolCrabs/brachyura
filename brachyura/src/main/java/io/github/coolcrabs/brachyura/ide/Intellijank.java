@@ -18,6 +18,7 @@ import org.jetbrains.annotations.Nullable;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 import io.github.coolcrabs.brachyura.ide.IdeProject.RunConfig;
 import io.github.coolcrabs.brachyura.project.java.BaseJavaProject;
+import io.github.coolcrabs.brachyura.util.JvmUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import io.github.coolcrabs.brachyura.util.Util;
 import io.github.coolcrabs.brachyura.util.XmlUtil;
@@ -60,15 +61,17 @@ public enum Intellijank implements Ide {
             });
             Path buildscriptDir = null;
             String buildscriptName = null;
+            int maxJava = ideProject.javaVersion;
             if (buildscript != null) {
                 IdeProject buildProject = buildscript.getIdeProject();
                 updateProject(buildscript.getProjectDir(), buildProject);
                 writeLibs(projectDir, buildProject.dependencies.get());
                 buildscriptDir = buildscript.getProjectDir();
                 buildscriptName = buildProject.name;
+                maxJava = Math.max(maxJava, buildProject.javaVersion);
             }
             writeModules(projectDir, ideProject, buildscriptDir, buildscriptName);
-            Files.copy(Intellijank.class.getResourceAsStream("/idea/misc.xml"), ideaPath.resolve("misc.xml"));
+            writeMisc(ideaPath.resolve("misc.xml"), maxJava);
             writeModule(projectDir, ideProject);
             writeRunConfigurations(projectDir, ideProject);
             writeLibs(projectDir, ideProject.dependencies.get());
@@ -127,6 +130,7 @@ public enum Intellijank implements Ide {
                 w.newline();
                 w.writeStartElement("component");
                 w.writeAttribute("name", "NewModuleRootManager");
+                w.writeAttribute("LANGUAGE_LEVEL", languageLevel(ideProject.javaVersion));
                 w.writeAttribute("inherit-compiler-output", "true");
                 w.indent();
                 w.newline();
@@ -192,6 +196,9 @@ public enum Intellijank implements Ide {
                     w.writeAttribute("nameIsGenerated", "false"); // Yeet
                     w.indent();
                     option(w, "MAIN_CLASS_NAME", run.mainClass);
+                    w.newline();
+                    w.writeEmptyElement("module");
+                    w.writeAttribute("name", ideProject.name);
                     option(w, "name", "main");
                     option(w, "WORKING_DIRECTORY", run.cwd.toString());
                     StringBuilder vmParam = new StringBuilder();
@@ -227,6 +234,40 @@ public enum Intellijank implements Ide {
                 w.writeEndDocument();
             }
         }
+    }
+
+    void writeMisc(Path miscXml, int java) throws IOException, XMLStreamException {
+        try (FormattedXMLStreamWriter w = new FormattedXMLStreamWriter(Files.newBufferedWriter(miscXml))) {
+            w.writeStartDocument("UTF-8", "1.0");
+            w.newline();
+            w.writeStartElement("project");
+            w.writeAttribute("version", "4");
+            w.indent();
+            w.newline();
+                w.writeStartElement("component");
+                w.writeAttribute("name", "ProjectRootManager");
+                w.writeAttribute("version", "2");
+                w.writeAttribute("lanaguageLevel", languageLevel(java));
+                w.writeAttribute("default", "true");
+                w.writeAttribute("project-jdk-name", JvmUtil.javaVersionString(java));
+                w.writeAttribute("project-jdk-type", "JavaSDK");
+                w.indent();
+                w.newline();
+                    w.writeEmptyElement("output");
+                    w.writeAttribute("url", "file://$PROJECT_DIR$/.brachyura/ideaout");
+                    w.unindent();
+                    w.newline();
+                w.writeEndElement();
+                w.unindent();
+                w.newline();
+            w.writeEndElement();
+            w.newline();
+            w.writeEndDocument();
+        }
+    }
+
+    String languageLevel(int java) {
+        return "JDK_" + JvmUtil.javaVersionString(java).replace('.', '_');
     }
 
     void writeLibs(Path projectDir, List<JavaJarDependency> libs) throws IOException, XMLStreamException {

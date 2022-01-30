@@ -29,6 +29,10 @@ class FabricProjectTest {
             return "21w39a";
         }
 
+        public int getJavaVersion() {
+            return 17;
+        };
+
         public Consumer<AccessWidenerVisitor> getAw() {
             return (v) -> {
                 try {

@@ -275,7 +275,7 @@ public abstract class FabricProject extends BaseJavaProject {
                 writer.write("\tfabric.remapClasspathFile="); writer.write(writeRuntimeRemapClasspath().toString()); writer.write('\n');
                 //TOOD: fabric.remapClasspathFile
                 writer.write("\tlog4j.configurationFile="); writer.write(writeLog4jXml().toAbsolutePath().toString()); writer.write('\n');
-                writer.write("\tlog4j2.formatMsgNoLookups=true"); // Prob overkill but won't hurt
+                writer.write("\tlog4j2.formatMsgNoLookups=true\n"); // Prob overkill but won't hurt
                 writer.write("\tfabric.log.disableAnsi=false\n");
                 writer.write("clientArgs\n");
                 writer.write("\t--assetIndex\n");
