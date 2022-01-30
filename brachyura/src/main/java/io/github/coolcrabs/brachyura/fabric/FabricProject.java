@@ -137,7 +137,7 @@ public abstract class FabricProject extends BaseJavaProject {
     }
     
     public MappingTree createMojmap() {
-        return createMojmap(getIntermediary().tree, getMcVersion());
+        return createMojmap(intermediary.get(), getMcVersion());
     }
 
     public static MappingTree createMojmap(MappingTree intermediary, String mcVersion) {
@@ -783,8 +783,9 @@ public abstract class FabricProject extends BaseJavaProject {
         }
     }
 
-    public Intermediary getIntermediary() {
-        return Intermediary.ofMaven(FabricMaven.URL, FabricMaven.intermediary(getMcVersion()));
+    public final Lazy<MappingTree> intermediary = new Lazy<>(this::createIntermediary);
+    public MappingTree createIntermediary() {
+        return Intermediary.ofMaven(FabricMaven.URL, FabricMaven.intermediary(getMcVersion())).tree;
     }
 
     public Path getMergedJar() {
@@ -829,12 +830,11 @@ public abstract class FabricProject extends BaseJavaProject {
     public final Lazy<RemappedJar> intermediaryjar = new Lazy<>(this::createIntermediaryJar);
     public RemappedJar createIntermediaryJar() {
             Path mergedJar = getMergedJar();
-            Intermediary intermediary = getIntermediary();
-            String intermediaryHash = MappingHasher.hashSha256(intermediary.tree);
+            String intermediaryHash = MappingHasher.hashSha256(intermediary.get());
             Path result = fabricCache().resolve("intermediary").resolve(getMcVersion() + TinyRemapperHelper.getFileVersionTag() + "intermediary-" + intermediaryHash + ".jar");
             if (!Files.isRegularFile(result)) {
                 try (AtomicFile atomicFile = new AtomicFile(result)) {
-                    remapJar(intermediary.tree, null, Namespaces.OBF, Namespaces.INTERMEDIARY, mergedJar, atomicFile.tempPath, mcClasspathPaths.get());
+                    remapJar(intermediary.get(), null, Namespaces.OBF, Namespaces.INTERMEDIARY, mergedJar, atomicFile.tempPath, mcClasspathPaths.get());
                     atomicFile.commit();
                 }
             }
@@ -844,9 +844,8 @@ public abstract class FabricProject extends BaseJavaProject {
     public final Lazy<RemappedJar> namedJar = new Lazy<>(this::createNamedJar);
     public RemappedJar createNamedJar() {
         Path intermediaryJar2 = intermediaryjar.get().jar;
-        Intermediary intermediary = getIntermediary();
         MessageDigest md = MessageDigestUtil.messageDigest(MessageDigestUtil.SHA256);
-        MappingHasher.hash(md, intermediary.tree, mappings.get());
+        MappingHasher.hash(md, intermediary.get(), mappings.get());
         if (getAw() != null) AccessWidenerHasher.hash(md, getAw());
         String mappingHash = MessageDigestUtil.toHexHash(md.digest());
         Path result = fabricCache().resolve("named").resolve(getMcVersion() + TinyRemapperHelper.getFileVersionTag() + "named-" + mappingHash + ".jar");
