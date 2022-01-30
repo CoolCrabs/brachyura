@@ -1,8 +1,11 @@
 package io.github.coolcrabs.brachyura.mixin;
 
+import java.io.BufferedInputStream;
 import java.io.BufferedReader;
+import java.io.DataInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 
 import javax.annotation.processing.Filer;
@@ -55,19 +58,101 @@ class BrachyuraMappingProvider implements IMappingProvider {
     @Override
     public MappingMethod getMethodMapping(MappingMethod method) {
         TinyClass clazz = tree.classmaps[src].get(method.getOwner());
-        if (clazz != null) {
-            TinyMethod method2 = null;
-            for (TinyMethod m : clazz.methods) {
-                if (m.name[src].equals(method.getSimpleName()) && method.getDesc().equals(m.getDesc(tree, src))) {
-                    method2 = m;
-                    break;
-                }
+        if (clazz == null) { // Mod class
+            String newdesc = TinyTree.mapDesc(method.getDesc(), tree, src, dst);
+            if (method.getDesc().equals(newdesc)) {
+                return null;
+            } else {
+                return new MappingMethod(method.getOwner(), method.getName(), newdesc);
             }
-            if (method2 == null || method2.name[dst].isEmpty()) return null;
+        } else { // MC Class
+            TinyMethod method2 = getMethod(method.getOwner(), method.getSimpleName(), method.getDesc());
+            if (method2 == null) return null;
             String owner = clazz.names[dst];
-            if (owner.isEmpty()) owner = method.getOwner();
+            if (owner.isEmpty())
+                owner = method.getOwner();
             return new MappingMethod(owner, method2.name[dst], method2.getDesc(tree, dst));
         }
+    }
+
+    TinyMethod getMethod(String cls, String name, String desc) {
+        if ("java/lang/Object".equals(cls)) return null;
+        TinyClass clazz = tree.classmaps[src].get(cls);
+        if (clazz != null) {
+            for (TinyMethod m : clazz.methods) {
+                if (m.name[src].equals(name) && desc.equals(m.getDesc(tree, src)) && !m.name[dst].isEmpty()) {
+                    return m;
+                }
+            }
+        }
+        // Scan super classes
+        try {
+            try (DataInputStream in = new DataInputStream(new BufferedInputStream(BrachyuraMappingWriter.class.getClassLoader().getResourceAsStream(cls + ".class")))) {
+                int magic = in.readInt();
+                int minor_version = in.readUnsignedShort();
+                int major_version = in.readUnsignedShort();
+                int cp_count = in.readUnsignedShort();
+                Object[] cp = new Object[cp_count];
+                for (int i = 1; i < cp_count; i++) {
+                    byte tag = in.readByte();
+                    switch (tag) {
+                        case 1:
+                            cp[i] = in.readUTF();
+                            break;
+                        case 3:
+                        case 4:
+                            in.readInt();
+                            break;
+                        case 5:
+                        case 6:
+                            in.readLong();
+                            i++;
+                            break;
+                        case 7:
+                            cp[i] = Integer.valueOf(in.readUnsignedShort());
+                            break;
+                        case 8:
+                            in.skip(2);
+                            break;
+                        case 9:
+                        case 10:
+                        case 11:
+                        case 12:
+                            in.readUnsignedShort();
+                            in.readUnsignedShort();
+                            break;
+                        case 15:
+                            in.readByte();
+                            in.readUnsignedShort();
+                            break;
+                        case 16:
+                            in.readUnsignedShort();
+                            break;
+                        case 17:
+                        case 18:
+                            in.readUnsignedShort();
+                            in.readUnsignedShort();
+                            break;
+                        default:
+                            throw new UnsupportedOperationException("Unknown cp entry: " + tag + " in class " + cls);
+                    }
+                }
+                int access_flags = in.readUnsignedShort();
+                int this_class = in.readUnsignedShort();
+                int super_class = in.readUnsignedShort();
+                int interfaces_count = in.readUnsignedShort();
+                for (int i = 0; i < interfaces_count; i++) {
+                    int inter = in.readUnsignedShort();
+                    TinyMethod method = getMethod((String)cp[(Integer) cp[inter]], name, desc);
+                    if (method != null && !method.name[dst].isEmpty()) return method;
+                }
+                TinyMethod method = getMethod((String)cp[(Integer) cp[super_class]], name, desc);
+                if (method != null && !method.name[dst].isEmpty()) return method;
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+
         return null;
     }
 
@@ -83,9 +168,11 @@ class BrachyuraMappingProvider implements IMappingProvider {
                     break;
                 }
             }
-            if (field2 == null || field2.name[dst].isEmpty()) return null;
+            if (field2 == null || field2.name[dst].isEmpty())
+                return null;
             String owner = clazz.names[dst];
-            if (owner.isEmpty()) owner = field.getOwner();
+            if (owner.isEmpty())
+                owner = field.getOwner();
             return new MappingField(owner, field2.name[dst]);
         }
         return null;

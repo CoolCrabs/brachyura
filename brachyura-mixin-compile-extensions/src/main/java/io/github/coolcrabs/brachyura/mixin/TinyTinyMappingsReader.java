@@ -95,40 +95,40 @@ class TinyTinyMappingsReader {
                     return mapDesc(desc, tree, 0, namespace);
                 }
             }
+        }
 
-            // https://github.com/FabricMC/mapping-io/blob/c4a09236b5e6ed6f661683a4b875b1c483772b76/src/main/java/net/fabricmc/mappingio/MappingUtil.java#L26
-            private static String mapDesc(String desc, TinyTree tinyTree, int src, int dst) {
-                int start = 0;
-                int end = desc.length();
-                StringBuilder ret = null;
-                int searchStart = start;
-                int clsStart;
+        // https://github.com/FabricMC/mapping-io/blob/c4a09236b5e6ed6f661683a4b875b1c483772b76/src/main/java/net/fabricmc/mappingio/MappingUtil.java#L26
+        public static String mapDesc(String desc, TinyTree tinyTree, int src, int dst) {
+            int start = 0;
+            int end = desc.length();
+            StringBuilder ret = null;
+            int searchStart = start;
+            int clsStart;
 
-                while ((clsStart = desc.indexOf('L', searchStart)) >= 0) {
-                    int clsEnd = desc.indexOf(';', clsStart + 1);
-                    if (clsEnd < 0) throw new IllegalArgumentException();
+            while ((clsStart = desc.indexOf('L', searchStart)) >= 0) {
+                int clsEnd = desc.indexOf(';', clsStart + 1);
+                if (clsEnd < 0) throw new IllegalArgumentException();
 
-                    String cls = desc.substring(clsStart + 1, clsEnd);
-                    TinyClass tcls = tinyTree.classmaps[src].get(cls);
-                    String mappedCls = tcls == null ? null : tcls.names[dst];
+                String cls = desc.substring(clsStart + 1, clsEnd);
+                TinyClass tcls = tinyTree.classmaps[src].get(cls);
+                String mappedCls = tcls == null ? null : tcls.names[dst];
 
-                    if (mappedCls != null) {
-                        if (ret == null) ret = new StringBuilder(end - start);
+                if (mappedCls != null) {
+                    if (ret == null) ret = new StringBuilder(end - start);
 
-                        ret.append(desc, start, clsStart + 1);
-                        ret.append(mappedCls);
-                        start = clsEnd;
-                    }
-
-                    searchStart = clsEnd + 1;
+                    ret.append(desc, start, clsStart + 1);
+                    ret.append(mappedCls);
+                    start = clsEnd;
                 }
 
-                if (ret == null) return desc.substring(start, end);
-        
-                ret.append(desc, start, end);
-        
-                return ret.toString();
+                searchStart = clsEnd + 1;
             }
+
+            if (ret == null) return desc.substring(start, end);
+    
+            ret.append(desc, start, end);
+    
+            return ret.toString();
         }
     }
 }
