@@ -63,7 +63,7 @@ class BrachyuraMappingProvider implements IMappingProvider {
             if (method.getDesc().equals(newdesc)) {
                 return null;
             } else {
-                return new MappingMethod(method.getOwner(), method.getName(), newdesc);
+                return new MappingMethod(method.getOwner(), method.getSimpleName(), newdesc);
             }
         } else { // MC Class
             TinyMethod method2 = getMethod(method.getOwner(), method.getSimpleName(), method.getDesc());
