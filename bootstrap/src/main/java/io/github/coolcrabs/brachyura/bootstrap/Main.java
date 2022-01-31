@@ -46,10 +46,10 @@ public class Main {
             String line = null;
             while ((line = confReader.readLine()) != null) {
                 String[] a = line.split("\t");
-                URL url = new URL(a[0]);
-                String hash = a[1];
-                String fileName = a[2];
-                boolean isjar = Boolean.parseBoolean(a[3]);
+                URL url = new URL(a[0].trim());
+                String hash = a[1].trim();
+                String fileName = a[2].trim();
+                boolean isjar = Boolean.parseBoolean(a[3].trim());
                 Path download = getDownload(url, hash, fileName);
                 if (isjar) classpath.add(download);
             }

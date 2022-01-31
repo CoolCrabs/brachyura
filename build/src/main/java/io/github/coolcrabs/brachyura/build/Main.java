@@ -56,6 +56,8 @@ public class Main {
     static boolean github = Boolean.parseBoolean(System.getenv("CI"));
     static String commit = github ? getCommitHash() : null;
     static final String GITHUB_TOKEN = System.getenv("GITHUB_TOKEN");
+    static final String GITHUB_REPOSITORY =
+            System.getenv("GITHUB_REPOSITORY") != null ? System.getenv("GITHUB_REPOSITORY") : "CoolCrabs/brachyura";
     static GitHub gitHub2;
 
     public static void main(String[] args) throws Exception {
@@ -116,7 +118,7 @@ public class Main {
     }
 
     static void uploadGithub(Path outDir) throws Exception {
-        GHRepository repo = gitHub2.getRepository("CoolCrabs/brachyura");
+        GHRepository repo = gitHub2.getRepository(GITHUB_REPOSITORY);
         System.out.println("Creating tag " + commit);
         GHTagObject tag = repo.createTag("v_" + commit, commit, commit, "commit");
         GHRelease release = repo.createRelease(tag.getTag()).commitish(commit).create();
@@ -144,7 +146,7 @@ public class Main {
             Files.copy(is, target);
         }
         String hash = toHexHash(md.digest());
-        return "https://github.com/CoolCrabs/brachyura/releases/download/" + "v_" + commit + "/" + target.getFileName().toString() + "\t" + hash + "\t" + target.getFileName().toString() + "\t" + isJar + "\n";
+        return "https://github.com/" + GITHUB_REPOSITORY + "/releases/download/" + "v_" + commit + "/" + target.getFileName().toString() + "\t" + hash + "\t" + target.getFileName().toString() + "\t" + isJar + "\n";
     }
 
     static void deleteDirectory(Path dir) throws IOException {

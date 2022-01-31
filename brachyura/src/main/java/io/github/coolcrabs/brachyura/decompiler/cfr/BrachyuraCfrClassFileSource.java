@@ -122,6 +122,11 @@ class BrachyuraCfrClassFileSource implements ClassFileSource, Closeable {
 
     @Override
     public Pair<byte[], String> getClassFileContent(String path) throws IOException {
+        if ("byte.class".equals(path)) {
+            // Suppress "WARN: Unable to find byte.class"
+            return new Pair<>(null, path);
+        }
+
         byte[] content = classmap.computeIfAbsent(path, p -> {
             try {
                 Path path2 = allClasses.get(path);
