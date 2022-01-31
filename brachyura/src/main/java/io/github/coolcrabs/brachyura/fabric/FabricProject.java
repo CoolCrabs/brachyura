@@ -567,6 +567,27 @@ public abstract class FabricProject extends BaseJavaProject {
             }
         }
     }
+    
+    public enum JijRemover implements Processor {
+        INSTANCE;
+
+        @Override
+        public void process(Collection<ProcessingEntry> inputs, ProcessingSink sink) throws IOException {
+            for (ProcessingEntry e : inputs) {
+                if ("fabric.mod.json".equals(e.id.path)) {
+                    Gson gson = new GsonBuilder().setPrettyPrinting().setLenient().create();
+                    JsonObject fabricModJson;
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(e.in.get(), StandardCharsets.UTF_8))) {
+                        fabricModJson = gson.fromJson(reader, JsonObject.class);
+                    }
+                    fabricModJson.remove("jars");
+                    sink.sink(() -> GsonUtil.toIs(fabricModJson, gson), e.id);
+                } else {
+                    sink.sink(e.in, e.id);
+                }
+            }
+        }
+    }
 
     @Override
     public ProcessorChain resourcesProcessingChain() {
@@ -674,7 +695,7 @@ public abstract class FabricProject extends BaseJavaProject {
             List<RemapInfo> remapinfo = new ArrayList<>(unmapped.size());
             List<ModDependency> remapped = new ArrayList<>(unmapped.size());
             MessageDigest dephasher = MessageDigestUtil.messageDigest(MessageDigestUtil.SHA256);
-            dephasher.update((byte) 5); // Bump this if the logic changes
+            dephasher.update((byte) 6); // Bump this if the logic changes
             for (ModDependency dep : unmapped) {
                 hashDep(dephasher, dep);
             }
@@ -730,6 +751,7 @@ public abstract class FabricProject extends BaseJavaProject {
                         Logger.info("Remapping {} mods", b.size());
                         new ProcessorChain(
                             new RemapperProcessor(tr, cp),
+                            JijRemover.INSTANCE,
                             new AccessWidenerRemapper(mappings.get(), mappings.get().getNamespaceId(Namespaces.NAMED)),
                             new FmjGenerator(c)
                         ).apply(
