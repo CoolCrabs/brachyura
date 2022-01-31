@@ -2,6 +2,7 @@ package io.github.coolcrabs.brachyura.ide;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.DirectoryStream;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -51,23 +52,18 @@ public enum Intellijank implements Ide {
             Path ideaPath = projectDir.resolve(".idea");
 
             if (Files.exists(ideaPath)) {
-                // Delete unimportant files from .idea
-                Files.list(ideaPath).forEach(path -> {
-                    if (Files.isDirectory(path)) {
-                        // delete subdirectories
-                        PathUtil.deleteDirectory(path);
-                    } else if ("vcs.xml".equals(path.getFileName().toString())) {
-                        // do not delete vcs.xml, as it is important
-                        // otherwise we'll reset people's Git configurations
-                    } else {
-                        // delete other files
-                        try {
-                            Files.delete(path);
-                        } catch (IOException e) {
-                            Util.sneak(e);
+                // Delete everything in .idea except for vcs.xml
+                // We skip vcs.xml since otherwise we'll reset people's Git configurations
+                try (DirectoryStream<Path> files = Files.newDirectoryStream(ideaPath,
+                        file -> !"vcs.xml".equals(file.getFileName().toString()))) {
+                    for (Path file : files) {
+                        if (Files.isDirectory(file)) {
+                            PathUtil.deleteDirectory(file);
+                        } else {
+                            Files.delete(file);
                         }
                     }
-                });
+                }
             }
 
             Files.walkFileTree(projectDir, Collections.emptySet(), 1, new SimpleFileVisitor<Path>() {
