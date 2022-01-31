@@ -112,7 +112,7 @@ class BrachyuraMappingProvider implements IMappingProvider {
                             cp[i] = Integer.valueOf(in.readUnsignedShort());
                             break;
                         case 8:
-                            in.skip(2);
+                            in.readUnsignedShort();
                             break;
                         case 9:
                         case 10:
