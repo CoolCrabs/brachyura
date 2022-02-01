@@ -65,7 +65,7 @@ public abstract class BaseJavaProject extends Project {
             for (JavaJarDependency dep : ideProject.dependencies.get()) {
                 compilation.addClasspath(dep.jar);
             }
-            for (Path srcDir : ideProject.sourcePaths.values()) {
+            for (Path srcDir : ideProject.sourcePaths) {
                 compilation.addSourceDir(srcDir);
             }
             Path outDir = Files.createTempDirectory("brachyurarun");
