@@ -33,18 +33,27 @@ public class Maven {
     public static final String MAVEN_LOCAL = PathUtil.HOME.resolve(".m2").resolve("repository").toUri().toString(); // This is wrong, too bad https://stackoverflow.com/a/47833316
 
     public static JavaJarDependency getMavenJarDep(String mavenRepo, MavenId dep) {
-        return (JavaJarDependency) getMavenDep(mavenRepo, dep, ".jar", true, true);
+        return (JavaJarDependency) getMavenDep(mavenRepo, dep, ".jar", true, true, true);
+    }
+
+    public static JavaJarDependency getMavenJarDep(String mavenRepo, MavenId dep, boolean checkChecksum) {
+        return (JavaJarDependency) getMavenDep(mavenRepo, dep, ".jar", true, true, checkChecksum);
     }
 
     public static FileDependency getMavenFileDep(String mavenRepo, MavenId dep, String extension) {
-        return getMavenFileDep(mavenRepo, dep, extension, true);
+        return getMavenFileDep(mavenRepo, dep, extension, true, true);
     }
 
+    @Deprecated
     public static @Nullable FileDependency getMavenFileDep(String mavenRepo, MavenId dep, String extension, boolean allowDownload) {
-        return (FileDependency) getMavenDep(mavenRepo, dep, extension, false, allowDownload);
+        return (FileDependency) getMavenDep(mavenRepo, dep, extension, false, allowDownload, true);
     }
 
-    private static Dependency getMavenDep(String mavenRepo, MavenId dep, String extension, boolean isJavaJar, boolean allowDownload) {
+    public static @Nullable FileDependency getMavenFileDep(String mavenRepo, MavenId dep, String extension, boolean allowDownload, boolean checkChecksum) {
+        return (FileDependency) getMavenDep(mavenRepo, dep, extension, false, allowDownload, checkChecksum);
+    }
+
+    private static Dependency getMavenDep(String mavenRepo, MavenId dep, String extension, boolean isJavaJar, boolean allowDownload, boolean checkChecksum) {
         try {
             URI mavenRepoUri = new URI(addTrailSlash(mavenRepo));
             String mavenRepoHash = toHexHash(messageDigest(SHA256).digest((mavenRepoUri.getHost() + mavenRepoUri.getPath()).getBytes(StandardCharsets.UTF_8)));
@@ -53,7 +62,7 @@ public class Maven {
             Path downloadPath = repoPath.resolve(relativeDownload);
             if (!Files.isRegularFile(downloadPath)) {
                 if (allowDownload) {
-                    download(downloadPath, relativeDownload, mavenRepoUri);
+                    download(downloadPath, relativeDownload, mavenRepoUri, checkChecksum);
                 } else {
                     return null;
                 }
@@ -71,7 +80,7 @@ public class Maven {
                     } else {
                         if (!allowDownload) return null;
                         try {
-                            download(sourcesPath, sourcesRelativeDownload, mavenRepoUri);
+                            download(sourcesPath, sourcesRelativeDownload, mavenRepoUri, checkChecksum);
                             sources = true;
                         } catch (FileNotFoundException e) {
                             Logger.info("No sources found for " + dep.toString());
@@ -88,21 +97,31 @@ public class Maven {
         }
     }
 
-    private static void download(Path path, String relativeDownload, URI mavenRepoUri) throws IOException {
+    private static void download(Path path, String relativeDownload, URI mavenRepoUri, boolean checkChecksum) throws IOException {
         Path tempPath = PathUtil.tempFile(path);
         try {
             URI targetUri = mavenRepoUri.resolve(relativeDownload);
-            String targetHash;
+            String targetHash = null;
             try (InputStream hashStream = NetUtil.inputStream(mavenRepoUri.resolve(relativeDownload + ".sha1").toURL())) {
                 targetHash = StreamUtil.readFullyAsString(hashStream);
+            } catch (FileNotFoundException e) {
+                if (checkChecksum) {
+                    throw e;
+                }
             }
-            MessageDigest messageDigest = MessageDigestUtil.messageDigest(MessageDigestUtil.SHA1);
-            try (DigestInputStream inputStream = new DigestInputStream(NetUtil.inputStream(targetUri.toURL()), messageDigest)) {
-                Files.copy(inputStream, tempPath, StandardCopyOption.REPLACE_EXISTING);
-            }
-            String hash = MessageDigestUtil.toHexHash(messageDigest.digest());
-            if (!hash.equalsIgnoreCase(targetHash)) {
-                throw new IncorrectHashException(targetHash, hash);
+            if (targetHash != null) {   
+                MessageDigest messageDigest = MessageDigestUtil.messageDigest(MessageDigestUtil.SHA1);
+                try (DigestInputStream inputStream = new DigestInputStream(NetUtil.inputStream(targetUri.toURL()), messageDigest)) {
+                    Files.copy(inputStream, tempPath, StandardCopyOption.REPLACE_EXISTING);
+                }
+                String hash = MessageDigestUtil.toHexHash(messageDigest.digest());
+                if (!hash.equalsIgnoreCase(targetHash)) {
+                    throw new IncorrectHashException(targetHash, hash);
+                }
+            } else {
+                try (InputStream inputStream = NetUtil.inputStream(targetUri.toURL())) {
+                    Files.copy(inputStream, tempPath, StandardCopyOption.REPLACE_EXISTING);
+                }
             }
         } catch (Exception e) {
             Files.delete(tempPath);
