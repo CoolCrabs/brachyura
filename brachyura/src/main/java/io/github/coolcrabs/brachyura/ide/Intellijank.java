@@ -155,7 +155,7 @@ public enum Intellijank implements Ide {
                     w.writeStartElement("content");
                     w.writeAttribute("url", "file://$MODULE_DIR$");
                     w.indent();
-                        for (Path sourceDir : ideProject.sourcePaths.values()) {
+                        for (Path sourceDir : ideProject.sourcePaths) {
                             w.newline();
                             w.writeEmptyElement("sourceFolder");
                             w.writeAttribute("url", sourceDir.toUri().toASCIIString());
