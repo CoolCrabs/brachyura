@@ -25,6 +25,7 @@ import io.github.coolcrabs.brachyura.util.Util;
 import io.github.coolcrabs.brachyura.util.XmlUtil;
 import io.github.coolcrabs.brachyura.util.XmlUtil.FormattedXMLStreamWriter;
 
+// NOTE: Intellij breaks on url formatted urls so the path.toString usage is "correct"
 public enum Intellijank implements Ide {
     INSTANCE;
 
@@ -36,10 +37,15 @@ public enum Intellijank implements Ide {
     // I just work here
     String toIntellijankPath(Path path) {
         if (Files.isDirectory(path)) {
-            return path.toUri().toASCIIString();
+            return jankFilePath(path);
         } else {
-            return "jar" +  path.toUri().toASCIIString().substring(4) + "!/";
+            return "jar://" +  path.toString() + "!/";
         }
+    }
+
+    String jankFilePath(Path path) {
+        // Url encoding? Never heard of it
+        return "file://" + path.toString();
     }
 
     @Override
@@ -158,12 +164,12 @@ public enum Intellijank implements Ide {
                         for (Path sourceDir : ideProject.sourcePaths) {
                             w.newline();
                             w.writeEmptyElement("sourceFolder");
-                            w.writeAttribute("url", sourceDir.toUri().toASCIIString());
+                            w.writeAttribute("url", jankFilePath(sourceDir));
                         }
                         for (Path resourceDir : ideProject.resourcePaths) {
                             w.newline();
                             w.writeEmptyElement("sourceFolder");
-                            w.writeAttribute("url", resourceDir.toUri().toASCIIString());
+                            w.writeAttribute("url", jankFilePath(resourceDir));
                             w.writeAttribute("type", "java-resource");
                         }
                     w.unindent();

@@ -72,6 +72,11 @@ public final class IdeProject {
             return this;
         }
 
+        public IdeProjectBuilder sourcePaths(Path... sourcePaths) {
+            this.sourcePaths = Arrays.asList(sourcePaths);
+            return this; 
+        }
+
         public IdeProjectBuilder sourcePath(Path sourcePath) {
             this.sourcePaths = new ArrayList<>();
             sourcePaths.add(sourcePath);
