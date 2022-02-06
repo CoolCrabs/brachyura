@@ -7,6 +7,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
@@ -47,12 +48,14 @@ public class Maven {
     private static Dependency getMavenDep(String mavenRepo, MavenId dep, String extension, boolean isJavaJar, boolean allowDownload) {
         try {
             URI mavenRepoUri = new URI(addTrailSlash(mavenRepo));
+            boolean local = "file".equals(mavenRepoUri.getScheme());
             String mavenRepoHash = toHexHash(messageDigest(SHA256).digest((mavenRepoUri.getHost() + mavenRepoUri.getPath()).getBytes(StandardCharsets.UTF_8)));
-            Path repoPath = mavenCache().resolve(mavenRepoHash);
+            Path repoPath = local ? Paths.get(mavenRepoUri) : mavenCache().resolve(mavenRepoHash);
             String relativeDownload = "./" + dep.groupId.replace('.', '/') + "/" + dep.artifactId + "/" + dep.version + "/" + dep.artifactId + "-" + dep.version + extension;
             Path downloadPath = repoPath.resolve(relativeDownload);
             if (!Files.isRegularFile(downloadPath)) {
                 if (allowDownload) {
+                    if (local) throw new FileNotFoundException(downloadPath.toString());
                     download(downloadPath, relativeDownload, mavenRepoUri);
                 } else {
                     return null;
@@ -75,7 +78,7 @@ public class Maven {
                             sources = true;
                         } catch (FileNotFoundException e) {
                             Logger.info("No sources found for " + dep.toString());
-                            Files.createFile(nosources);
+                            if (!local) Files.createFile(nosources);
                         }
                     }
                 }
