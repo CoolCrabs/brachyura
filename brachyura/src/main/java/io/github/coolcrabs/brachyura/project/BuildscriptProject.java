@@ -107,7 +107,7 @@ class BuildscriptProject extends BaseJavaProject {
             return null;
         } else {
             BuildscriptClassloader r = new BuildscriptClassloader(BuildscriptProject.class.getClassLoader());
-            compilation.getInputs(r); // TODO replace with custom classloader
+            compilation.getInputs(r);
             return r;
         }
     }
