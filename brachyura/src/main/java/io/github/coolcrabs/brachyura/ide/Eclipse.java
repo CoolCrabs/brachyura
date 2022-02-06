@@ -6,7 +6,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map.Entry;
 
 import javax.xml.stream.XMLStreamException;
 
@@ -31,7 +30,7 @@ public enum Eclipse implements Ide {
         try {
             if (Files.exists(projectDir.resolve(".brachyura").resolve("eclipseout"))) PathUtil.deleteDirectoryChildren(projectDir.resolve(".brachyura").resolve("eclipseout"));
             writeProject(ideProject, projectDir.resolve(".project"));
-            writeClasspath(ideProject, projectDir.resolve(".classpath"));
+            writeClasspath(ideProject, projectDir);
             writeLaunchConfigs(projectDir, ideProject);
         } catch (Exception e) {
             throw Util.sneak(e);
@@ -83,32 +82,6 @@ public enum Eclipse implements Ide {
                     w.unindent();
                     w.newline();
                 w.writeEndElement();
-                w.newline();
-                w.writeStartElement("linkedResources");
-                for (Entry<String, Path> e : project.sourcePaths.entrySet()) {
-                    w.indent();
-                    w.newline();
-                    w.writeStartElement("link");
-                    w.indent();
-                    w.newline();
-                        w.writeStartElement("name");
-                        w.writeCharacters("\u200B" + e.getKey()); // Fix eclipse bugs with this one weird trick
-                        w.writeEndElement();
-                        w.newline();
-                        w.writeStartElement("type");
-                        w.writeCharacters("2"); // ???
-                        w.writeEndElement();
-                        w.newline();
-                        w.writeStartElement("location");
-                        w.writeCharacters(e.getValue().toString());
-                        w.writeEndElement();
-                        w.unindent();
-                        w.newline();
-                    w.writeEndElement();
-                    w.unindent();
-                }
-                w.newline();
-                w.writeEndElement();
                 w.unindent();
                 w.newline();
             w.writeEndElement();
@@ -117,7 +90,8 @@ public enum Eclipse implements Ide {
         }
     }
 
-    void writeClasspath(IdeProject project, Path dotClasspath) throws IOException, XMLStreamException {
+    void writeClasspath(IdeProject project, Path projectDir) throws IOException, XMLStreamException {
+        Path dotClasspath = projectDir.resolve(".classpath");
         try (FormattedXMLStreamWriter w = XmlUtil.newStreamWriter(Files.newBufferedWriter(dotClasspath))) {
             w.writeStartDocument("UTF-8", "1.0");
             w.newline();
@@ -127,12 +101,8 @@ public enum Eclipse implements Ide {
                 w.writeEmptyElement("classpathentry");
                 w.writeAttribute("kind", "con");
                 w.writeAttribute("path", "org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-" + JvmUtil.javaVersionString(JvmUtil.CURRENT_JAVA_VERSION));
-                for (String src : project.sourcePaths.keySet()) {
-                    w.newline();
-                    w.writeEmptyElement("classpathentry");
-                    w.writeAttribute("kind", "src");
-                    w.writeAttribute("path", "\u200B" + src); // See above
-                }
+                sourceClasspathEntryAttributes(w, projectDir, project.sourcePaths);
+                sourceClasspathEntryAttributes(w, projectDir, project.resourcePaths);
                 for (JavaJarDependency dep : project.dependencies.get()) {
                     w.newline();
                     w.writeEmptyElement("classpathentry");
@@ -281,6 +251,15 @@ public enum Eclipse implements Ide {
         w.writeEmptyElement("stringAttribute");
         w.writeAttribute("key", key);
         w.writeAttribute("value", value);
+    }
+    
+    void sourceClasspathEntryAttributes(FormattedXMLStreamWriter w, Path projectDir, List<Path> paths) throws XMLStreamException {
+        for (Path src : paths) {
+            w.newline();
+            w.writeEmptyElement("classpathentry");
+            w.writeAttribute("kind", "src");
+            w.writeAttribute("path", projectDir.relativize(src).toString());
+        }
     }
 
     static String quote(String arg) {

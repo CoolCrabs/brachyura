@@ -1,11 +1,10 @@
 package io.github.coolcrabs.brachyura.ide;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 import io.github.coolcrabs.brachyura.util.Lazy;
@@ -17,11 +16,11 @@ public final class IdeProject {
     public final String name;
     public final Lazy<List<JavaJarDependency>> dependencies;
     public final List<RunConfig> runConfigs;
-    public final Map<String, Path> sourcePaths;
+    public final List<Path> sourcePaths;
     public final List<Path> resourcePaths;
     public final int javaVersion;
 
-    IdeProject(String name, Supplier<List<JavaJarDependency>> dependencies, List<RunConfig> runConfigs, Map<String, Path> sourcePaths, List<Path> resourcePaths, int javaVersion) {
+    IdeProject(String name, Supplier<List<JavaJarDependency>> dependencies, List<RunConfig> runConfigs, List<Path> sourcePaths, List<Path> resourcePaths, int javaVersion) {
         this.name = name;
         this.dependencies = new Lazy<>(dependencies);
         this.runConfigs = runConfigs;
@@ -34,7 +33,7 @@ public final class IdeProject {
         private String name = "BrachyuraProject";
         private Supplier<List<JavaJarDependency>> dependencies = Collections::emptyList;
         private List<RunConfig> runConfigs = Collections.emptyList();
-        private Map<String, Path> sourcePaths = Collections.emptyMap();
+        private List<Path> sourcePaths = Collections.emptyList();
         private List<Path> resourcePaths = Collections.emptyList();
         private int javaVersion = 8;
         
@@ -68,14 +67,19 @@ public final class IdeProject {
             return this;
         }
 
-        public IdeProjectBuilder sourcePaths(Map<String, Path> sourcePaths) {
+        public IdeProjectBuilder sourcePaths(List<Path> sourcePaths) {
             this.sourcePaths = sourcePaths;
             return this;
         }
 
+        public IdeProjectBuilder sourcePaths(Path... sourcePaths) {
+            this.sourcePaths = Arrays.asList(sourcePaths);
+            return this; 
+        }
+
         public IdeProjectBuilder sourcePath(Path sourcePath) {
-            this.sourcePaths = new HashMap<>();
-            sourcePaths.put("src", sourcePath);
+            this.sourcePaths = new ArrayList<>();
+            sourcePaths.add(sourcePath);
             return this;
         }
 

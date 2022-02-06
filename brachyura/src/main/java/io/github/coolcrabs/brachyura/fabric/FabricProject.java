@@ -507,23 +507,35 @@ public abstract class FabricProject extends BaseJavaProject {
 
         @Override
         public void process(Collection<ProcessingEntry> inputs, ProcessingSink sink) throws IOException {
-            for (ProcessingEntry entry : inputs) {
-                if (entry.id.path.endsWith(".accesswidener")) {
-                    try (BufferedReader r = new BufferedReader(new InputStreamReader(entry.in.get()))) {
-                        // TODO this is dumb
-                        r.mark(20);
-                        int v = AccessWidenerReader.readVersion(r);
-                        r.reset();
-                        AccessWidenerWriter w = new AccessWidenerWriter(v);
-                        AccessWidenerNamespaceChanger nc = new AccessWidenerNamespaceChanger(w, mappings, namespace, entry.id.path);
-                        new AccessWidenerReader(nc).read(r);
-                        sink.sink(() -> new ByteArrayInputStream(w.write()), entry.id);
+            HashMap<ProcessingId, ProcessingEntry> entries = new HashMap<>();
+            ArrayList<ProcessingId> aws = new ArrayList<>();
+            for (ProcessingEntry e : inputs) {
+                entries.put(e.id, e);
+                if (e.id.path.equals("fabric.mod.json")) {
+                    JsonObject fabricModJson;
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(e.in.get(), StandardCharsets.UTF_8))) {
+                        fabricModJson = new Gson().fromJson(reader, JsonObject.class);
                     }
-                } else {
-                    sink.sink(entry.in, entry.id);
+                    JsonElement aw0 = fabricModJson.get("accessWidener");
+                    if (aw0 != null) {
+                        aws.add(new ProcessingId(aw0.getAsString(), e.id.source));
+                    }
                 }
             }
-            
+            for (ProcessingId awid : aws) {
+                ProcessingEntry aw = entries.remove(awid);
+                byte[] awb;
+                try (InputStream is = aw.in.get()) {
+                    awb = StreamUtil.readFullyAsBytes(is);
+                }
+                AccessWidenerWriter w = new AccessWidenerWriter(AccessWidenerReader.readVersion(awb));
+                AccessWidenerNamespaceChanger nc = new AccessWidenerNamespaceChanger(w, mappings, namespace, aw.id.path);
+                new AccessWidenerReader(nc).read(awb);
+                sink.sink(() -> new ByteArrayInputStream(w.write()), aw.id);
+            }
+            for (ProcessingEntry e : entries.values()) {
+                sink.sink(e.in, e.id);
+            }
         }
     }
 
@@ -695,7 +707,7 @@ public abstract class FabricProject extends BaseJavaProject {
             List<RemapInfo> remapinfo = new ArrayList<>(unmapped.size());
             List<ModDependency> remapped = new ArrayList<>(unmapped.size());
             MessageDigest dephasher = MessageDigestUtil.messageDigest(MessageDigestUtil.SHA256);
-            dephasher.update((byte) 6); // Bump this if the logic changes
+            dephasher.update((byte) 7); // Bump this if the logic changes
             for (ModDependency dep : unmapped) {
                 hashDep(dephasher, dep);
             }
