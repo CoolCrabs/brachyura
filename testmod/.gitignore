@@ -8,3 +8,4 @@ netbeans
 *.launch
 .project
 .classpath
+.settings

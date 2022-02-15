@@ -9,8 +9,7 @@ import java.util.function.Consumer;
 import io.github.coolcrabs.brachyura.compiler.java.JavaCompilation;
 import io.github.coolcrabs.brachyura.compiler.java.JavaCompilationResult;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
-import io.github.coolcrabs.brachyura.ide.IdeProject;
-import io.github.coolcrabs.brachyura.ide.IdeProject.IdeProjectBuilder;
+import io.github.coolcrabs.brachyura.ide.IdeModule;
 import io.github.coolcrabs.brachyura.maven.MavenId;
 import io.github.coolcrabs.brachyura.maven.MavenPublishing;
 import io.github.coolcrabs.brachyura.processing.sinks.AtomicZipProcessingSink;
@@ -45,14 +44,16 @@ public abstract class SimpleJavaProject extends BaseJavaProject {
     }
 
     @Override
-    public IdeProject getIdeProject() {
-        return new IdeProjectBuilder()
+    public IdeModule[] getIdeModules() {
+        return new IdeModule[] {new IdeModule.IdeModuleBuilder()
             .name(getId().artifactId)
+            .root(getProjectDir())
             .javaVersion(getJavaVersion())
             .sourcePath(getSrcDir())
             .resourcePaths(getResourcesDir())
             .dependencies(dependencies.get())
-            .build();
+            .build()
+        };
     }
 
     public JavaJarDependency build() {

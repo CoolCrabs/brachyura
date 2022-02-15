@@ -84,10 +84,9 @@ class J8FabricProjectTest {
         //Todo better api for this?
         fabricProject.getTasks(p -> {
             try {
-                if (p.name.equals("vscode")) p.doTask(new String[]{});
                 if (p.name.equals("netbeans")) p.doTask(new String[]{});
                 if (p.name.equals("idea")) p.doTask(new String[]{});
-                if (p.name.equals("eclipse")) p.doTask(new String[]{});
+                if (p.name.equals("jdt")) p.doTask(new String[]{});
             } catch (Exception e) {
                 e.printStackTrace();
                 throw e;

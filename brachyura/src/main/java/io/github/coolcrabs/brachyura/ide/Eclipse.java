@@ -2,15 +2,22 @@ package io.github.coolcrabs.brachyura.ide;
 
 import java.io.IOException;
 import java.io.StringWriter;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import javax.xml.stream.XMLStreamException;
 
+import com.google.gson.stream.JsonWriter;
+
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
-import io.github.coolcrabs.brachyura.ide.IdeProject.RunConfig;
+import io.github.coolcrabs.brachyura.ide.IdeModule.RunConfig;
+import io.github.coolcrabs.brachyura.util.AtomicFile;
 import io.github.coolcrabs.brachyura.util.JvmUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import io.github.coolcrabs.brachyura.util.Util;
@@ -22,30 +29,43 @@ public enum Eclipse implements Ide {
 
     @Override
     public String ideName() {
-        return "eclipse";
+        return "jdt";
     }
 
     @Override
-    public void updateProject(Path projectDir, IdeProject ideProject) {
+    public void updateProject(Path projectRoot, IdeModule... ideModules) {
+        Ide.validate(ideModules);
         try {
-            if (Files.exists(projectDir.resolve(".brachyura").resolve("eclipseout"))) PathUtil.deleteDirectoryChildren(projectDir.resolve(".brachyura").resolve("eclipseout"));
-            writeProject(ideProject, projectDir.resolve(".project"));
-            writeClasspath(ideProject, projectDir);
-            writeLaunchConfigs(projectDir, ideProject);
+            Files.walkFileTree(projectRoot, Collections.emptySet(), 1, new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                    if (file.toString().endsWith(".launch")) {
+                        Files.delete(file);
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+            for (IdeModule module : ideModules) {
+                if (Files.exists(module.root.resolve(".brachyura").resolve("eclipseout"))) PathUtil.deleteDirectoryChildren(module.root.resolve(".brachyura").resolve("eclipseout"));
+                writeModule(module);
+                writeClasspath(module);
+                writeLaunchConfigs(projectRoot, module);
+                vscodeLaunchJson(projectRoot, ideModules);
+            }
         } catch (Exception e) {
             throw Util.sneak(e);
         }
     }
 
-    void writeProject(IdeProject project, Path dotProjectPath) throws IOException, XMLStreamException {
-        try (FormattedXMLStreamWriter w = XmlUtil.newStreamWriter(Files.newBufferedWriter(dotProjectPath))) {
+    void writeModule(IdeModule module) throws IOException, XMLStreamException {
+        try (FormattedXMLStreamWriter w = XmlUtil.newStreamWriter(Files.newBufferedWriter(module.root.resolve(".project")))) {
             w.writeStartDocument("UTF-8", "1.0");
             w.newline();
             w.writeStartElement("projectDescription");
             w.indent();
             w.newline();
                 w.writeStartElement("name");
-                w.writeCharacters(project.name);
+                w.writeCharacters(module.name);
                 w.writeEndElement();
                 w.newline();
                 w.writeStartElement("comment");
@@ -90,8 +110,8 @@ public enum Eclipse implements Ide {
         }
     }
 
-    void writeClasspath(IdeProject project, Path projectDir) throws IOException, XMLStreamException {
-        Path dotClasspath = projectDir.resolve(".classpath");
+    void writeClasspath(IdeModule project) throws IOException, XMLStreamException {
+        Path dotClasspath = project.root.resolve(".classpath");
         try (FormattedXMLStreamWriter w = XmlUtil.newStreamWriter(Files.newBufferedWriter(dotClasspath))) {
             w.writeStartDocument("UTF-8", "1.0");
             w.newline();
@@ -100,9 +120,10 @@ public enum Eclipse implements Ide {
             w.newline();
                 w.writeEmptyElement("classpathentry");
                 w.writeAttribute("kind", "con");
-                w.writeAttribute("path", "org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-" + JvmUtil.javaVersionString(JvmUtil.CURRENT_JAVA_VERSION));
-                sourceClasspathEntryAttributes(w, projectDir, project.sourcePaths);
-                sourceClasspathEntryAttributes(w, projectDir, project.resourcePaths);
+                w.writeAttribute("path", "org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-" + JvmUtil.javaVersionString(project.javaVersion));
+                sourceClasspathEntryAttributes(w, project.root, project.sourcePaths);
+                sourceClasspathEntryAttributes(w, project.root, project.resourcePaths);
+                moduleDepClasspathEntries(w, project);
                 for (JavaJarDependency dep : project.dependencies.get()) {
                     w.newline();
                     w.writeEmptyElement("classpathentry");
@@ -124,10 +145,11 @@ public enum Eclipse implements Ide {
         }
     }
 
-    void writeLaunchConfigs(Path projectDir, IdeProject ideProject) throws IOException, XMLStreamException {
+    void writeLaunchConfigs(Path projectDir, IdeModule ideProject) throws IOException, XMLStreamException {
         try {
             for (RunConfig rc : ideProject.runConfigs) {
-                try (FormattedXMLStreamWriter w = XmlUtil.newStreamWriter(Files.newBufferedWriter(projectDir.resolve(rc.name + ".launch")))) {
+                String rcname = ideProject.name + " - " + rc.name;
+                try (FormattedXMLStreamWriter w = XmlUtil.newStreamWriter(Files.newBufferedWriter(projectDir.resolve(rcname + ".launch")))) {
                     w.writeStartDocument("UTF-8", "1.0");
                     w.writeStartElement("launchConfiguration");
                     w.writeAttribute("type", "org.eclipse.jdt.launching.localJavaApplication");
@@ -138,7 +160,7 @@ public enum Eclipse implements Ide {
                         w.indent();
                         w.newline();
                             w.writeEmptyElement("listEntry");
-                            w.writeAttribute("value", "/" + rc.name + "/");
+                            w.writeAttribute("value", "/" + rcname + "/");
                             w.unindent();
                             w.newline();
                         w.writeEndElement();
@@ -164,16 +186,21 @@ public enum Eclipse implements Ide {
                         w.writeStartElement("listAttribute");
                         w.writeAttribute("key", "org.eclipse.jdt.launching.CLASSPATH");
                         w.indent();
-                        w.newline();
                             List<Path> cp = new ArrayList<>(rc.classpath.get());
                             cp.addAll(rc.resourcePaths);
                             for (Path p : cp) {
-                                w.writeEmptyElement("listEntry");
-                                w.writeAttribute("value", libraryValue(p, projectDir, ideProject.name));
                                 w.newline();
+                                w.writeEmptyElement("listEntry");
+                                w.writeAttribute("value", libraryValue(p));
                             }
-                            w.writeEmptyElement("listEntry");
-                            w.writeAttribute("value", projectValue(ideProject.name));
+                            List<IdeModule> modules = new ArrayList<>();
+                            modules.add(ideProject);
+                            modules.addAll(rc.additionalModulesClasspath);
+                            for (IdeModule mod : modules) {
+                                w.newline();
+                                w.writeEmptyElement("listEntry");
+                                w.writeAttribute("value", projectValue(mod.name));
+                            }
                             w.unindent();
                             w.newline();
                         w.writeEndElement();
@@ -211,7 +238,7 @@ public enum Eclipse implements Ide {
         }
     }
 
-    String libraryValue(Path lib, Path projectRoot, String projectName) throws XMLStreamException {
+    String libraryValue(Path lib) throws XMLStreamException {
         StringWriter writer = new StringWriter();
         try (FormattedXMLStreamWriter w = XmlUtil.newStreamWriter(writer)) {
             w.writeStartDocument("UTF-8", "1.0");
@@ -262,7 +289,72 @@ public enum Eclipse implements Ide {
         }
     }
 
+    void moduleDepClasspathEntries(FormattedXMLStreamWriter w, IdeModule module) throws XMLStreamException {
+        for (IdeModule mod : module.dependencyModules) {
+            w.newline();
+            w.writeEmptyElement("classpathentry");
+            w.writeAttribute("combineaccessrules", "false");
+            w.writeAttribute("kind", "src");
+            w.writeAttribute("path", "/" + mod.name);
+        }
+    }
+
     static String quote(String arg) {
         return '"' + arg.replace("\\", "\\\\").replace("\"", "\\\"") + '"';
+    }
+
+    void vscodeLaunchJson(Path rootDir, IdeModule... basemodules) throws IOException {
+        try (AtomicFile atomicFile = new AtomicFile(rootDir.resolve(".vscode").resolve("launch.json"))) {
+            try (JsonWriter jsonWriter = new JsonWriter(PathUtil.newBufferedWriter(atomicFile.tempPath))) {
+                jsonWriter.setIndent("  ");
+                jsonWriter.beginObject();
+                jsonWriter.name("version").value("0.2.0");
+                jsonWriter.name("configurations");
+                jsonWriter.beginArray();
+                for (IdeModule mod : basemodules) {
+                    for (RunConfig runConfig : mod.runConfigs) {
+                        jsonWriter.beginObject();
+                        jsonWriter.name("type").value("java");
+                        jsonWriter.name("name").value(mod.name + " - " + runConfig.name);
+                        jsonWriter.name("request").value("launch");
+                        jsonWriter.name("cwd").value(runConfig.cwd.toString());
+                        jsonWriter.name("console").value("internalConsole");
+                        jsonWriter.name("mainClass").value(runConfig.mainClass);
+                        jsonWriter.name("vmArgs");
+                        jsonWriter.beginArray();
+                        for (String vmArg : runConfig.vmArgs.get()) {
+                            jsonWriter.value(vmArg);
+                        }
+                        jsonWriter.endArray();
+                        jsonWriter.name("args");
+                        jsonWriter.beginArray();
+                        for (String arg : runConfig.args.get()) {
+                            jsonWriter.value(arg);
+                        }
+                        jsonWriter.endArray();
+                        jsonWriter.name("stopOnEntry").value(false);
+                        jsonWriter.name("projectName").value(mod.name);
+                        jsonWriter.name("classPaths");
+                        jsonWriter.beginArray();
+                        jsonWriter.value(mod.root.resolve(".brachyura").resolve("eclipseout").toString());
+                        for (IdeModule m : mod.dependencyModules) {
+                            jsonWriter.value(m.root.resolve(".brachyura").resolve("eclipseout").toString());
+                        }
+                        for (Path path : runConfig.resourcePaths) {
+                            jsonWriter.value(path.toString());
+                        }
+                        for (Path path : runConfig.classpath.get()) {
+                            jsonWriter.value(path.toString());
+                        }
+                        jsonWriter.endArray();
+                        jsonWriter.endObject();
+                    }
+                }
+                jsonWriter.endArray();
+                jsonWriter.endObject();
+                jsonWriter.flush();
+            }
+            atomicFile.commit();
+        }
     }
 }

@@ -49,9 +49,7 @@ import io.github.coolcrabs.brachyura.dependency.Dependency;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 import io.github.coolcrabs.brachyura.dependency.NativesJarDependency;
 import io.github.coolcrabs.brachyura.exception.UnknownJsonException;
-import io.github.coolcrabs.brachyura.ide.IdeProject;
-import io.github.coolcrabs.brachyura.ide.IdeProject.IdeProjectBuilder;
-import io.github.coolcrabs.brachyura.ide.IdeProject.RunConfig.RunConfigBuilder;
+import io.github.coolcrabs.brachyura.ide.IdeModule;
 import io.github.coolcrabs.brachyura.mappings.MappingHasher;
 import io.github.coolcrabs.brachyura.mappings.MappingHelper;
 import io.github.coolcrabs.brachyura.mappings.Namespaces;
@@ -208,7 +206,7 @@ public abstract class FabricProject extends BaseJavaProject {
     }
 
     @Override
-    public IdeProject getIdeProject() {
+    public IdeModule[] getIdeModules() {
         Path cwd = PathUtil.resolveAndCreateDir(getProjectDir(), "run");
         Lazy<List<Path>> classpath = new Lazy<>(() -> {
             Path mappingsClasspath = writeMappings4FabricStuff().getParent().getParent();
@@ -220,49 +218,50 @@ public abstract class FabricProject extends BaseJavaProject {
             return r;
         });
         Lazy<Path> launchConfig = new Lazy<>(this::writeLaunchCfg);
-        return new IdeProjectBuilder()
-            .name(getModId())
-            .javaVersion(getJavaVersion())
-            .dependencies(ideDependencies)
-            .sourcePath(getSrcDir())
-            .resourcePaths(getResourcesDir())
-            .runConfigs(
-                new RunConfigBuilder()
-                    .name("Minecraft Client")
-                    .cwd(cwd)
-                    .mainClass("net.fabricmc.devlaunchinjector.Main")
-                    .classpath(classpath)
-                    .resourcePaths(getResourcesDir())
-                    .vmArgs(
-                        () -> {
-                            ArrayList<String> clientArgs = new ArrayList<>(Arrays.asList(
-                                "-Dfabric.dli.config=" + launchConfig.get().toString(),
-                                "-Dfabric.dli.env=client",
-                                "-Dfabric.dli.main=net.fabricmc.loader.launch.knot.KnotClient"
-                            ));
-                            if (OsUtil.OS == Os.OSX) {
-                                clientArgs.add("-XstartOnFirstThread");
+        return new IdeModule[] {
+            new IdeModule.IdeModuleBuilder()
+                .name(getModId())
+                .root(getProjectDir())
+                .javaVersion(getJavaVersion())
+                .dependencies(ideDependencies)
+                .sourcePath(getSrcDir())
+                .resourcePaths(getResourcesDir())
+                .runConfigs(
+                    new IdeModule.RunConfigBuilder()
+                        .name("Minecraft Client")
+                        .cwd(cwd)
+                        .mainClass("net.fabricmc.devlaunchinjector.Main")
+                        .classpath(classpath)
+                        .resourcePaths(getResourcesDir())
+                        .vmArgs(
+                            () -> {
+                                ArrayList<String> clientArgs = new ArrayList<>(Arrays.asList(
+                                    "-Dfabric.dli.config=" + launchConfig.get().toString(),
+                                    "-Dfabric.dli.env=client",
+                                    "-Dfabric.dli.main=net.fabricmc.loader.launch.knot.KnotClient"
+                                ));
+                                if (OsUtil.OS == Os.OSX) {
+                                    clientArgs.add("-XstartOnFirstThread");
+                                }
+                                return clientArgs;
                             }
-                            return clientArgs;
-                        }
-                    )
-                .build(),
-                new RunConfigBuilder()
-                    .name("Minecraft Server")
-                    .cwd(cwd)
-                    .mainClass("net.fabricmc.devlaunchinjector.Main")
-                    .classpath(classpath)
-                    .resourcePaths(getResourcesDir())
-                    .vmArgs(
-                        () -> Arrays.asList(
-                            "-Dfabric.dli.config=" + launchConfig.get().toString(),
-                            "-Dfabric.dli.env=server",
-                            "-Dfabric.dli.main=net.fabricmc.loader.launch.knot.KnotServer"
+                        ),
+                    new IdeModule.RunConfigBuilder()
+                        .name("Minecraft Server")
+                        .cwd(cwd)
+                        .mainClass("net.fabricmc.devlaunchinjector.Main")
+                        .classpath(classpath)
+                        .resourcePaths(getResourcesDir())
+                        .vmArgs(
+                            () -> Arrays.asList(
+                                "-Dfabric.dli.config=" + launchConfig.get().toString(),
+                                "-Dfabric.dli.env=server",
+                                "-Dfabric.dli.main=net.fabricmc.loader.launch.knot.KnotServer"
+                            )
                         )
-                    )
-                .build()
-            )
-        .build();
+                )
+            .build()
+        };
     }
 
     public Path writeLaunchCfg() {
