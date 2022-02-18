@@ -14,20 +14,26 @@ public class MappingHelper {
         Iterator<? extends MappingTree.ClassMapping> clsIt = mappings.getClasses().iterator();
         while (clsIt.hasNext()) {
             MappingTree.ClassMapping cls = clsIt.next();
-            if (cls.getName(ns) == null) {
-                clsIt.remove();
-            } else {
-                Iterator<? extends MappingTree.MethodMapping> methodIt = cls.getMethods().iterator();
-                while (methodIt.hasNext()) {
-                    MappingTree.MethodMapping method = methodIt.next();
-                    if (method.getName(ns) == null) methodIt.remove();
-                }
-                Iterator<? extends MappingTree.FieldMapping> fieldIt = cls.getFields().iterator();
-                while (fieldIt.hasNext()) {
-                    MappingTree.FieldMapping field = fieldIt.next();
-                    if (field.getName(ns) == null) fieldIt.remove();
+            boolean keepCls = cls.getName(ns) != null;
+            Iterator<? extends MappingTree.MethodMapping> methodIt = cls.getMethods().iterator();
+            while (methodIt.hasNext()) {
+                MappingTree.MethodMapping method = methodIt.next();
+                if (method.getName(ns) == null) {
+                    methodIt.remove();
+                } else {
+                    keepCls = true;
                 }
             }
+            Iterator<? extends MappingTree.FieldMapping> fieldIt = cls.getFields().iterator();
+            while (fieldIt.hasNext()) {
+                MappingTree.FieldMapping field = fieldIt.next();
+                if (field.getName(ns) == null) {
+                    fieldIt.remove();
+                } else {
+                    keepCls = true;
+                }
+            }
+            if (!keepCls) clsIt.remove();
         }
     }
 }
