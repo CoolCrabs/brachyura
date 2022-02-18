@@ -22,7 +22,7 @@ class MinecraftTest {
     void mcTest1_6_4() {
         VersionMeta meta = Minecraft.getVersion("1.6.4");
         assertNotNull(meta);
-        Path client = Minecraft.getDownload("1.6.4", meta, "client");
+        Path client = Minecraft.getDownload(meta, "client");
         assertTrue(Files.isRegularFile(client));
         for (Dependency lib : Minecraft.getDependencies(meta)) {
             if (lib instanceof JavaJarDependency) {
@@ -37,8 +37,40 @@ class MinecraftTest {
     void mcTest1_17() {
         VersionMeta meta = Minecraft.getVersion("1.17");
         assertNotNull(meta);
-        Path client = Minecraft.getDownload("1.17", meta, "server");
-        assertTrue(Files.isRegularFile(client));
+        Path server = Minecraft.getDownload(meta, "server");
+        assertTrue(Files.isRegularFile(server));
+        for (Dependency lib : Minecraft.getDependencies(meta)) {
+            if (lib instanceof JavaJarDependency) {
+                assertNotNull(((JavaJarDependency)lib).jar);
+            } else if (lib instanceof NativesJarDependency) {
+                assertNotNull(((NativesJarDependency)lib).jar);
+            }
+        }
+    }
+
+    @Test
+    void expTestOld() {
+        VersionMeta meta = Minecraft.getExperimentalVersion("https://launcher.mojang.com/experiments/combat/610f5c9874ba8926d5ae1bcce647e5f0e6e7c889/1_14_combat-212796.zip");
+        assertNotNull(meta);
+        assertEquals("1_14_combat-212796", meta.version);
+        Path server = Minecraft.getDownload(meta, "server");
+        assertTrue(Files.isRegularFile(server));
+        for (Dependency lib : Minecraft.getDependencies(meta)) {
+            if (lib instanceof JavaJarDependency) {
+                assertNotNull(((JavaJarDependency)lib).jar);
+            } else if (lib instanceof NativesJarDependency) {
+                assertNotNull(((NativesJarDependency)lib).jar);
+            }
+        }
+    }
+
+    @Test
+    void expTest1_19() {
+        VersionMeta meta = Minecraft.getExperimentalVersion("https://launcher.mojang.com/v1/objects/b1e589c1d6ed73519797214bc796e53f5429ac46/1_19_deep_dark_experimental_snapshot-1.zip");
+        assertNotNull(meta);
+        assertEquals("1_19_deep_dark_experimental_snapshot-1", meta.version);
+        Path server = Minecraft.getDownload(meta, "server");
+        assertTrue(Files.isRegularFile(server));
         for (Dependency lib : Minecraft.getDependencies(meta)) {
             if (lib instanceof JavaJarDependency) {
                 assertNotNull(((JavaJarDependency)lib).jar);
@@ -50,7 +82,7 @@ class MinecraftTest {
 
     @Test
     void ojmap1_16() {
-        MappingTree mappings = Minecraft.getMojmap("1.16.5", Minecraft.getVersion("1.16.5"));
+        MappingTree mappings = Minecraft.getMojmap(Minecraft.getVersion("1.16.5"));
         System.out.println(mappings.getNamespaceId(Namespaces.OBF));
         assertEquals(-1, mappings.getNamespaceId(Namespaces.OBF));
         assertEquals(0, mappings.getNamespaceId(Namespaces.NAMED));

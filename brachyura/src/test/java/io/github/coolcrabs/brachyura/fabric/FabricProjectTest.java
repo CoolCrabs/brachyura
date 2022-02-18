@@ -16,6 +16,8 @@ import io.github.coolcrabs.brachyura.decompiler.fernflower.FernflowerDecompiler;
 import io.github.coolcrabs.brachyura.mappings.Namespaces;
 import io.github.coolcrabs.brachyura.maven.Maven;
 import io.github.coolcrabs.brachyura.maven.MavenId;
+import io.github.coolcrabs.brachyura.minecraft.Minecraft;
+import io.github.coolcrabs.brachyura.minecraft.VersionMeta;
 import io.github.coolcrabs.brachyura.util.JvmUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import net.fabricmc.accesswidener.AccessWidenerReader;
@@ -25,8 +27,8 @@ import net.fabricmc.mappingio.tree.MappingTree;
 class FabricProjectTest {
     FabricProject fabricProject = new FabricProject() {
         @Override
-        public String getMcVersion() {
-            return "21w39a";
+        public VersionMeta createMcVersion() {
+            return Minecraft.getVersion("21w39a");
         }
 
         public int getJavaVersion() {

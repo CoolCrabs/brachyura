@@ -105,7 +105,8 @@ import net.fabricmc.mappingio.tree.MemoryMappingTree;
 import net.fabricmc.tinyremapper.TinyRemapper;
 
 public abstract class FabricProject extends BaseJavaProject {
-    public abstract String getMcVersion();
+    public final Lazy<VersionMeta> versionMeta = new Lazy<>(this::createMcVersion);
+    public abstract VersionMeta createMcVersion();
     public final Lazy<MappingTree> mappings = new Lazy<>(this::createMappings);
     public abstract MappingTree createMappings();
     public abstract FabricLoader getLoader();
@@ -135,14 +136,14 @@ public abstract class FabricProject extends BaseJavaProject {
     }
     
     public MappingTree createMojmap() {
-        return createMojmap(intermediary.get(), getMcVersion());
+        return createMojmap(intermediary.get(), versionMeta.get());
     }
 
-    public static MappingTree createMojmap(MappingTree intermediary, String mcVersion) {
+    public static MappingTree createMojmap(MappingTree intermediary, VersionMeta meta) {
         try {
             MemoryMappingTree r = new MemoryMappingTree(true);
             intermediary.accept(r);
-            Minecraft.getMojmap(mcVersion, Minecraft.getVersion(mcVersion)).accept(r);
+            Minecraft.getMojmap(meta).accept(r);
             MappingHelper.dropNullInNamespace(r, Namespaces.INTERMEDIARY);
             return r;
         } catch (IOException e) {
@@ -192,8 +193,6 @@ public abstract class FabricProject extends BaseJavaProject {
         RUNTIME,
         JIJ
     }
-
-    public final VersionMeta versionMeta = Minecraft.getVersion(getMcVersion());
 
     @Override
     public void getTasks(Consumer<Task> p) {
@@ -278,7 +277,7 @@ public abstract class FabricProject extends BaseJavaProject {
                 writer.write("\tfabric.log.disableAnsi=false\n");
                 writer.write("clientArgs\n");
                 writer.write("\t--assetIndex\n");
-                writer.write('\t'); writer.write(Minecraft.downloadAssets(versionMeta)); writer.write('\n');
+                writer.write('\t'); writer.write(Minecraft.downloadAssets(versionMeta.get())); writer.write('\n');
                 writer.write("\t--assetsDir\n");
                 writer.write('\t'); writer.write(Minecraft.assets().toAbsolutePath().toString()); writer.write('\n');
                 writer.write("clientProperties\n");
@@ -818,13 +817,13 @@ public abstract class FabricProject extends BaseJavaProject {
 
     public final Lazy<MappingTree> intermediary = new Lazy<>(this::createIntermediary);
     public MappingTree createIntermediary() {
-        return Intermediary.ofMaven(FabricMaven.URL, FabricMaven.intermediary(getMcVersion())).tree;
+        return Intermediary.ofMaven(FabricMaven.URL, FabricMaven.intermediary(versionMeta.get().version)).tree;
     }
 
     public Path getMergedJar() {
         try {
-            Path vanillaClientJar = Minecraft.getDownload(getMcVersion(), versionMeta, "client");
-            Path vanillaServerJar = Minecraft.getDownload(getMcVersion(), versionMeta, "server");
+            Path vanillaClientJar = Minecraft.getDownload(versionMeta.get(), "client");
+            Path vanillaServerJar = Minecraft.getDownload(versionMeta.get(), "server");
             try (ZipFile file = new ZipFile(vanillaServerJar.toFile())) {
                 ZipEntry entry = file.getEntry("META-INF/versions.list");
                 if (entry != null) {
@@ -844,7 +843,7 @@ public abstract class FabricProject extends BaseJavaProject {
                     }
                 }
             }
-            Path result = fabricCache().resolve("merged").resolve(getMcVersion() + "-merged.jar");
+            Path result = fabricCache().resolve("merged").resolve(versionMeta.get().version + "-merged.jar");
             if (!Files.isRegularFile(result)) {
                 try (AtomicFile atomicFile = new AtomicFile(result)) {
                     try (JarMerger jarMerger = new JarMerger(vanillaClientJar, vanillaServerJar, atomicFile.tempPath)) {
@@ -864,7 +863,7 @@ public abstract class FabricProject extends BaseJavaProject {
     public RemappedJar createIntermediaryJar() {
             Path mergedJar = getMergedJar();
             String intermediaryHash = MappingHasher.hashSha256(intermediary.get());
-            Path result = fabricCache().resolve("intermediary").resolve(getMcVersion() + TinyRemapperHelper.getFileVersionTag() + "intermediary-" + intermediaryHash + ".jar");
+            Path result = fabricCache().resolve("intermediary").resolve(versionMeta.get().version + TinyRemapperHelper.getFileVersionTag() + "intermediary-" + intermediaryHash + ".jar");
             if (!Files.isRegularFile(result)) {
                 try (AtomicFile atomicFile = new AtomicFile(result)) {
                     remapJar(intermediary.get(), null, Namespaces.OBF, Namespaces.INTERMEDIARY, mergedJar, atomicFile.tempPath, mcClasspathPaths.get());
@@ -881,7 +880,7 @@ public abstract class FabricProject extends BaseJavaProject {
         MappingHasher.hash(md, intermediary.get(), mappings.get());
         if (getAw() != null) AccessWidenerHasher.hash(md, getAw());
         String mappingHash = MessageDigestUtil.toHexHash(md.digest());
-        Path result = fabricCache().resolve("named").resolve(getMcVersion() + TinyRemapperHelper.getFileVersionTag() + "named-" + mappingHash + ".jar");
+        Path result = fabricCache().resolve("named").resolve(versionMeta.get().version + TinyRemapperHelper.getFileVersionTag() + "named-" + mappingHash + ".jar");
         if (!Files.isRegularFile(result)) {
             try (AtomicFile atomicFile = new AtomicFile(result)) {
                 remapJar(mappings.get(), getAw(), Namespaces.INTERMEDIARY, Namespaces.NAMED, intermediaryJar2, atomicFile.tempPath, mcClasspathPaths.get());
@@ -899,7 +898,7 @@ public abstract class FabricProject extends BaseJavaProject {
         // Different Java Versions have different classes
         // This will lead to missing classes if ran on an older jdk and MC uses newer jdk
         // Adding the JVM version to the directory avoids this issue if you rerun with a newer jdk
-        Path resultDir = fabricCache().resolve("decompiled").resolve(decompiler.getName() + "-" + decompiler.getVersion()).resolve(getMcVersion() + TinyRemapperHelper.getFileVersionTag() + "named-" + named.mappingHash + "-J" + JvmUtil.CURRENT_JAVA_VERSION);
+        Path resultDir = fabricCache().resolve("decompiled").resolve(decompiler.getName() + "-" + decompiler.getVersion()).resolve(versionMeta.get().version + TinyRemapperHelper.getFileVersionTag() + "named-" + named.mappingHash + "-J" + JvmUtil.CURRENT_JAVA_VERSION);
         return decompiler.getDecompiled(named.jar, decompClasspath(), resultDir, mappings.get(), Namespaces.NAMED).toJavaJarDep(null);
     }
 
@@ -958,7 +957,7 @@ public abstract class FabricProject extends BaseJavaProject {
 
     public final Lazy<List<Dependency>> mcDependencies = new Lazy<>(this::createMcDependencies);
     public List<Dependency> createMcDependencies() {
-        ArrayList<Dependency> result = new ArrayList<>(Minecraft.getDependencies(versionMeta));
+        ArrayList<Dependency> result = new ArrayList<>(Minecraft.getDependencies(versionMeta.get()));
         result.add(Maven.getMavenJarDep(Maven.MAVEN_CENTRAL, new MavenId("org.jetbrains", "annotations", "19.0.0")));
         return result;
     }

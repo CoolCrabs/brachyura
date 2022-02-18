@@ -14,6 +14,8 @@ import io.github.coolcrabs.brachyura.decompiler.BrachyuraDecompiler;
 import io.github.coolcrabs.brachyura.mappings.Namespaces;
 import io.github.coolcrabs.brachyura.maven.Maven;
 import io.github.coolcrabs.brachyura.maven.MavenId;
+import io.github.coolcrabs.brachyura.minecraft.Minecraft;
+import io.github.coolcrabs.brachyura.minecraft.VersionMeta;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import net.fabricmc.accesswidener.AccessWidenerReader;
 import net.fabricmc.accesswidener.AccessWidenerVisitor;
@@ -23,8 +25,8 @@ import org.junit.jupiter.api.Disabled;
 class J8FabricProjectTest {
     FabricProject fabricProject = new FabricProject() {
         @Override
-        public String getMcVersion() {
-            return "1.16.5";
+        public VersionMeta createMcVersion() {
+            return Minecraft.getVersion("1.16.5");
         }
 
         public Consumer<AccessWidenerVisitor> getAw() {
