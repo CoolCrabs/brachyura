@@ -24,6 +24,9 @@ public class MappingTreeMappingProvider implements IMappingProvider {
         for (ClassMapping classMapping : tree.getClasses()) {
             String classSrcName = classMapping.getName(srcId);
             String classDstName = classMapping.getName(dstId);
+            if (classSrcName == null) {
+                classSrcName = classDstName;
+            }
             if (classDstName != null) {
                 acceptor.acceptClass(classSrcName, classDstName);
             }
