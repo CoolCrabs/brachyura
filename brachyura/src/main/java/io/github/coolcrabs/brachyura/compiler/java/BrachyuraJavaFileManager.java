@@ -1,27 +1,24 @@
 package io.github.coolcrabs.brachyura.compiler.java;
 
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.URI;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+import java.util.Set;
 
 import javax.tools.FileObject;
 import javax.tools.ForwardingJavaFileManager;
 import javax.tools.JavaFileObject;
-import javax.tools.SimpleJavaFileObject;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
 import javax.tools.JavaFileObject.Kind;
 
-import io.github.coolcrabs.brachyura.util.ByteArrayOutputStreamEx;
-import io.github.coolcrabs.brachyura.util.PathUtil;
 import io.github.coolcrabs.brachyura.util.Util;
 
 // References:
@@ -34,6 +31,7 @@ import io.github.coolcrabs.brachyura.util.Util;
 // https://github.com/OpenHFT/Java-Runtime-Compiler
 
 class BrachyuraJavaFileManager extends ForwardingJavaFileManager<StandardJavaFileManager> implements StandardJavaFileManager {
+    InputFiles extraCp = new InputFiles();
     HashMap<URI, OutputFile> output = new HashMap<>();
 
     public BrachyuraJavaFileManager() {
@@ -57,47 +55,30 @@ class BrachyuraJavaFileManager extends ForwardingJavaFileManager<StandardJavaFil
         }
     }
 
-    static class OutputFile extends SimpleJavaFileObject {
-        final ByteArrayOutputStreamEx bytes = new ByteArrayOutputStreamEx();
-        final FileObject sibling;
+    @Override
+    public Iterable<JavaFileObject> list(Location location, String packageName, Set<Kind> kinds, boolean recurse) throws IOException {
+        return () -> {
+            try {
+                return new Iterator<JavaFileObject>() {
+                    Iterator<JavaFileObject> a = extraCp.it(packageName, kinds, recurse);
+                    Iterator<JavaFileObject> b = BrachyuraJavaFileManager.super.list(location, packageName, kinds, recurse).iterator();
 
-        protected OutputFile(URI uri, Kind kind, FileObject sibling) {
-            super(uri, kind);
-            this.sibling = sibling;
-        }
+                    @Override
+                    public boolean hasNext() {
+                        return a.hasNext() || b.hasNext();
+                    }
 
-        URI rawUri() {
-            return super.toUri();
-        }
-
-        @Override
-        public URI toUri() {
-            // https://github.com/SpongePowered/Mixin/blob/1e1aa7fb52dec78630f3f2f53fd70a4c496a7d66/src/ap/java/org/spongepowered/tools/obfuscation/ReferenceManager.java#L158
-            boolean workaround = false;
-            for (StackTraceElement e : Thread.currentThread().getStackTrace()) {
-                if (e.getClassName().equals("org.spongepowered.tools.obfuscation.ReferenceManager")) {
-                    workaround = true;
-                }
-                if (e.getMethodName().equals("createResource")) {
-                    return super.toUri();
-                }
+                    @Override
+                    public JavaFileObject next() {
+                        if (a.hasNext()) return a.next();
+                        if (b.hasNext()) return b.next();
+                        throw new NoSuchElementException();
+                    }
+                };
+            } catch (IOException e) {
+                throw Util.sneak(e);
             }
-            if (workaround) {
-                return PathUtil.CWD.resolve("MIXINBUGWORKAROUND").toFile().toURI();
-            }
-            return super.toUri();
-        }
-
-        @Override
-        public InputStream openInputStream() {
-            return new ByteArrayInputStream(bytes.buf(), 0, bytes.size());
-        }
-
-        @Override
-        public OutputStream openOutputStream() {
-            bytes.reset();
-            return bytes;
-        }
+        };
     }
 
     @Override
@@ -135,6 +116,18 @@ class BrachyuraJavaFileManager extends ForwardingJavaFileManager<StandardJavaFil
         } catch (Exception e) {
             throw Util.sneak(e);
         }
+    }
+
+    @Override
+    public String inferBinaryName(Location location, JavaFileObject file) {
+        if (file instanceof InputFile) {
+            InputFile f = (InputFile) file;
+            if (!f.path.endsWith(".class")) {
+                return null;
+            }
+            return f.path.substring(0, f.path.length() - 6).replace('/', '.');
+        }
+        return super.inferBinaryName(location, file);
     }
 
     //---

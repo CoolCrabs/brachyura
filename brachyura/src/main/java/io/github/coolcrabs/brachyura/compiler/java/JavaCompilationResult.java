@@ -16,7 +16,7 @@ import io.github.coolcrabs.brachyura.processing.ProcessingSource;
 
 public class JavaCompilationResult extends ProcessingSource {
     final BrachyuraJavaFileManager fileManager;
-    final HashMap<ProcessingId, BrachyuraJavaFileManager.OutputFile> files = new HashMap<>(); 
+    final HashMap<ProcessingId, OutputFile> files = new HashMap<>(); 
 
     JavaCompilationResult(BrachyuraJavaFileManager s) {
         this.fileManager = s;
@@ -24,7 +24,7 @@ public class JavaCompilationResult extends ProcessingSource {
 
     @Override
     public void getInputs(ProcessingSink sink) {
-        for (Map.Entry<URI, BrachyuraJavaFileManager.OutputFile> entry : fileManager.output.entrySet()) {
+        for (Map.Entry<URI, OutputFile> entry : fileManager.output.entrySet()) {
             ProcessingId id = new ProcessingId(entry.getKey().getPath().substring(1), this);
             files.put(id, entry.getValue());
             sink.sink(entry.getValue()::openInputStream, id);

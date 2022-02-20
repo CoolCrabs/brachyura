@@ -19,6 +19,7 @@ import javax.tools.JavaCompiler.CompilationTask;
 import org.jetbrains.annotations.Nullable;
 import org.tinylog.Logger;
 
+import io.github.coolcrabs.brachyura.processing.ProcessingSource;
 import io.github.coolcrabs.brachyura.util.Util;
 
 public class JavaCompilation {
@@ -26,6 +27,7 @@ public class JavaCompilation {
     private ArrayList<Path> sourceFiles = new ArrayList<>();
     private ArrayList<Path> sourcePath = new ArrayList<>();
     private ArrayList<Path> classpath = new ArrayList<>();
+    private ArrayList<ProcessingSource> classpathSources = new ArrayList<>();
     private JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
 
     public JavaCompilation addOption(String... options) {
@@ -91,6 +93,14 @@ public class JavaCompilation {
         return this;
     }
 
+    /**
+     * Should mostly be used for other compilation outputs; jars and directories should use the other methods
+     */
+    public JavaCompilation addClasspath(ProcessingSource source) {
+        classpathSources.add(source);
+        return this;
+    }
+
     public JavaCompilation setCompiler(JavaCompiler compiler) {
         this.compiler = compiler;
         return this;
@@ -110,6 +120,9 @@ public class JavaCompilation {
                 boolean success;
                 fileManager.setLocation(StandardLocation.CLASS_PATH, bruh(classpath));
                 fileManager.setLocation(StandardLocation.SOURCE_PATH, bruh(sourcePath));
+                for (ProcessingSource s : classpathSources) {
+                    fileManager.extraCp.add(s);
+                }
                 try (LoggerWriter w = new LoggerWriter()) {
                     CompilationTask compilationTask = compiler.getTask(w, fileManager, BrachyuraDiagnosticListener.INSTANCE, options, null, fileManager.getJavaFileObjectsFromFiles(bruh(sourceFiles)));
                     success = compilationTask.call();
