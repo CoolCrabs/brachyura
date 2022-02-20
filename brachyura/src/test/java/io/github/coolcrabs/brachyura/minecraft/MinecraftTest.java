@@ -52,7 +52,7 @@ class MinecraftTest {
     void expTestOld() {
         VersionMeta meta = Minecraft.getExperimentalVersion("https://launcher.mojang.com/experiments/combat/610f5c9874ba8926d5ae1bcce647e5f0e6e7c889/1_14_combat-212796.zip");
         assertNotNull(meta);
-        assertEquals("1_14_combat-212796", meta.version);
+        assertEquals("1.14_combat-212796", meta.version);
         Path server = Minecraft.getDownload(meta, "server");
         assertTrue(Files.isRegularFile(server));
         for (Dependency lib : Minecraft.getDependencies(meta)) {
@@ -68,7 +68,7 @@ class MinecraftTest {
     void expTest1_19() {
         VersionMeta meta = Minecraft.getExperimentalVersion("https://launcher.mojang.com/v1/objects/b1e589c1d6ed73519797214bc796e53f5429ac46/1_19_deep_dark_experimental_snapshot-1.zip");
         assertNotNull(meta);
-        assertEquals("1_19_deep_dark_experimental_snapshot-1", meta.version);
+        assertEquals("1.19_deep_dark_experimental_snapshot-1", meta.version);
         Path server = Minecraft.getDownload(meta, "server");
         assertTrue(Files.isRegularFile(server));
         for (Dependency lib : Minecraft.getDependencies(meta)) {
