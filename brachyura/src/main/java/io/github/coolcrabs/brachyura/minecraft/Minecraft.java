@@ -71,7 +71,7 @@ public class Minecraft {
                 }
             }
             try (BufferedReader reader = Files.newBufferedReader(versionJsonPath)) {
-                return new VersionMeta(version, reader);
+                return new VersionMeta(reader);
             }
         } catch (Exception e) {
             throw Util.sneak(e);
@@ -106,7 +106,7 @@ public class Minecraft {
                     Path p = it.next();
                     if (p.toString().endsWith(".json")) {
                         try (BufferedReader reader = Files.newBufferedReader(p)) {
-                            return new VersionMeta(p.getFileName().toString().replace(".json", ""), reader);
+                            return new VersionMeta(reader);
                         }
                     }
                 }

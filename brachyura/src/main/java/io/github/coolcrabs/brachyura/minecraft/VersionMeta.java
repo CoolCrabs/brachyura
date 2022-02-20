@@ -19,9 +19,9 @@ public class VersionMeta {
     public final String version;
     JsonElement json;
 
-    VersionMeta(String version, Reader reader) {
-        this.version = version;
+    VersionMeta(Reader reader) {
         json = JsonParser.parseReader(reader);
+        this.version = json.getAsJsonObject().get("id").getAsString();
     }
 
     VMDownload getDownload(String download) {
