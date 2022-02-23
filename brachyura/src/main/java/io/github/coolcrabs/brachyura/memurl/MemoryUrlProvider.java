@@ -12,7 +12,7 @@ import io.github.coolcrabs.brachyura.util.Util;
 
 public class MemoryUrlProvider implements AutoCloseable {
     static {
-        UrlUtil.addHandlerPackage("io.github.coolcrabs.brachyura");
+        UrlUtil.addHandler("memurl", new Handler());
     }
 
     static final AtomicInteger idSup = new AtomicInteger(0);
