@@ -1,9 +1,11 @@
 package io.github.coolcrabs.brachyura.compiler.java;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 
 import javax.tools.FileObject;
 import javax.tools.SimpleJavaFileObject;
@@ -14,6 +16,7 @@ import io.github.coolcrabs.brachyura.util.PathUtil;
 class OutputFile extends SimpleJavaFileObject {
     final ByteArrayOutputStreamEx bytes = new ByteArrayOutputStreamEx();
     final FileObject sibling;
+    boolean exists = false;
 
     protected OutputFile(URI uri, Kind kind, FileObject sibling) {
         super(uri, kind);
@@ -43,12 +46,21 @@ class OutputFile extends SimpleJavaFileObject {
     }
 
     @Override
+    public CharSequence getCharContent(boolean ignoreEncodingErrors) throws IOException {
+        if (exists) {
+            return new String(bytes.buf(), 0, bytes.size(), StandardCharsets.UTF_8);
+        }
+        throw new IOException(); // Immutables expects a certain error
+    }
+
+    @Override
     public InputStream openInputStream() {
         return new ByteArrayInputStream(bytes.buf(), 0, bytes.size());
     }
 
     @Override
     public OutputStream openOutputStream() {
+        exists = true;
         bytes.reset();
         return bytes;
     }

@@ -19,6 +19,7 @@ import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
 import javax.tools.JavaFileObject.Kind;
 
+import io.github.coolcrabs.brachyura.memurl.MemoryUrlProvider;
 import io.github.coolcrabs.brachyura.util.Util;
 
 // References:
@@ -32,6 +33,7 @@ import io.github.coolcrabs.brachyura.util.Util;
 
 class BrachyuraJavaFileManager extends ForwardingJavaFileManager<StandardJavaFileManager> implements StandardJavaFileManager {
     InputFiles extraCp = new InputFiles();
+    MemoryUrlProvider extraCpUrl = new MemoryUrlProvider(p -> extraCp.files.get(p).in);
     HashMap<URI, OutputFile> output = new HashMap<>();
 
     public BrachyuraJavaFileManager() {
@@ -111,6 +113,7 @@ class BrachyuraJavaFileManager extends ForwardingJavaFileManager<StandardJavaFil
             for (File f : getLocation(location)) {
                 urls.add(f.toURI().toURL());
             }
+            urls.add(extraCpUrl.getRootUrl());
             ClassLoader platformClassloader = ClassLoader.getSystemClassLoader().getParent(); // null (bootstrap) in java 8, an actual classloader in java 9
             return new URLClassLoader(urls.toArray(new URL[0]), platformClassloader);
         } catch (Exception e) {
@@ -128,6 +131,12 @@ class BrachyuraJavaFileManager extends ForwardingJavaFileManager<StandardJavaFil
             return f.path.substring(0, f.path.length() - 6).replace('/', '.');
         }
         return super.inferBinaryName(location, file);
+    }
+
+    @Override
+    public void close() throws IOException {
+        super.close();
+        extraCpUrl.close();
     }
 
     //---

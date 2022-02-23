@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Test;
 
 import io.github.coolcrabs.brachyura.compiler.java.JavaCompilation;
 import io.github.coolcrabs.brachyura.compiler.java.JavaCompilationResult;
+import io.github.coolcrabs.brachyura.maven.Maven;
+import io.github.coolcrabs.brachyura.maven.MavenId;
 import io.github.coolcrabs.brachyura.processing.sources.ProcessingSponge;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 
@@ -48,6 +50,24 @@ class CompilerTest {
         b.getInputs((in, id) -> {
             count[0]++;
             Path sourceFile = compilationB.getSourceFile(id);
+            System.out.println(sourceFile);
+        });
+    }
+
+    @Test
+    void immutables() {
+        Path dir = PathUtil.CWD.getParent().resolve("test").resolve("compiler").resolve("java").resolve("immutables");
+        JavaCompilationResult compilationA = new JavaCompilation()
+            .addSourceDir(dir)
+            .addClasspath(Maven.getMavenJarDep(Maven.MAVEN_CENTRAL, new MavenId("org.immutables:value:2.8.2")).jar)
+            .compile();
+        ProcessingSponge a = new ProcessingSponge();
+        compilationA.getInputs(a);
+        int[] count = new int[1];
+        a.getInputs((in, id) -> {
+            count[0]++;
+            Path sourceFile = compilationA.getSourceFile(id);
+            System.out.println(id.path);
             System.out.println(sourceFile);
         });
     }

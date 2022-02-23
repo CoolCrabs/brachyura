@@ -42,5 +42,4 @@ class InputFile extends SimpleJavaFileObject {
     public InputStream openInputStream() throws IOException {
         return in.get();
     }
-    
 }
