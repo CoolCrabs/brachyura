@@ -27,6 +27,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -216,7 +217,6 @@ public abstract class FabricProject extends BaseJavaProject {
             r.add(mappingsClasspath);
             return r;
         });
-        Lazy<Path> launchConfig = new Lazy<>(this::writeLaunchCfg);
         return new IdeModule[] {
             new IdeModule.IdeModuleBuilder()
                 .name(getModId())
@@ -229,83 +229,61 @@ public abstract class FabricProject extends BaseJavaProject {
                     new IdeModule.RunConfigBuilder()
                         .name("Minecraft Client")
                         .cwd(cwd)
-                        .mainClass("net.fabricmc.devlaunchinjector.Main")
+                        .mainClass("net.fabricmc.loader.launch.knot.KnotClient")
                         .classpath(classpath)
                         .resourcePaths(getResourcesDir())
-                        .vmArgs(
-                            () -> {
-                                ArrayList<String> clientArgs = new ArrayList<>(Arrays.asList(
-                                    "-Dfabric.dli.config=" + launchConfig.get().toString(),
-                                    "-Dfabric.dli.env=client",
-                                    "-Dfabric.dli.main=net.fabricmc.loader.launch.knot.KnotClient"
-                                ));
-                                if (OsUtil.OS == Os.OSX) {
-                                    clientArgs.add("-XstartOnFirstThread");
-                                }
-                                return clientArgs;
-                            }
-                        ),
+                        .vmArgs(() -> this.ideVmArgs(true))
+                        .args(() -> this.ideArgs(true)),
                     new IdeModule.RunConfigBuilder()
                         .name("Minecraft Server")
                         .cwd(cwd)
-                        .mainClass("net.fabricmc.devlaunchinjector.Main")
+                        .mainClass("net.fabricmc.loader.launch.knot.KnotServer")
                         .classpath(classpath)
                         .resourcePaths(getResourcesDir())
-                        .vmArgs(
-                            () -> Arrays.asList(
-                                "-Dfabric.dli.config=" + launchConfig.get().toString(),
-                                "-Dfabric.dli.env=server",
-                                "-Dfabric.dli.main=net.fabricmc.loader.launch.knot.KnotServer"
-                            )
-                        )
+                        .vmArgs(() -> this.ideVmArgs(false))
+                        .args(() -> this.ideArgs(false))
                 )
             .build()
         };
     }
 
-    public Path writeLaunchCfg() {
+    public List<String> ideVmArgs(boolean client) {
         try {
-            Path result = getLocalBrachyuraPath().resolve("launch.cfg");
-            Files.deleteIfExists(result);
-            try (BufferedWriter writer = Files.newBufferedWriter(result)) {
-                writer.write("commonProperties\n");
-                writer.write("\tfabric.development=true\n");
-                writer.write("\tfabric.remapClasspathFile="); writer.write(writeRuntimeRemapClasspath().toString()); writer.write('\n');
-                //TOOD: fabric.remapClasspathFile
-                writer.write("\tlog4j.configurationFile="); writer.write(writeLog4jXml().toAbsolutePath().toString()); writer.write('\n');
-                writer.write("\tlog4j2.formatMsgNoLookups=true\n"); // Prob overkill but won't hurt
-                writer.write("\tfabric.log.disableAnsi=false\n");
-                writer.write("clientArgs\n");
-                writer.write("\t--assetIndex\n");
-                writer.write('\t'); writer.write(Minecraft.downloadAssets(versionMeta.get())); writer.write('\n');
-                writer.write("\t--assetsDir\n");
-                writer.write('\t'); writer.write(Minecraft.assets().toAbsolutePath().toString()); writer.write('\n');
-                writer.write("clientProperties\n");
-                StringBuilder natives = new StringBuilder();
-                for (Path path : getExtractedNatives()) {
-                    natives.append(path.toAbsolutePath().toString());
-                    natives.append(File.pathSeparatorChar);
+            ArrayList<String> r = new ArrayList<>();
+            r.add("-Dfabric.development=true");
+            r.add("-Dfabric.remapClasspathFile=" + writeRuntimeRemapClasspath());
+            r.add("-Dlog4j.configurationFile=" + writeLog4jXml());
+            r.add("-Dlog4j2.formatMsgNoLookups=true");
+            r.add("-Dfabric.log.disableAnsi=false");
+            if (client) {
+                String natives = getExtractedNatives().stream().map(Path::toString).collect(Collectors.joining(File.pathSeparator));
+                r.add("-Djava.library.path=" + natives);
+                r.add("-Dtorg.lwjgl.librarypath=" + natives);
+                if (OsUtil.OS == Os.OSX) {
+                    r.add("-XstartOnFirstThread");
                 }
-                natives.setLength(natives.length() - 1);
-                String natives2 = natives.toString();
-                writer.write("\tjava.library.path="); writer.write(natives2); writer.write('\n');
-                writer.write("\torg.lwjgl.librarypath="); writer.write(natives2); writer.write('\n');
             }
-            return result;
+            return r;
         } catch (Exception e) {
             throw Util.sneak(e);
         }
     }
 
-    public Path writeLog4jXml() {
-        try {
-            Path result = getLocalBrachyuraPath().resolve("log4j.xml");
-            Files.deleteIfExists(result);
-            Files.copy(this.getClass().getResourceAsStream("/log4j2.fabric.xml"), result);
-            return result;
-        } catch (Exception e) {
-            throw Util.sneak(e);
+    public List<String> ideArgs(boolean client) {
+        ArrayList<String> r = new ArrayList<>();
+        if (client) {
+            r.add("--assetIndex");
+            r.add(Minecraft.downloadAssets(versionMeta.get()));
+            r.add("--assetsDir");
+            r.add(Minecraft.assets().toAbsolutePath().toString());
         }
+        return r;
+    }
+
+    public Path writeLog4jXml() throws IOException {
+        Path result = getLocalBrachyuraPath().resolve("1_log4j.xml");
+        if (!Files.exists(result)) Files.copy(this.getClass().getResourceAsStream("/log4j2.fabric.xml"), result);
+        return result;
     }
 
     public Path writeMappings4FabricStuff() {
@@ -907,6 +885,7 @@ public abstract class FabricProject extends BaseJavaProject {
             .withMappings(new MappingTreeMappingProvider(mappings, src, dst))
             .withMappings(Jsr2JetbrainsMappingProvider.INSTANCE)
             .renameInvalidLocals(true)
+            .invalidLvNamePattern(Pattern.compile("\\$\\$\\d+"))
             .rebuildSourceFilenames(true);
         if (aw != null) {
             AccessWidener accessWidener = new AccessWidener();

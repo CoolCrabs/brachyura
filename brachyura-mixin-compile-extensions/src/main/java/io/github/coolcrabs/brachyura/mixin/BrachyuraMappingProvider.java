@@ -5,10 +5,13 @@ import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 
 import javax.annotation.processing.Filer;
+import javax.annotation.processing.Messager;
+import javax.tools.Diagnostic.Kind;
 
 import org.spongepowered.asm.obfuscation.mapping.common.MappingField;
 import org.spongepowered.asm.obfuscation.mapping.common.MappingMethod;
@@ -23,15 +26,17 @@ class BrachyuraMappingProvider implements IMappingProvider {
     final String inNamespace;
     final String outNamespace;
     final Filer filer;
+    final Messager messager;
 
     TinyTree tree;
     int src = -1;
     int dst = -1;
 
-    public BrachyuraMappingProvider(String inNamespace, String outNamespace, Filer filer) {
+    public BrachyuraMappingProvider(String inNamespace, String outNamespace, Filer filer, Messager messager) {
         this.inNamespace = inNamespace;
         this.outNamespace = outNamespace;
         this.filer = filer;
+        this.messager = messager;
     }
 
     @Override
@@ -87,7 +92,12 @@ class BrachyuraMappingProvider implements IMappingProvider {
         }
         // Scan super classes
         try {
-            try (DataInputStream in = new DataInputStream(new BufferedInputStream(BrachyuraMappingWriter.class.getClassLoader().getResourceAsStream(cls + ".class")))) {
+            InputStream is = BrachyuraMappingWriter.class.getClassLoader().getResourceAsStream(cls + ".class");
+            if (is == null) {
+                messager.printMessage(Kind.WARNING, "[Brachyura Mixin Ext] Unable to find " + cls);
+                return null;
+            }
+            try (DataInputStream in = new DataInputStream(new BufferedInputStream(is))) {
                 int magic = in.readInt();
                 int minor_version = in.readUnsignedShort();
                 int major_version = in.readUnsignedShort();

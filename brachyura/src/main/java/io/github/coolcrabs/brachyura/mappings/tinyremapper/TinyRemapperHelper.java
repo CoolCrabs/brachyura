@@ -19,7 +19,7 @@ import net.fabricmc.tinyremapper.TinyRemapper;
 public class TinyRemapperHelper {
     private TinyRemapperHelper() { }
 
-    public static final String VERSION = "0.7.0";
+    public static final String VERSION = TinyRemapper.class.getPackage().getImplementationVersion();
 
     public static String getFileVersionTag() {
         return "-TRv" + VERSION + "-"; 
