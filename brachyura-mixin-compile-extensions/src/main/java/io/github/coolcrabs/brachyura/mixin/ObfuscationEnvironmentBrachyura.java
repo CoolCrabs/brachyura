@@ -16,7 +16,7 @@ class ObfuscationEnvironmentBrachyura extends ObfuscationEnvironment {
 
     @Override
     protected IMappingProvider getMappingProvider(Messager messager, Filer filer) {
-        return new BrachyuraMappingProvider(ap.getOption(ObfuscationServiceBrachyura.IN_NAMESPACE), ap.getOption(ObfuscationServiceBrachyura.OUT_NAMESPACE), filer, messager);
+        return new BrachyuraMappingProvider(ap.getOption(ObfuscationServiceBrachyura.IN_NAMESPACE), ap.getOption(ObfuscationServiceBrachyura.OUT_NAMESPACE), filer, messager, ap.getProcessingEnvironment());
     }
 
     @Override

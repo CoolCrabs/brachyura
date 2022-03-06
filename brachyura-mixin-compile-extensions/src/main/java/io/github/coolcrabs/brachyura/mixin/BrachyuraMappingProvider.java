@@ -1,16 +1,18 @@
 package io.github.coolcrabs.brachyura.mixin;
 
-import java.io.BufferedInputStream;
 import java.io.BufferedReader;
-import java.io.DataInputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
 import java.nio.file.Files;
+import java.util.ArrayDeque;
 
 import javax.annotation.processing.Filer;
 import javax.annotation.processing.Messager;
+import javax.annotation.processing.ProcessingEnvironment;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic.Kind;
 
 import org.spongepowered.asm.obfuscation.mapping.common.MappingField;
@@ -27,16 +29,18 @@ class BrachyuraMappingProvider implements IMappingProvider {
     final String outNamespace;
     final Filer filer;
     final Messager messager;
+    final ProcessingEnvironment env;
 
     TinyTree tree;
     int src = -1;
     int dst = -1;
 
-    public BrachyuraMappingProvider(String inNamespace, String outNamespace, Filer filer, Messager messager) {
+    public BrachyuraMappingProvider(String inNamespace, String outNamespace, Filer filer, Messager messager, ProcessingEnvironment env) {
         this.inNamespace = inNamespace;
         this.outNamespace = outNamespace;
         this.filer = filer;
         this.messager = messager;
+        this.env = env;
     }
 
     @Override
@@ -71,7 +75,7 @@ class BrachyuraMappingProvider implements IMappingProvider {
                 return new MappingMethod(method.getOwner(), method.getSimpleName(), newdesc);
             }
         } else { // MC Class
-            TinyMethod method2 = getMethod(method.getOwner(), method.getSimpleName(), method.getDesc());
+            TinyMethod method2 = getMethod(method.getOwner(), null, method.getSimpleName(), method.getDesc());
             if (method2 == null) return null;
             String owner = clazz.names[dst];
             if (owner.isEmpty())
@@ -80,7 +84,7 @@ class BrachyuraMappingProvider implements IMappingProvider {
         }
     }
 
-    TinyMethod getMethod(String cls, String name, String desc) {
+    TinyMethod getMethod(String cls, TypeElement clsType, String name, String desc) {
         if ("java/lang/Object".equals(cls)) return null;
         TinyClass clazz = tree.classmaps[src].get(cls);
         if (clazz != null) {
@@ -91,78 +95,57 @@ class BrachyuraMappingProvider implements IMappingProvider {
             }
         }
         // Scan super classes
-        try {
-            InputStream is = BrachyuraMappingWriter.class.getClassLoader().getResourceAsStream(cls + ".class");
-            if (is == null) {
-                messager.printMessage(Kind.WARNING, "[Brachyura Mixin Ext] Unable to find " + cls);
-                return null;
-            }
-            try (DataInputStream in = new DataInputStream(new BufferedInputStream(is))) {
-                int magic = in.readInt();
-                int minor_version = in.readUnsignedShort();
-                int major_version = in.readUnsignedShort();
-                int cp_count = in.readUnsignedShort();
-                Object[] cp = new Object[cp_count];
-                for (int i = 1; i < cp_count; i++) {
-                    byte tag = in.readByte();
-                    switch (tag) {
-                        case 1:
-                            cp[i] = in.readUTF();
-                            break;
-                        case 3:
-                        case 4:
-                            in.readInt();
-                            break;
-                        case 5:
-                        case 6:
-                            in.readLong();
-                            i++;
-                            break;
-                        case 7:
-                            cp[i] = Integer.valueOf(in.readUnsignedShort());
-                            break;
-                        case 8:
-                            in.readUnsignedShort();
-                            break;
-                        case 9:
-                        case 10:
-                        case 11:
-                        case 12:
-                            in.readUnsignedShort();
-                            in.readUnsignedShort();
-                            break;
-                        case 15:
-                            in.readByte();
-                            in.readUnsignedShort();
-                            break;
-                        case 16:
-                            in.readUnsignedShort();
-                            break;
-                        case 17:
-                        case 18:
-                            in.readUnsignedShort();
-                            in.readUnsignedShort();
-                            break;
-                        default:
-                            throw new UnsupportedOperationException("Unknown cp entry: " + tag + " in class " + cls);
-                    }
-                }
-                int access_flags = in.readUnsignedShort();
-                int this_class = in.readUnsignedShort();
-                int super_class = in.readUnsignedShort();
-                int interfaces_count = in.readUnsignedShort();
-                for (int i = 0; i < interfaces_count; i++) {
-                    int inter = in.readUnsignedShort();
-                    TinyMethod method = getMethod((String)cp[(Integer) cp[inter]], name, desc);
-                    if (method != null && !method.name[dst].isEmpty()) return method;
-                }
-                TinyMethod method = getMethod((String)cp[(Integer) cp[super_class]], name, desc);
+        if (clsType == null) clsType = getClassType(cls);
+        if (clsType != null) {
+            for (TypeMirror tm : clsType.getInterfaces()) {
+                TypeElement te = asTe(tm);
+                if (te == null) continue;
+                TinyMethod method = getMethod(env.getElementUtils().getBinaryName(te).toString().replace('.', '/'), te, name, desc);
                 if (method != null && !method.name[dst].isEmpty()) return method;
             }
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+            TypeElement parent = asTe(clsType.getSuperclass());
+            if (parent != null) {
+                TinyMethod method = getMethod(env.getElementUtils().getBinaryName(parent).toString().replace('.', '/'), parent, name, desc);
+                if (method != null && !method.name[dst].isEmpty()) return method;
+            }
         }
+        
+        return null;
+    }
 
+    TypeElement asTe(TypeMirror tm) {
+        if (!(tm instanceof DeclaredType)) return null;
+        DeclaredType dt = (DeclaredType) tm;
+        Element e = dt.asElement();
+        if (!(e instanceof TypeElement)) return null;
+        return (TypeElement) e;
+    }
+
+    TypeElement getClassType(String cls) {
+        String dotted = cls.replace('/', '.');
+        int dotIndex = dotted.lastIndexOf('.');
+        int dollarIndex = dotted.indexOf('$');
+        if (dollarIndex > dotIndex) { // $ in class name indicates potential inner class
+            // Slower fallback scan for inner classes
+            // Won't be used too often
+            String pkg = dotted.substring(0, dotIndex);
+            ArrayDeque<Element> elements = new ArrayDeque<>(env.getElementUtils().getPackageElement(pkg).getEnclosedElements());
+            while (!elements.isEmpty()) {
+                Element e = elements.pop();
+                if (e instanceof TypeElement) {
+                    TypeElement te = (TypeElement) e;
+                    elements.addAll(te.getEnclosedElements());
+                    if (env.getElementUtils().getBinaryName(te).contentEquals(dotted)) {
+                        return te;
+                    }
+                }
+            }
+        } else {
+            TypeElement te = env.getElementUtils().getTypeElement(dotted);
+            if (te != null) return te;
+        }
+        
+        messager.printMessage(Kind.WARNING, "[Brachyura Mixin Ext] Unable to find " + cls);
         return null;
     }
 

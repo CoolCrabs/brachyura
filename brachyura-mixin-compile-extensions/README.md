@@ -2,8 +2,7 @@
 
 * Uses tiny v2
 * No dependencies
-
-Note: doesn't handle inheritance like fabric's does so make sure your mappings are complete
+* Doesn't classload
 
 ## Options
 ```
