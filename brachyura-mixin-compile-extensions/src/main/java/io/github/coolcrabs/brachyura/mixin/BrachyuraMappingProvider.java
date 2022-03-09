@@ -124,7 +124,7 @@ class BrachyuraMappingProvider implements IMappingProvider {
     TypeElement getClassType(String cls) {
         String dotted = cls.replace('/', '.');
         int dotIndex = dotted.lastIndexOf('.');
-        int dollarIndex = dotted.indexOf('$');
+        int dollarIndex = dotted.lastIndexOf('$');
         if (dollarIndex > dotIndex) { // $ in class name indicates potential inner class
             // Slower fallback scan for inner classes
             // Won't be used too often
