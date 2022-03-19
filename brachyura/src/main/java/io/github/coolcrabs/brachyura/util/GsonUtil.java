@@ -1,6 +1,5 @@
 package io.github.coolcrabs.brachyura.util;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStreamWriter;
@@ -22,6 +21,6 @@ public class GsonUtil {
             // Shouldn't be possible
             throw Util.sneak(e0);
         }
-        return new ByteArrayInputStream(os.buf(), 0, os.size());
+        return os.toIs();
     }
 }

@@ -28,7 +28,7 @@ class FabricProjectTest {
     FabricProject fabricProject = new FabricProject() {
         @Override
         public VersionMeta createMcVersion() {
-            return Minecraft.getVersion("21w39a");
+            return Minecraft.getVersion("1.18.2");
         }
 
         public int getJavaVersion() {
@@ -47,13 +47,13 @@ class FabricProjectTest {
 
         @Override
         public MappingTree createMappings() {
-            MappingTree tree = Yarn.ofMaven(FabricMaven.URL, FabricMaven.yarn("21w39a+build.3")).tree;
+            MappingTree tree = Yarn.ofMaven(FabricMaven.URL, FabricMaven.yarn("1.18.2+build.2")).tree;
             return tree;
         }
 
         @Override
         public FabricLoader getLoader() {
-            return new FabricLoader(FabricMaven.URL, FabricMaven.loader("0.12.12"));
+            return new FabricLoader(FabricMaven.URL, FabricMaven.loader("0.13.3"));
         }
 
         @Override
@@ -65,8 +65,9 @@ class FabricProjectTest {
 
         @Override
         public void getModDependencies(ModDependencyCollector d) {
-            d.addMaven(FabricMaven.URL, new MavenId(FabricMaven.GROUP_ID + ".fabric-api", "fabric-resource-loader-v0", "0.4.8+a00e834b88"), ModDependencyFlag.RUNTIME, ModDependencyFlag.COMPILE, ModDependencyFlag.JIJ);
-            d.addMaven(FabricMaven.URL, new MavenId(FabricMaven.GROUP_ID + ".fabric-api", "fabric-game-rule-api-v1", "1.0.7+cbda931888"), ModDependencyFlag.RUNTIME, ModDependencyFlag.COMPILE, ModDependencyFlag.JIJ);
+            d.addMaven(FabricMaven.URL, new MavenId(FabricMaven.GROUP_ID + ".fabric-api", "fabric-resource-loader-v0", "0.4.18+2de5574560"), ModDependencyFlag.RUNTIME, ModDependencyFlag.COMPILE, ModDependencyFlag.JIJ);
+            d.addMaven(FabricMaven.URL, new MavenId(FabricMaven.GROUP_ID + ".fabric-api", "fabric-game-rule-api-v1", "1.0.13+d7c144a860"), ModDependencyFlag.RUNTIME, ModDependencyFlag.COMPILE, ModDependencyFlag.JIJ);
+            d.addMaven(FabricMaven.URL, new MavenId(FabricMaven.GROUP_ID + ".fabric-api", "fabric-registry-sync-v0", "0.9.8+0d9ab37260"), ModDependencyFlag.RUNTIME, ModDependencyFlag.COMPILE, ModDependencyFlag.JIJ);
             d.addMaven(Maven.MAVEN_CENTRAL, new MavenId("org.ini4j:ini4j:0.5.4"), ModDependencyFlag.RUNTIME, ModDependencyFlag.COMPILE, ModDependencyFlag.JIJ);
         };
 

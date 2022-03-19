@@ -1,6 +1,5 @@
 package io.github.coolcrabs.brachyura.compiler.java;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -55,7 +54,7 @@ class OutputFile extends SimpleJavaFileObject {
 
     @Override
     public InputStream openInputStream() {
-        return new ByteArrayInputStream(bytes.buf(), 0, bytes.size());
+        return bytes.toIs();
     }
 
     @Override

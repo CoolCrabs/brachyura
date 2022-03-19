@@ -66,22 +66,4 @@ public class TinyRemapperHelper {
             tr.readInputs(tag, inputs.toArray(new Path[inputs.size()]));
         }
     }
-
-    public static void copyNonClassfilesFromFileSystem(FileSystem input, FileSystem output) throws IOException {
-        copyNonClassfilesFromDir(input.getPath("/"), output);
-    }
-
-    public static void copyNonClassfilesFromDir(Path dir, FileSystem output) throws IOException {
-        Files.walkFileTree(dir, new SimpleFileVisitor<Path>() {
-            @Override
-            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-                if (!file.toString().endsWith(".class")) {
-                    Path target = output.getPath("/").resolve(dir.relativize(file).toString());
-                    Files.createDirectories(target.getParent());
-                    Files.copy(file, target);
-                }
-                return FileVisitResult.CONTINUE;
-            }
-        });
-    }
 }

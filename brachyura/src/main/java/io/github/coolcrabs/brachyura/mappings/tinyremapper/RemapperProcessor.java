@@ -47,42 +47,36 @@ import io.github.coolcrabs.brachyura.processing.Processor;
 import io.github.coolcrabs.brachyura.util.StreamUtil;
 import net.fabricmc.tinyremapper.InputTag;
 import net.fabricmc.tinyremapper.TinyRemapper;
-import net.fabricmc.tinyremapper.TinyRemapper.Builder;
 
 //TODO update when tr finally doesn't require paths for sources
 public class RemapperProcessor implements Processor {
-    TinyRemapper.Builder builder;
-    List<Path> classpath;
+    final TinyRemapper remapper;
+    final List<Path> classpath;
 
-    public RemapperProcessor(Builder builder, List<Path> classpath) {
-        this.builder = builder;
+    public RemapperProcessor(TrWrapper tr, List<Path> classpath) {
+        this.remapper = tr.tr;
         this.classpath = classpath;
     }
 
     @Override
     public void process(Collection<ProcessingEntry> inputs, ProcessingSink sink) throws IOException {
         BruhFileSystemProvider bruh = new BruhFileSystemProvider();
-        TinyRemapper remapper = builder.build();
-        try {
-            for (Path j : classpath) {
-                TinyRemapperHelper.readJar(remapper, j, JarType.CLASSPATH);
+        for (Path j : classpath) {
+            TinyRemapperHelper.readJar(remapper, j, JarType.CLASSPATH);
+        }
+        HashMap<ProcessingSource, InputTag> tags = new HashMap<>();
+        for (ProcessingEntry e : inputs) {
+            tags.computeIfAbsent(e.id.source, k -> remapper.createInputTag());
+        }
+        for (ProcessingEntry e : inputs) {
+            if (e.id.path.endsWith(".class")) {
+                remapper.readInputs(tags.get(e.id.source), bruh.child.createPath(e));
+            } else {
+                sink.sink(e.in, e.id);
             }
-            HashMap<ProcessingSource, InputTag> tags = new HashMap<>();
-            for (ProcessingEntry e : inputs) {
-                tags.computeIfAbsent(e.id.source, k -> remapper.createInputTag());
-            }
-            for (ProcessingEntry e : inputs) {
-                if (e.id.path.endsWith(".class")) {
-                    remapper.readInputs(tags.get(e.id.source), bruh.child.createPath(e));
-                } else {
-                    sink.sink(e.in, e.id);
-                }
-            }
-            for (Map.Entry<ProcessingSource, InputTag> entry : tags.entrySet()) {
-                remapper.apply((path, bytes) -> sink.sink(() -> new ByteArrayInputStream(bytes), new ProcessingId(path + ".class", entry.getKey())), entry.getValue());
-            }
-        } finally {
-            remapper.finish(); // Epic java 6 style https://github.com/FabricMC/tiny-remapper/pull/71
+        }
+        for (Map.Entry<ProcessingSource, InputTag> entry : tags.entrySet()) {
+            remapper.apply((path, bytes) -> sink.sink(() -> new ByteArrayInputStream(bytes), new ProcessingId(path + ".class", entry.getKey())), entry.getValue());
         }
     }
 
