@@ -10,7 +10,9 @@ import java.util.function.Consumer;
 
 import org.junit.jupiter.api.Test;
 
+import io.github.coolcrabs.brachyura.TestUtil;
 import io.github.coolcrabs.brachyura.decompiler.BrachyuraDecompiler;
+import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 import io.github.coolcrabs.brachyura.mappings.Namespaces;
 import io.github.coolcrabs.brachyura.maven.Maven;
 import io.github.coolcrabs.brachyura.maven.MavenId;
@@ -59,9 +61,9 @@ class J8FabricProjectTest {
 
         @Override
         public void getModDependencies(ModDependencyCollector d) {
+            d.addMaven(Maven.MAVEN_CENTRAL, new MavenId("org.ini4j:ini4j:0.5.4"), ModDependencyFlag.RUNTIME, ModDependencyFlag.COMPILE, ModDependencyFlag.JIJ);
             d.addMaven(FabricMaven.URL, new MavenId(FabricMaven.GROUP_ID + ".fabric-api", "fabric-resource-loader-v0", "0.4.8+3cc0f0907d"), ModDependencyFlag.RUNTIME, ModDependencyFlag.COMPILE, ModDependencyFlag.JIJ);
             d.addMaven(FabricMaven.URL, new MavenId(FabricMaven.GROUP_ID + ".fabric-api", "fabric-game-rule-api-v1", "1.0.7+3cc0f0907d"), ModDependencyFlag.RUNTIME, ModDependencyFlag.COMPILE, ModDependencyFlag.JIJ);
-            d.addMaven(Maven.MAVEN_CENTRAL, new MavenId("org.ini4j:ini4j:0.5.4"), ModDependencyFlag.RUNTIME, ModDependencyFlag.COMPILE, ModDependencyFlag.JIJ);
         };
 
        @Override
@@ -73,7 +75,11 @@ class J8FabricProjectTest {
     @Test
     void compile() {
         try {
-            fabricProject.build();
+            long s = System.currentTimeMillis();
+            JavaJarDependency b = fabricProject.build();
+            long s2 = System.currentTimeMillis() - s;
+            System.out.println(s2);
+            TestUtil.assertSha256(b.jar, "c7ee5d98a960e6d49d6fa55bbd3eab2b7de301bc5b0c8be8ad60a8b5de8f86b9");
         } catch (Exception e) {
             e.printStackTrace();
             throw e;

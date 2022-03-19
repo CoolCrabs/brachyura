@@ -731,10 +731,11 @@ public abstract class FabricProject extends BaseJavaProject {
                     HashMap<ProcessingSource, MavenId> c = new HashMap<>();
                     try (CloseableArrayList toClose = new CloseableArrayList()) {
                         for (RemapInfo ri : remapinfo) {
-                            ZipProcessingSource s = new ZipProcessingSource(ri.source.jarDependency.jar);
-                            toClose.add(s);
+                            // Make sure sink closes before source
                             ZipProcessingSink si = new ZipProcessingSink(a.tempPath.resolve(ri.target.jarDependency.jar.getFileName()));
                             toClose.add(si);
+                            ZipProcessingSource s = new ZipProcessingSource(ri.source.jarDependency.jar);
+                            toClose.add(s);
                             b.put(s, si);
                             c.put(s, ri.source.jarDependency.mavenId);
                         }
