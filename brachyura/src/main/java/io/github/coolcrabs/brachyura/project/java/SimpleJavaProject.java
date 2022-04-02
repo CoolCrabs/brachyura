@@ -1,27 +1,76 @@
 package io.github.coolcrabs.brachyura.project.java;
 
 import java.nio.file.Path;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 
-import io.github.coolcrabs.brachyura.compiler.java.JavaCompilation;
-import io.github.coolcrabs.brachyura.compiler.java.JavaCompilationResult;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 import io.github.coolcrabs.brachyura.ide.IdeModule;
 import io.github.coolcrabs.brachyura.maven.MavenId;
 import io.github.coolcrabs.brachyura.maven.MavenPublishing;
+import io.github.coolcrabs.brachyura.processing.ProcessorChain;
 import io.github.coolcrabs.brachyura.processing.sinks.AtomicZipProcessingSink;
 import io.github.coolcrabs.brachyura.processing.sources.DirectoryProcessingSource;
-import io.github.coolcrabs.brachyura.processing.sources.ProcessingSponge;
 import io.github.coolcrabs.brachyura.project.Task;
-import io.github.coolcrabs.brachyura.util.JvmUtil;
 import io.github.coolcrabs.brachyura.util.Lazy;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+
+import javax.tools.StandardLocation;
 
 public abstract class SimpleJavaProject extends BaseJavaProject {
     public abstract MavenId getId();
+
+    public int getJavaVersion() {
+        return 8;
+    }
+
+    public List<JavaJarDependency> createDependencies() {
+        return Collections.emptyList();
+    }
+
+    public final Lazy<SimpleJavaModule> projectModule = new Lazy<>(this::createProjectModule);
+    public SimpleJavaModule createProjectModule() {
+        return new SimpleJavaProjectModule();
+    }
+
+    public ProcessorChain getResourceProcessorChain() {
+        return new ProcessorChain();
+    }
+
+    public class SimpleJavaProjectModule extends SimpleJavaModule {
+        @Override
+        public int getJavaVersion() {
+            return SimpleJavaProject.this.getJavaVersion();
+        }
+
+        @Override
+        public Path[] getSrcDirs() {
+            return new Path[]{getModuleRoot().resolve("src").resolve("main").resolve("java")};
+        }
+
+        @Override
+        public Path[] getResourceDirs() {
+            return new Path[]{getProjectDir().resolve("src").resolve("main").resolve("resources")};
+        }
+
+        @Override
+        protected List<JavaJarDependency> createDependencies() {
+            return SimpleJavaProject.this.createDependencies();
+        }
+
+        @Override
+        public String getModuleName() {
+            return getId().artifactId;
+        }
+
+        @Override
+        public Path getModuleRoot() {
+            return getProjectDir();
+        }
+    }
     
     public String getJarBaseName() {
         return getId().artifactId + "-" + getId().version;
@@ -45,52 +94,25 @@ public abstract class SimpleJavaProject extends BaseJavaProject {
 
     @Override
     public IdeModule[] getIdeModules() {
-        return new IdeModule[] {new IdeModule.IdeModuleBuilder()
-            .name(getId().artifactId)
-            .root(getProjectDir())
-            .javaVersion(getJavaVersion())
-            .sourcePath(getSrcDir())
-            .resourcePaths(getResourcesDir())
-            .dependencies(dependencies.get())
-            .build()
-        };
+        return new IdeModule[] {projectModule.get().ideModule()};
     }
 
     public JavaJarDependency build() {
-        JavaCompilationResult compilation = new JavaCompilation()
-            .addSourceDir(getSrcDir())
-            .addClasspath(getCompileDependencies())
-            .addOption(JvmUtil.compileArgs(JvmUtil.CURRENT_JAVA_VERSION, getJavaVersion()))
-            .compile();
-        ProcessingSponge classes = new ProcessingSponge();
-        compilation.getInputs(classes);
         Path outjar = getBuildLibsDir().resolve(getJarBaseName() + ".jar");
         Path outjarsources = getBuildLibsDir().resolve(getJarBaseName() + "-sources.jar");
         try (
             AtomicZipProcessingSink jarSink = new AtomicZipProcessingSink(outjar);
             AtomicZipProcessingSink jarSourcesSink = new AtomicZipProcessingSink(outjarsources);
         ) {
-            resourcesProcessingChain().apply(jarSink, new DirectoryProcessingSource(getResourcesDir()));
-            classes.getInputs(jarSink);
-            new DirectoryProcessingSource(getSrcDir()).getInputs(jarSourcesSink);
+            getResourceProcessorChain().apply(jarSink, Arrays.stream(projectModule.get().getResourceDirs()).map(DirectoryProcessingSource::new).collect(Collectors.toList()));
+            projectModule.get().compilationOutput.get().getInputs(jarSink);
+            for (Path p : projectModule.get().getSrcDirs()) {
+                new DirectoryProcessingSource(p).getInputs(jarSourcesSink);
+            }
+            projectModule.get().compilationResult.get().getOutputLocation(StandardLocation.SOURCE_OUTPUT, jarSourcesSink);
             jarSink.commit();
             jarSourcesSink.commit();
         }
         return new JavaJarDependency(outjar, outjar, getId());
-    }
-
-    public final Lazy<List<JavaJarDependency>> dependencies = new Lazy<>(this::getDependencies);
-    public List<JavaJarDependency> getDependencies() {
-        return Collections.emptyList();
-    }
-
-    @Override
-    public List<Path> getCompileDependencies() {
-        List<JavaJarDependency> deps = dependencies.get();
-        ArrayList<Path> result = new ArrayList<>(deps.size());
-        for (int i = 0; i < deps.size(); i++) {
-            result.set(i, deps.get(i).jar);
-        }
-        return result;
     }
 }

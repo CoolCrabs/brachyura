@@ -13,6 +13,8 @@ import org.junit.jupiter.api.Test;
 import io.github.coolcrabs.brachyura.decompiler.BrachyuraDecompiler;
 import io.github.coolcrabs.brachyura.decompiler.cfr.CfrDecompiler;
 import io.github.coolcrabs.brachyura.decompiler.fernflower.FernflowerDecompiler;
+import io.github.coolcrabs.brachyura.fabric.FabricContext.ModDependencyCollector;
+import io.github.coolcrabs.brachyura.fabric.FabricContext.ModDependencyFlag;
 import io.github.coolcrabs.brachyura.mappings.Namespaces;
 import io.github.coolcrabs.brachyura.maven.Maven;
 import io.github.coolcrabs.brachyura.maven.MavenId;
@@ -25,7 +27,7 @@ import net.fabricmc.accesswidener.AccessWidenerVisitor;
 import net.fabricmc.mappingio.tree.MappingTree;
 
 class MojmapProjectTest {
-    FabricProject fabricProject = new FabricProject() {
+    SimpleFabricProject fabricProject = new SimpleFabricProject() {
         @Override
         public VersionMeta createMcVersion() {
             return Minecraft.getVersion("1.18.1");
@@ -64,9 +66,9 @@ class MojmapProjectTest {
 
         @Override
         public void getModDependencies(ModDependencyCollector d) {
-            d.addMaven(FabricMaven.URL, new MavenId(FabricMaven.GROUP_ID + ".fabric-api", "fabric-resource-loader-v0", "0.4.8+a00e834b88"), ModDependencyFlag.RUNTIME, ModDependencyFlag.COMPILE, ModDependencyFlag.JIJ);
-            d.addMaven(FabricMaven.URL, new MavenId(FabricMaven.GROUP_ID + ".fabric-api", "fabric-game-rule-api-v1", "1.0.7+cbda931888"), ModDependencyFlag.RUNTIME, ModDependencyFlag.COMPILE, ModDependencyFlag.JIJ);
-            d.addMaven(Maven.MAVEN_CENTRAL, new MavenId("org.ini4j:ini4j:0.5.4"), ModDependencyFlag.RUNTIME, ModDependencyFlag.COMPILE, ModDependencyFlag.JIJ);
+            jij(d.addMaven(FabricMaven.URL, new MavenId(FabricMaven.GROUP_ID + ".fabric-api", "fabric-resource-loader-v0", "0.4.8+a00e834b88"), ModDependencyFlag.RUNTIME, ModDependencyFlag.COMPILE));
+            jij(d.addMaven(FabricMaven.URL, new MavenId(FabricMaven.GROUP_ID + ".fabric-api", "fabric-game-rule-api-v1", "1.0.7+cbda931888"), ModDependencyFlag.RUNTIME, ModDependencyFlag.COMPILE));
+            jij(d.addMaven(Maven.MAVEN_CENTRAL, new MavenId("org.ini4j:ini4j:0.5.4"), ModDependencyFlag.RUNTIME, ModDependencyFlag.COMPILE));
         };
 
         @Override
@@ -79,8 +81,8 @@ class MojmapProjectTest {
 
     @Test
     void testProject() {
-        assertTrue(Files.isRegularFile(fabricProject.intermediaryjar.get().jar));
-        assertTrue(Files.isRegularFile(fabricProject.namedJar.get().jar));
+        assertTrue(Files.isRegularFile(fabricProject.context.get().intermediaryjar.get().jar));
+        assertTrue(Files.isRegularFile(fabricProject.context.get().namedJar.get().jar));
         // assertTrue(Files.isRegularFile(fabricProject.getDecompiledJar().jar));
     }
     

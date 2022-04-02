@@ -123,7 +123,6 @@ class BuildscriptProject extends BaseJavaProject {
         return result;
     }
 
-    @Override
     public List<Path> getCompileDependencies() {
         return EntryGlobals.buildscriptClasspath;
     }
