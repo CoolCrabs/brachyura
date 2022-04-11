@@ -20,6 +20,7 @@ import io.github.coolcrabs.brachyura.fabric.FabricContext.ModDependencyCollector
 import io.github.coolcrabs.brachyura.ide.IdeModule;
 import io.github.coolcrabs.brachyura.maven.MavenId;
 import io.github.coolcrabs.brachyura.minecraft.VersionMeta;
+import io.github.coolcrabs.brachyura.processing.ProcessorChain;
 import io.github.coolcrabs.brachyura.processing.sinks.AtomicZipProcessingSink;
 import io.github.coolcrabs.brachyura.processing.sources.DirectoryProcessingSource;
 import io.github.coolcrabs.brachyura.project.Task;
@@ -191,11 +192,15 @@ public abstract class SimpleFabricProject extends BaseJavaProject {
         return new IdeModule[]{module.get().ideModule()};
     }
 
+    public ProcessorChain resourcesProcessingChain() {
+        return context.get().resourcesProcessingChain(jijList);
+    }
+
     public JavaJarDependency build() {
         try {
             try (AtomicZipProcessingSink out = new AtomicZipProcessingSink(getBuildJarPath())) {
                 context.get().modDependencies.get(); // Ugly hack
-                context.get().resourcesProcessingChain(jijList).apply(out, Arrays.stream(getResourceDirs()).map(DirectoryProcessingSource::new).collect(Collectors.toList()));
+                resourcesProcessingChain().apply(out, Arrays.stream(getResourceDirs()).map(DirectoryProcessingSource::new).collect(Collectors.toList()));
                 context.get().getRemappedClasses(module.get()).values().forEach(s -> s.getInputs(out));
                 out.commit();
             }
