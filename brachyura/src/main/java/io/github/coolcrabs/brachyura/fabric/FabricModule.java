@@ -90,8 +90,9 @@ public abstract class FabricModule extends BuildModule {
             ProcessingSponge compilationOutput = new ProcessingSponge();
             compilation.getInputs(compilationOutput);
             ProcessingEntry mixinMappings = compilationOutput.popEntry(mixinOut);
-            MemoryMappingTree mixinMappingsTree = new MemoryMappingTree();
+            MemoryMappingTree mixinMappingsTree = null;
             if (mixinMappings != null) {
+                mixinMappingsTree = new MemoryMappingTree();
                 try (Reader reader = new InputStreamReader(mixinMappings.in.get())) {
                     MappingReader.read(reader, MappingFormat.TINY_2, mixinMappingsTree);
                 }

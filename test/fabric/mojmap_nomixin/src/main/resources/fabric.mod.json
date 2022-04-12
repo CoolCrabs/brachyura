@@ -1,0 +1,16 @@
+{
+    "schemaVersion": 1,
+    "id": "brachyuratestmod",
+    "version": "1337.0.0",
+    "name": "Test Mod",
+    "description": "Test mod for brachyura build tool.",
+    "entrypoints": {
+        "main": [
+            "io.github.coolcrabs.testmod.TestMod"
+        ],
+        "client": [
+            "io.github.coolcrabs.testmod.TestModClient"
+        ]
+    },
+    "accessWidener" : "testaw.accesswidener"
+}

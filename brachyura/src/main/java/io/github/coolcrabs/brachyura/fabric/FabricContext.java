@@ -146,7 +146,8 @@ public abstract class FabricContext {
         try {
             mappings.get().accept(new MappingSourceNsSwitch(compmappings, Namespaces.NAMED));
             for (FabricModule fm : fmods) {
-                fm.fabricCompilationResult.get().mixinMappings.accept(compmappings);
+                MappingTree mm = fm.fabricCompilationResult.get().mixinMappings; 
+                if (mm != null) mm.accept(compmappings);
             }
         } catch (IOException e) {
             throw Util.sneak(e);
