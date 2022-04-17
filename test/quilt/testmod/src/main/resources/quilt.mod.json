@@ -1,0 +1,15 @@
+{
+    "schema_version": 1,
+    "quilt_loader": {
+        "group": "io.github.coolcrabs",
+        "id": "brachyuratestmod",
+        "version": "1337.0.0",
+        "name": "Test Mod",
+        "description": "Test mod for brachyura build tool.",
+        "intermediate_mappings": "net.fabricmc:intermediary"
+    },
+    "mixin": [
+        "brachyuratestmod.mixins.json"
+    ],
+    "access_widener" : "testaw.accesswidener"
+}

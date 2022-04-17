@@ -1,6 +1,7 @@
 package io.github.coolcrabs.brachyura.fabric;
 
 import java.io.BufferedReader;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -99,7 +100,15 @@ public abstract class SimpleFabricProject extends BaseJavaProject {
         try {
             Gson gson = new GsonBuilder().setPrettyPrinting().setLenient().create();
             JsonObject fabricModJson;
-            try (BufferedReader reader = PathUtil.newBufferedReader(getResourceDirs()[0].resolve("fabric.mod.json"))) {
+            Path fmj = null;
+            for (Path resDir : getResourceDirs()) {
+                Path p = resDir.resolve("fabric.mod.json");
+                if (Files.exists(p)) {
+                    fmj = p;
+                    break;
+                }
+            }
+            try (BufferedReader reader = PathUtil.newBufferedReader(fmj)) {
                 fabricModJson = gson.fromJson(reader, JsonObject.class);
             }
             return new String[] {fabricModJson.get("id").getAsString(), fabricModJson.get("version").getAsString()};
@@ -174,7 +183,6 @@ public abstract class SimpleFabricProject extends BaseJavaProject {
         public Path getModuleRoot() {
             return getProjectDir();
         }
-        
     }
 
     @Override

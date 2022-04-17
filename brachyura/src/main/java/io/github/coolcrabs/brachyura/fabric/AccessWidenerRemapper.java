@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
@@ -26,30 +27,47 @@ import net.fabricmc.mappingio.tree.MappingTree;
 public class AccessWidenerRemapper implements Processor {
     final MappingTree mappings;
     final int namespace;
+    final AccessWidenerCollector awCollector;
 
-    public AccessWidenerRemapper(MappingTree mappings, int namespace) {
+    public AccessWidenerRemapper(MappingTree mappings, int namespace, AccessWidenerCollector awCollector) {
         this.mappings = mappings;
         this.namespace = namespace;
+        this.awCollector = awCollector;
+    }
+
+    public interface AccessWidenerCollector {
+        List<ProcessingId> collect(Collection<ProcessingEntry> inputs) throws IOException; 
+    }
+
+    public enum FabricAwCollector implements AccessWidenerCollector {
+        INSTANCE;
+
+        @Override
+        public List<ProcessingId> collect(Collection<ProcessingEntry> inputs) throws IOException {
+            ArrayList<ProcessingId> result = new ArrayList<>();
+            for (ProcessingEntry e : inputs) {
+                if (e.id.path.equals("fabric.mod.json")) {
+                    JsonObject fabricModJson;
+                    try (BufferedReader reader = new BufferedReader(new InputStreamReader(e.in.get(), StandardCharsets.UTF_8))) {
+                        fabricModJson = new Gson().fromJson(reader, JsonObject.class);
+                    }
+                    JsonElement aw0 = fabricModJson.get("accessWidener");
+                    if (aw0 != null) {
+                        result.add(new ProcessingId(aw0.getAsString(), e.id.source));
+                    }
+                }
+            }
+            return result;
+        }
     }
 
     @Override
     public void process(Collection<ProcessingEntry> inputs, ProcessingSink sink) throws IOException {
         HashMap<ProcessingId, ProcessingEntry> entries = new HashMap<>();
-        ArrayList<ProcessingId> aws = new ArrayList<>();
         for (ProcessingEntry e : inputs) {
             entries.put(e.id, e);
-            if (e.id.path.equals("fabric.mod.json")) {
-                JsonObject fabricModJson;
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(e.in.get(), StandardCharsets.UTF_8))) {
-                    fabricModJson = new Gson().fromJson(reader, JsonObject.class);
-                }
-                JsonElement aw0 = fabricModJson.get("accessWidener");
-                if (aw0 != null) {
-                    aws.add(new ProcessingId(aw0.getAsString(), e.id.source));
-                }
-            }
         }
-        for (ProcessingId awid : aws) {
+        for (ProcessingId awid : awCollector.collect(inputs)) {
             ProcessingEntry aw = entries.remove(awid);
             byte[] awb;
             try (InputStream is = aw.in.get()) {
