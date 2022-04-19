@@ -327,7 +327,11 @@ public abstract class FabricContext {
         return getLocalBrachyuraPath().resolve("fabricdeps");
     }
 
-    public ProcessorChain modRemapChainOverrideOnlyIfYouOverrideRemappedModsRootPath(TrWrapper trw, List<Path> cp, Map<ProcessingSource, MavenId> c) {
+    public byte remappedModsLogicVersion() {
+        return 1;
+    }
+
+    public ProcessorChain modRemapChainOverrideOnlyIfYouOverrideRemappedModsRootPathAndLogicVersion(TrWrapper trw, List<Path> cp, Map<ProcessingSource, MavenId> c) {
         return new ProcessorChain(
             new RemapperProcessor(trw, cp),
             new MetaInfFixer(trw),
@@ -408,7 +412,7 @@ public abstract class FabricContext {
                         }
                         Logger.info("Remapping {} mods", b.size());
                         try (TrWrapper trw = new TrWrapper(tr)) {
-                            modRemapChainOverrideOnlyIfYouOverrideRemappedModsRootPath(trw, cp, c).apply(
+                            modRemapChainOverrideOnlyIfYouOverrideRemappedModsRootPathAndLogicVersion(trw, cp, c).apply(
                                 (in, id) -> b.get(id.source).sink(in, id),
                                 b.keySet()
                             );

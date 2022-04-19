@@ -78,7 +78,12 @@ public abstract class QuiltContext extends FabricContext {
     }
 
     @Override
-    public ProcessorChain modRemapChainOverrideOnlyIfYouOverrideRemappedModsRootPath(TrWrapper trw, List<Path> cp, Map<ProcessingSource, MavenId> c) {
+    public byte remappedModsLogicVersion() {
+        return 2;
+    }
+
+    @Override
+    public ProcessorChain modRemapChainOverrideOnlyIfYouOverrideRemappedModsRootPathAndLogicVersion(TrWrapper trw, List<Path> cp, Map<ProcessingSource, MavenId> c) {
         return new ProcessorChain(
             new RemapperProcessor(trw, cp),
             new MetaInfFixer(trw),
@@ -125,7 +130,7 @@ public abstract class QuiltContext extends FabricContext {
             // Prefer a mod's qmj otherwise use fmj
             HashMap<ProcessingSource, ProcessingEntry> mjs = new HashMap<>();
             for (ProcessingEntry e : inputs) {
-                if (e.id.path.equals("quilt.mod.json") || (e.id.path.equals("fabric.mod.json") && mjs.get(e.id.source) != null)) {
+                if (e.id.path.equals("quilt.mod.json") || (e.id.path.equals("fabric.mod.json") && mjs.get(e.id.source) == null)) {
                     mjs.put(e.id.source, e);
                 }
             }
