@@ -11,4 +11,8 @@ public class QuiltMaven {
     public static MavenId loader(String version) {
         return new MavenId(GROUP_ID, "quilt-loader", version);
     }
+
+    public static MavenId quiltMappings(String version) {
+        return new MavenId(GROUP_ID, "quilt-mappings", version);
+    }
 }
