@@ -72,7 +72,6 @@ public abstract class BaseJavaProject extends Project {
             HashMap<IdeModule, Path> mmap = new HashMap<>();
             for (IdeModule m : toCompile) {
                 JavaCompilation compilation = new JavaCompilation();
-                compilation.addOption(rc.args.get().toArray(new String[0]));
                 compilation.addOption(JvmUtil.compileArgs(JvmUtil.CURRENT_JAVA_VERSION, m.javaVersion));
                 compilation.addOption("-proc:none");
                 for (JavaJarDependency dep : m.dependencies.get()) {
