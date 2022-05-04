@@ -1,10 +1,9 @@
 package io.github.coolcrabs.brachyura.fabric;
 
 import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -15,13 +14,13 @@ import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
+import io.github.coolcrabs.accesswidener.AccessWidenerReader;
+import io.github.coolcrabs.accesswidener.AccessWidenerWriter;
 import io.github.coolcrabs.brachyura.processing.ProcessingEntry;
 import io.github.coolcrabs.brachyura.processing.ProcessingId;
 import io.github.coolcrabs.brachyura.processing.ProcessingSink;
 import io.github.coolcrabs.brachyura.processing.Processor;
-import io.github.coolcrabs.brachyura.util.StreamUtil;
-import net.fabricmc.accesswidener.AccessWidenerReader;
-import net.fabricmc.accesswidener.AccessWidenerWriter;
+import io.github.coolcrabs.brachyura.util.ByteArrayOutputStreamEx;
 import net.fabricmc.mappingio.tree.MappingTree;
 
 public class AccessWidenerRemapper implements Processor {
@@ -69,14 +68,15 @@ public class AccessWidenerRemapper implements Processor {
         }
         for (ProcessingId awid : awCollector.collect(inputs)) {
             ProcessingEntry aw = entries.remove(awid);
-            byte[] awb;
-            try (InputStream is = aw.in.get()) {
-                awb = StreamUtil.readFullyAsBytes(is);
+            ByteArrayOutputStreamEx out = new ByteArrayOutputStreamEx();
+            try (
+                BufferedReader in = new BufferedReader(new InputStreamReader(aw.in.get()));
+                OutputStreamWriter w = new OutputStreamWriter(out)
+            ) {
+                AccessWidenerNamespaceChanger nc = new AccessWidenerNamespaceChanger(new AccessWidenerWriter(w), mappings, namespace, aw.id.path);
+                new AccessWidenerReader(nc).read(in);
             }
-            AccessWidenerWriter w = new AccessWidenerWriter(AccessWidenerReader.readVersion(awb));
-            AccessWidenerNamespaceChanger nc = new AccessWidenerNamespaceChanger(w, mappings, namespace, aw.id.path);
-            new AccessWidenerReader(nc).read(awb);
-            sink.sink(() -> new ByteArrayInputStream(w.write()), aw.id);
+            sink.sink(out::toIs, aw.id);
         }
         for (ProcessingEntry e : entries.values()) {
             sink.sink(e.in, e.id);

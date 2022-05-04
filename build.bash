@@ -14,6 +14,9 @@ cd ..
 cd fabricmerge
 mvn clean package verify install
 cd ..
+cd access-widener
+mvn clean package verify install
+cd ..
 cd crabloader
 mvn clean package verify install
 cd ..

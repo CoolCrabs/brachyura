@@ -19,6 +19,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 import io.github.coolcrabs.brachyura.exception.UnknownJsonException;
@@ -177,12 +178,14 @@ public abstract class QuiltContext extends FabricContext {
                     for (JsonElement a : mixins) {
                         if (a.isJsonPrimitive()) {
                             mixinjs.add(a.getAsString());
-                        } else if (a.isJsonObject()) {
-                            mixinjs.add(a.getAsJsonObject().get("config").getAsString());
                         } else {
                             throw new UnknownJsonException(a.toString());
                         }
                     }
+                } else if (m instanceof JsonPrimitive) {
+                    mixinjs.add(m.getAsString());
+                } else if (m != null) {
+                    throw new UnknownJsonException(m.toString());
                 }
                 for (String mixin : mixinjs) {
                     ProcessingEntry entry = entries.get(mixin);
@@ -227,9 +230,7 @@ public abstract class QuiltContext extends FabricContext {
                             path = "META-INF/jars/" + a + jar.getFileName();
                             a++;
                         }
-                        JsonObject o = new JsonObject();
-                        o.addProperty("file", path);
-                        jars.add(o);
+                        jars.add(path);
                         used.add(path);
                         sink.sink(() -> PathUtil.inputStream(jar), new ProcessingId(path, e.id.source));
                     }

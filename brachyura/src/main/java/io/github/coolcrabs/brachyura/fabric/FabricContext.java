@@ -22,8 +22,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
-import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
@@ -36,9 +36,9 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import org.jetbrains.annotations.Nullable;
-import org.objectweb.asm.Opcodes;
 import org.tinylog.Logger;
 
+import io.github.coolcrabs.accesswidener.AccessWidener;
 import io.github.coolcrabs.brachyura.decompiler.BrachyuraDecompiler;
 import io.github.coolcrabs.brachyura.dependency.Dependency;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
@@ -59,6 +59,7 @@ import io.github.coolcrabs.brachyura.maven.MavenId;
 import io.github.coolcrabs.brachyura.minecraft.Minecraft;
 import io.github.coolcrabs.brachyura.minecraft.VersionMeta;
 import io.github.coolcrabs.brachyura.mixin.BrachyuraMixinCompileExtensions;
+import io.github.coolcrabs.brachyura.processing.HashableProcessor;
 import io.github.coolcrabs.brachyura.processing.ProcessingEntry;
 import io.github.coolcrabs.brachyura.processing.ProcessingId;
 import io.github.coolcrabs.brachyura.processing.ProcessingSink;
@@ -83,9 +84,6 @@ import io.github.coolcrabs.brachyura.util.UnzipUtil;
 import io.github.coolcrabs.brachyura.util.Util;
 import io.github.coolcrabs.fabricmerge.JarMerger;
 import io.github.coolmineman.trieharder.FindReplaceSourceRemapper;
-import net.fabricmc.accesswidener.AccessWidener;
-import net.fabricmc.accesswidener.AccessWidenerClassVisitor;
-import net.fabricmc.accesswidener.AccessWidenerVisitor;
 import net.fabricmc.mappingio.adapter.MappingSourceNsSwitch;
 import net.fabricmc.mappingio.tree.MappingTree;
 import net.fabricmc.mappingio.tree.MemoryMappingTree;
@@ -109,7 +107,8 @@ public abstract class FabricContext {
 
     public abstract Path getContextRoot();
 
-    public @Nullable Consumer<AccessWidenerVisitor> getAw() {
+    public final Lazy<Optional<AccessWidener>> aw = new Lazy<>(() -> Optional.ofNullable(createAw()));
+    protected @Nullable AccessWidener createAw() {
         return null;
     }
 
@@ -246,6 +245,8 @@ public abstract class FabricContext {
                             throw new UnknownJsonException(a.toString());
                         }
                     }
+                } else if (m != null) {
+                    throw new UnknownJsonException(m.toString());
                 }
                 for (String mixin : mixinjs) {
                     ProcessingEntry entry = entries.get(mixin);
@@ -640,28 +641,59 @@ public abstract class FabricContext {
             Path result = fabricCache().resolve("intermediary").resolve(versionMeta.get().version + TinyRemapperHelper.getFileVersionTag() + "intermediary-" + intermediaryHash + ".jar");
             if (!Files.isRegularFile(result)) {
                 try (AtomicFile atomicFile = new AtomicFile(result)) {
-                    remapJar(intermediary.get(), null, Namespaces.OBF, Namespaces.INTERMEDIARY, mergedJar, atomicFile.tempPath, mcClasspathPaths.get());
+                    remapJar(intermediary.get(), Namespaces.OBF, Namespaces.INTERMEDIARY, mergedJar, atomicFile.tempPath, mcClasspathPaths.get());
                     atomicFile.commit();
                 }
             }
             return new RemappedJar(result, intermediaryHash);
     }
 
-    public final Lazy<RemappedJar> namedJar = new Lazy<>(this::createNamedJar);
-    protected RemappedJar createNamedJar() {
-        Path intermediaryJar2 = intermediaryjar.get().jar;
+    public final Lazy<RemappedJar> remappedNamedJar = new Lazy<>(this::createRemappedNamedJar);
+    protected RemappedJar createRemappedNamedJar() {
         MessageDigest md = MessageDigestUtil.messageDigest(MessageDigestUtil.SHA256);
-        MappingHasher.hash(md, intermediary.get(), mappings.get());
-        if (getAw() != null) AccessWidenerHasher.hash(md, getAw());
+        MessageDigestUtil.update(md, intermediaryjar.get().mappingHash);
+        MappingHasher.hash(md, mappings.get());
         String mappingHash = MessageDigestUtil.toHexHash(md.digest());
         Path result = fabricCache().resolve("named").resolve(versionMeta.get().version + TinyRemapperHelper.getFileVersionTag() + "named-" + mappingHash + ".jar");
         if (!Files.isRegularFile(result)) {
             try (AtomicFile atomicFile = new AtomicFile(result)) {
-                remapJar(mappings.get(), getAw(), Namespaces.INTERMEDIARY, Namespaces.NAMED, intermediaryJar2, atomicFile.tempPath, mcClasspathPaths.get());
+                remapJar(mappings.get(), Namespaces.INTERMEDIARY, Namespaces.NAMED, intermediaryjar.get().jar, atomicFile.tempPath, mcClasspathPaths.get());
                 atomicFile.commit();
             }
         }
         return new RemappedJar(result, mappingHash);
+    }
+
+    public final Lazy<RemappedJar> namedJar = new Lazy<>(this::createNamedJar);
+    protected RemappedJar createNamedJar() {
+        HashableProcessor[] hps = namedJarProcessors();
+        if (hps.length == 0) return remappedNamedJar.get();
+        MessageDigest md = MessageDigestUtil.messageDigest(MessageDigestUtil.SHA256);
+        MessageDigestUtil.update(md, remappedNamedJar.get().mappingHash);
+        for (HashableProcessor hp : hps) {
+            hp.hash(md);
+        }
+        String hash = MessageDigestUtil.toHexHash(md.digest());
+        Path result = getLocalBrachyuraPath().resolve("fabric").resolve("named").resolve(versionMeta.get().version + TinyRemapperHelper.getFileVersionTag() + "named-" + hash + ".jar");
+        if (!Files.isRegularFile(result)) {
+            try (
+                ZipProcessingSource s = new ZipProcessingSource(remappedNamedJar.get().jar);
+                AtomicZipProcessingSink a = new AtomicZipProcessingSink(result);
+            ) {
+                new ProcessorChain(hps).apply(a, s);
+                a.commit();
+            }
+        }
+        return new RemappedJar(result, hash);
+    }
+
+    public HashableProcessor[] namedJarProcessors() {
+        Optional<AccessWidener> oaw = aw.get();
+        if (oaw.isPresent()) {
+            return new HashableProcessor[] {new AccessWidenerProcessor(oaw.get())};
+        } else {
+            return new HashableProcessor[0];
+        }
     }
 
     public final Lazy<JavaJarDependency> decompiledJar = new Lazy<>(this::createDecompiledJar);
@@ -676,18 +708,13 @@ public abstract class FabricContext {
         return decompiler.getDecompiled(named.jar, decompClasspath(), resultDir, mappings.get(), Namespaces.NAMED).toJavaJarDep(null);
     }
 
-    public void remapJar(MappingTree mappings, @Nullable Consumer<AccessWidenerVisitor> aw, String src, String dst, Path inputJar, Path outputJar, List<Path> classpath) {
+    public void remapJar(MappingTree mappings, String src, String dst, Path inputJar, Path outputJar, List<Path> classpath) {
         TinyRemapper.Builder remapperBuilder = TinyRemapper.newRemapper()
             .withMappings(new MappingTreeMappingProvider(mappings, src, dst))
             .withMappings(Jsr2JetbrainsMappingProvider.INSTANCE)
             .renameInvalidLocals(true)
             .invalidLvNamePattern(Pattern.compile("\\$\\$\\d+"))
             .rebuildSourceFilenames(true);
-        if (aw != null) {
-            AccessWidener accessWidener = new AccessWidener();
-            aw.accept(accessWidener);
-            remapperBuilder.extraPostApplyVisitor((cls, next) -> AccessWidenerClassVisitor.createClassVisitor(Opcodes.ASM9, next, accessWidener));
-        }
         try {
             Files.deleteIfExists(outputJar);
         } catch (IOException e) {

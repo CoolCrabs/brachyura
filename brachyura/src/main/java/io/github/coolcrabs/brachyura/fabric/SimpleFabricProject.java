@@ -1,6 +1,7 @@
 package io.github.coolcrabs.brachyura.fabric;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -10,15 +11,20 @@ import java.util.stream.Collectors;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 
 import org.jetbrains.annotations.Nullable;
 
+import io.github.coolcrabs.accesswidener.AccessWidener;
+import io.github.coolcrabs.accesswidener.AccessWidenerReader;
 import io.github.coolcrabs.brachyura.decompiler.BrachyuraDecompiler;
 import io.github.coolcrabs.brachyura.decompiler.cfr.CfrDecompiler;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
+import io.github.coolcrabs.brachyura.exception.UnknownJsonException;
 import io.github.coolcrabs.brachyura.fabric.FabricContext.ModDependencyCollector;
 import io.github.coolcrabs.brachyura.ide.IdeModule;
+import io.github.coolcrabs.brachyura.mappings.Namespaces;
 import io.github.coolcrabs.brachyura.maven.MavenId;
 import io.github.coolcrabs.brachyura.minecraft.VersionMeta;
 import io.github.coolcrabs.brachyura.processing.ProcessorChain;
@@ -30,7 +36,6 @@ import io.github.coolcrabs.brachyura.project.java.SimpleJavaProject;
 import io.github.coolcrabs.brachyura.util.Lazy;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import io.github.coolcrabs.brachyura.util.Util;
-import net.fabricmc.accesswidener.AccessWidenerVisitor;
 import net.fabricmc.mappingio.tree.MappingTree;
 
 public abstract class SimpleFabricProject extends BaseJavaProject {
@@ -67,8 +72,24 @@ public abstract class SimpleFabricProject extends BaseJavaProject {
 
     protected ArrayList<JavaJarDependency> jijList = new ArrayList<>();
 
-    public @Nullable Consumer<AccessWidenerVisitor> getAw() {
-        return null;
+    public @Nullable AccessWidener createAw() {
+        String aw = fmjParseThingy.get()[2];
+        if (aw == null) return null;
+        for (Path r : getResourceDirs()) {
+            Path awp = r.resolve(aw);
+            if (Files.exists(awp)) {
+                AccessWidener result = new AccessWidener(Namespaces.NAMED);
+                try {
+                    try (BufferedReader read = Files.newBufferedReader(awp)) {
+                        new AccessWidenerReader(result).read(read);
+                    }
+                } catch (IOException e) {
+                    throw Util.sneak(e);
+                }
+                return result;
+            }
+        }
+        throw new UnknownJsonException("Unable to find aw named:" + aw);
     }
 
     public String getMavenGroup() {
@@ -111,7 +132,8 @@ public abstract class SimpleFabricProject extends BaseJavaProject {
             try (BufferedReader reader = PathUtil.newBufferedReader(fmj)) {
                 fabricModJson = gson.fromJson(reader, JsonObject.class);
             }
-            return new String[] {fabricModJson.get("id").getAsString(), fabricModJson.get("version").getAsString()};
+            JsonElement aw = fabricModJson.get("accessWidener");
+            return new String[] {fabricModJson.get("id").getAsString(), fabricModJson.get("version").getAsString(), aw == null ? null : aw.getAsString()};
         } catch (Exception e) {
             throw Util.sneak(e);
         }
@@ -139,8 +161,8 @@ public abstract class SimpleFabricProject extends BaseJavaProject {
         }
 
         @Override
-        public @Nullable Consumer<AccessWidenerVisitor> getAw() {
-            return SimpleFabricProject.this.getAw();
+        protected @Nullable AccessWidener createAw() {
+            return SimpleFabricProject.this.createAw();
         }
 
         @Override

@@ -2,26 +2,22 @@ package io.github.coolcrabs.brachyura.quilt;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.function.Consumer;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import io.github.coolcrabs.brachyura.decompiler.BrachyuraDecompiler;
 import io.github.coolcrabs.brachyura.fabric.FabricContext.ModDependencyCollector;
 import io.github.coolcrabs.brachyura.fabric.FabricLoader;
-import io.github.coolcrabs.brachyura.mappings.Namespaces;
 import io.github.coolcrabs.brachyura.minecraft.Minecraft;
 import io.github.coolcrabs.brachyura.minecraft.VersionMeta;
 import io.github.coolcrabs.brachyura.util.JvmUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
-import net.fabricmc.accesswidener.AccessWidenerReader;
-import net.fabricmc.accesswidener.AccessWidenerVisitor;
 import net.fabricmc.mappingio.tree.MappingTree;
 
+@Disabled("Quilt mappings merged jars are currently broken")
 public class QmQuiltProjectTest {
     SimpleQuiltProject proj = new SimpleQuiltProject() {
 
@@ -33,17 +29,6 @@ public class QmQuiltProjectTest {
         @Override
         public int getJavaVersion() {
             return 17;
-        };
-
-        @Override
-        public Consumer<AccessWidenerVisitor> getAw() {
-            return (v) -> {
-                try {
-                    new AccessWidenerReader(v).read(Files.newBufferedReader(getResourcesDir().resolve("testaw.accesswidener")), Namespaces.NAMED);
-                } catch (IOException e) {
-                    throw new UncheckedIOException(e);
-                }
-            };
         };
 
         @Override
