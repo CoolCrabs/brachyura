@@ -90,7 +90,7 @@ public abstract class SimpleQuiltProject extends SimpleFabricProject {
                 quiltModJson = gson.fromJson(reader, JsonObject.class);
             }
             JsonObject qloader = quiltModJson.getAsJsonObject("quilt_loader");
-            JsonElement aw = qloader.get("access_widener");
+            JsonElement aw = quiltModJson.get("access_widener");
             return new String[] {qloader.get("id").getAsString(), qloader.get("version").getAsString(), qloader.get("group").getAsString(), aw == null ? null : aw.getAsString()};
         } catch (Exception e) {
             throw Util.sneak(e);
