@@ -94,6 +94,6 @@ public class AccessWidener implements AccessWidenerVisitor {
     @Override
     public void visitMethod(String owner, String name, String descriptor, AccessType access, boolean transitive) {
         if (access == AccessType.MUTABLE) throw new IllegalArgumentException("Methods can not be mutable");
-        clsMap.computeIfAbsent(owner, k -> new ClassAwData()).fields.computeIfAbsent(new Member(name, descriptor), k -> EnumSet.noneOf(AccessType.class)).add(access);
+        clsMap.computeIfAbsent(owner, k -> new ClassAwData()).methods.computeIfAbsent(new Member(name, descriptor), k -> EnumSet.noneOf(AccessType.class)).add(access);
     }
 }

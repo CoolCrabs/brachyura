@@ -66,7 +66,7 @@ public class AccessWidenerProcessor implements HashableProcessor {
 
     @Override
     public void hash(MessageDigest md) {
-        md.update((byte) 0); // version
+        md.update((byte) 1); // version
         AccessWidenerHasher.hash(md, aw::accept);
     }
     
