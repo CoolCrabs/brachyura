@@ -33,7 +33,7 @@ public class QmQuiltProjectTest {
 
         @Override
         public MappingTree createMappings() {
-            return QuiltMappings.ofMaven(QuiltMaven.URL, QuiltMaven.quiltMappings("1.18.2+build.22")).toIntermediary(this.context.get().intermediary.get());
+            return QuiltMappings.ofMaven(QuiltMaven.URL, QuiltMaven.quiltMappings("1.18.2+build.23")).toIntermediary(this.context.get().intermediary.get());
         }
 
         @Override

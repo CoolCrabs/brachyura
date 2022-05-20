@@ -5,7 +5,7 @@
 
     <groupId>io.github.coolcrabs</groupId>
     <artifactId>brachyura</artifactId>
-    <version>0.85</version>
+    <version>0.86</version>
 
     <properties>
         <java.version>1.8</java.version>
@@ -87,6 +87,32 @@
             <artifactId>tiny-remapper</artifactId>
             <version>0.8.2</version>
         </dependency>
+        <dependency>
+            <groupId>org.ow2.asm</groupId>
+            <artifactId>asm</artifactId>
+            <version>9.3</version>
+        </dependency>
+        <dependency>
+            <groupId>org.ow2.asm</groupId>
+            <artifactId>asm-analysis</artifactId>
+            <version>9.3</version>
+        </dependency>
+        <dependency>
+            <groupId>org.ow2.asm</groupId>
+            <artifactId>asm-commons</artifactId>
+            <version>9.3</version>
+        </dependency>
+        <dependency>
+            <groupId>org.ow2.asm</groupId>
+            <artifactId>asm-tree</artifactId>
+            <version>9.3</version>
+        </dependency>
+        <dependency>
+            <groupId>org.ow2.asm</groupId>
+            <artifactId>asm-util</artifactId>
+            <version>9.3</version>
+        </dependency>
+        
 
         <!-- junit 5 -->
         <dependency>

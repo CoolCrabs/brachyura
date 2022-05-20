@@ -9,8 +9,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.security.DigestInputStream;
-import java.security.MessageDigest;
 
 import org.jetbrains.annotations.Nullable;
 import org.tinylog.Logger;
@@ -20,11 +18,9 @@ import static io.github.coolcrabs.brachyura.util.MessageDigestUtil.*;
 import io.github.coolcrabs.brachyura.dependency.Dependency;
 import io.github.coolcrabs.brachyura.dependency.FileDependency;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
-import io.github.coolcrabs.brachyura.exception.IncorrectHashException;
-import io.github.coolcrabs.brachyura.util.MessageDigestUtil;
+import io.github.coolcrabs.brachyura.util.AtomicFile;
 import io.github.coolcrabs.brachyura.util.NetUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
-import io.github.coolcrabs.brachyura.util.StreamUtil;
 import io.github.coolcrabs.brachyura.util.Util;
 
 public class Maven {
@@ -51,7 +47,9 @@ public class Maven {
             boolean local = "file".equals(mavenRepoUri.getScheme());
             String mavenRepoHash = toHexHash(messageDigest(SHA256).digest((mavenRepoUri.getHost() + mavenRepoUri.getPath()).getBytes(StandardCharsets.UTF_8)));
             Path repoPath = local ? Paths.get(mavenRepoUri) : mavenCache().resolve(mavenRepoHash);
-            String relativeDownload = "./" + dep.groupId.replace('.', '/') + "/" + dep.artifactId + "/" + dep.version + "/" + dep.artifactId + "-" + dep.version + extension;
+            String relativeRoot = "./" + dep.groupId.replace('.', '/') + "/" + dep.artifactId + "/" + dep.version + "/" + dep.artifactId + "-" + dep.version;
+            if (dep.classifier != null) relativeRoot += "-" + dep.classifier; 
+            String relativeDownload = relativeRoot + extension;
             Path downloadPath = repoPath.resolve(relativeDownload);
             if (!Files.isRegularFile(downloadPath)) {
                 if (allowDownload) {
@@ -62,12 +60,12 @@ public class Maven {
                 }
             }
             if (isJavaJar) {
-                String nosourcesRelative = "./" + dep.groupId.replace('.', '/') + "/" + dep.artifactId + "/" + dep.version + "/" + dep.artifactId + "-" + dep.version + ".nosources";
+                String nosourcesRelative = relativeRoot + ".nosources";
                 Path nosources = repoPath.resolve(nosourcesRelative);
                 boolean sources = false;
                 Path sourcesPath = null;
                 if (!Files.isRegularFile(nosources)) {
-                    String sourcesRelativeDownload = "./" + dep.groupId.replace('.', '/') + "/" + dep.artifactId + "/" + dep.version + "/" + dep.artifactId + "-" + dep.version + "-sources.jar";
+                    String sourcesRelativeDownload = relativeRoot + "-sources.jar";
                     sourcesPath = repoPath.resolve(sourcesRelativeDownload);
                     if (Files.isRegularFile(sourcesPath)) {
                         sources = true;
@@ -92,26 +90,13 @@ public class Maven {
     }
 
     private static void download(Path path, String relativeDownload, URI mavenRepoUri) throws IOException {
-        Path tempPath = PathUtil.tempFile(path);
-        try {
+        try (AtomicFile f = new AtomicFile(path)) {
             URI targetUri = mavenRepoUri.resolve(relativeDownload);
-            String targetHash;
-            try (InputStream hashStream = NetUtil.inputStream(mavenRepoUri.resolve(relativeDownload + ".sha1").toURL())) {
-                targetHash = StreamUtil.readFullyAsString(hashStream);
+            try (InputStream inputStream = NetUtil.inputStream(targetUri.toURL())) {
+                Files.copy(inputStream, f.tempPath, StandardCopyOption.REPLACE_EXISTING);
             }
-            MessageDigest messageDigest = MessageDigestUtil.messageDigest(MessageDigestUtil.SHA1);
-            try (DigestInputStream inputStream = new DigestInputStream(NetUtil.inputStream(targetUri.toURL()), messageDigest)) {
-                Files.copy(inputStream, tempPath, StandardCopyOption.REPLACE_EXISTING);
-            }
-            String hash = MessageDigestUtil.toHexHash(messageDigest.digest());
-            if (!hash.equalsIgnoreCase(targetHash)) {
-                throw new IncorrectHashException(targetHash, hash);
-            }
-        } catch (Exception e) {
-            Files.delete(tempPath);
-            throw e;
+            f.commit();
         }
-        PathUtil.moveAtoB(tempPath, path);
     }
 
     static String addTrailSlash(String string) {

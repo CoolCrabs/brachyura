@@ -49,6 +49,21 @@ class MinecraftTest {
     }
 
     @Test
+    void mcTest1_19_pre1() {
+        VersionMeta meta = Minecraft.getVersion("1.19-pre1");
+        assertNotNull(meta);
+        Path server = Minecraft.getDownload(meta, "server");
+        assertTrue(Files.isRegularFile(server));
+        for (Dependency lib : Minecraft.getDependencies(meta)) {
+            if (lib instanceof JavaJarDependency) {
+                assertNotNull(((JavaJarDependency)lib).jar);
+            } else if (lib instanceof NativesJarDependency) {
+                assertNotNull(((NativesJarDependency)lib).jar);
+            }
+        }
+    }
+
+    @Test
     void expTestOld() {
         VersionMeta meta = Minecraft.getExperimentalVersion("https://launcher.mojang.com/experiments/combat/610f5c9874ba8926d5ae1bcce647e5f0e6e7c889/1_14_combat-212796.zip");
         assertNotNull(meta);
