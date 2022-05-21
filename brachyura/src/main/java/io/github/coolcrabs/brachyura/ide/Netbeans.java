@@ -42,10 +42,12 @@ public enum Netbeans implements Ide {
     }
 
     @Override
-    public void updateProject(Path projectDir, IdeProject ideProject) {
-        Path nb = PathUtil.resolveAndCreateDir(projectDir, "netbeans");
-        PathUtil.deleteDirectoryChildren(nb);
-        new NetbeansProject(nb.resolve(ideProject.name), ideProject).write();
+    public void updateProject(Path projectRoot, IdeModule... ideModules) {
+        for (IdeModule m : ideModules) {
+            Path nb = PathUtil.resolveAndCreateDir(m.root, "netbeans");
+            PathUtil.deleteDirectoryChildren(nb);
+            new NetbeansProject(nb.resolve(m.name), m).write();
+        }
     }
 
     static class NetbeansProject {
@@ -54,9 +56,9 @@ public enum Netbeans implements Ide {
         }};
         
         final Path dir;
-        final IdeProject ideProject;
+        final IdeModule ideProject;
 
-        NetbeansProject(Path dir, IdeProject ideProject) {
+        NetbeansProject(Path dir, IdeModule ideProject) {
             if (ideProject.sourcePaths.size() != 1) throw new UnsupportedOperationException("Netbeans support for >1 source path not impl");
             projectProperties.setProperty("application.title", ideProject.name);
             projectProperties.setProperty("src.dir", ideProject.sourcePaths.iterator().next().toString());
@@ -64,6 +66,10 @@ public enum Netbeans implements Ide {
             for (JavaJarDependency j : ideProject.dependencies.get()) {
                 if (javacClasspath.length() > 0) javacClasspath.append(File.pathSeparator);
                 javacClasspath.append(createFileReference(j).getListString());
+            }
+            for (IdeModule m : ideProject.dependencyModules) {
+                if (javacClasspath.length() > 0) javacClasspath.append(File.pathSeparator);
+                javacClasspath.append(createModuleReference(m).getListString());
             }
             projectProperties.setProperty("javac.classpath", javacClasspath.toString());
             projectProperties.setProperty("javac.source", JvmUtil.javaVersionString(ideProject.javaVersion));
@@ -85,7 +91,7 @@ public enum Netbeans implements Ide {
                         projectProperties.store(o, null);
                     }
                     Path configs = PathUtil.resolveAndCreateDir(d.tempPath.resolve("nbproject"), "configs");
-                    for (IdeProject.RunConfig rc : ideProject.runConfigs) {
+                    for (IdeModule.RunConfig rc : ideProject.runConfigs) {
                         writeRunConfig(configs.resolve(rc.name.replace(' ', '_') + ".properties"), rc);
                     }
                     d.commit();
@@ -145,7 +151,7 @@ public enum Netbeans implements Ide {
             }
         }
         
-        void writeRunConfig(Path file, IdeProject.RunConfig rc) throws IOException {
+        void writeRunConfig(Path file, IdeModule.RunConfig rc) throws IOException {
             Properties config = new Properties();
             config.setProperty("$label", rc.name);
             config.setProperty("main.class", rc.mainClass);
@@ -169,6 +175,10 @@ public enum Netbeans implements Ide {
             for (Path p : cp) {
                 runCpStr.append(File.pathSeparator);
                 runCpStr.append(p.toString());
+            }
+            for (IdeModule m : ideProject.dependencyModules) {
+                runCpStr.append(File.pathSeparator);
+                runCpStr.append(createModuleReference(m).getListString());
             }
             config.setProperty("run.classpath", runCpStr.toString());
             try (OutputStream o = PathUtil.outputStream(file)) {
@@ -211,6 +221,15 @@ public enum Netbeans implements Ide {
             if (source != null) {
                 projectProperties.setProperty("source.reference." + fileName, source.toString());
             }
+            return result;
+        }
+
+        FileReference createModuleReference(IdeModule module) {
+            String project = "project." + module.name;
+            projectProperties.setProperty(project, module.root.resolve("netbeans").resolve(module.name).toString());
+            FileReference result = new FileReference();
+            result.property = "reference." + module.name + ".jar";
+            projectProperties.setProperty(result.property, "${" + project + "}/dist/" + module.name + ".jar");
             return result;
         }
 

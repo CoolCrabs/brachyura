@@ -2,8 +2,8 @@ package io.github.coolcrabs.brachyura.fabric;
 
 import org.tinylog.Logger;
 
-import net.fabricmc.accesswidener.AccessWidenerVisitor;
-import net.fabricmc.accesswidener.AccessWidenerReader.AccessType;
+import io.github.coolcrabs.accesswidener.AccessWidenerVisitor;
+import io.github.coolcrabs.accesswidener.AccessWidenerReader.AccessType;
 import net.fabricmc.mappingio.tree.MappingTree;
 import net.fabricmc.mappingio.tree.MappingTree.ClassMapping;
 import net.fabricmc.mappingio.tree.MappingTree.FieldMapping;
@@ -21,6 +21,11 @@ public class AccessWidenerNamespaceChanger implements AccessWidenerVisitor {
         this.m = mappings;
         this.t = target;
         this.whoToYellAt = whoToYellAt;
+    }
+
+    @Override
+    public void visitVersion(int version) {
+        p.visitVersion(version);
     }
 
     @Override

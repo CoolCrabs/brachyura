@@ -19,10 +19,8 @@ import org.tinylog.Logger;
 import io.github.coolcrabs.brachyura.compiler.java.JavaCompilation;
 import io.github.coolcrabs.brachyura.compiler.java.JavaCompilationResult;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
-import io.github.coolcrabs.brachyura.ide.IdeProject;
-import io.github.coolcrabs.brachyura.ide.IdeProject.IdeProjectBuilder;
-import io.github.coolcrabs.brachyura.ide.IdeProject.RunConfig;
-import io.github.coolcrabs.brachyura.ide.IdeProject.RunConfig.RunConfigBuilder;
+import io.github.coolcrabs.brachyura.ide.IdeModule;
+import io.github.coolcrabs.brachyura.ide.IdeModule.RunConfigBuilder;
 import io.github.coolcrabs.brachyura.processing.ProcessingId;
 import io.github.coolcrabs.brachyura.processing.ProcessingSink;
 import io.github.coolcrabs.brachyura.project.java.BaseJavaProject;
@@ -44,11 +42,11 @@ class BuildscriptProject extends BaseJavaProject {
     }
 
     @Override
-    public IdeProject getIdeProject() {
+    public IdeModule[] getIdeModules() {
         Tasks t = new Tasks();
         Optional<Project> o = project.get();
         if (o.isPresent()) o.get().getTasks(t);
-        ArrayList<RunConfig> runConfigs = new ArrayList<>(t.t.size());
+        ArrayList<RunConfigBuilder> runConfigs = new ArrayList<>(t.t.size());
         Path cwd = getProjectDir().resolve("run");
         PathUtil.createDirectories(cwd);
         for (Map.Entry<String, Task> e : t.t.entrySet()) {
@@ -65,15 +63,17 @@ class BuildscriptProject extends BaseJavaProject {
                             e.getKey()
                         )
                     )
-                .build()
             );
         }
-        return new IdeProjectBuilder()
-            .name("Buildscript")
-            .sourcePath(getSrcDir())
-            .dependencies(this::getIdeDependencies)
-            .runConfigs(runConfigs)
-        .build();
+        return new IdeModule[] {
+            new IdeModule.IdeModuleBuilder()
+                .name("Buildscript")
+                .root(getProjectDir())
+                .sourcePath(getSrcDir())
+                .dependencies(this::getIdeDependencies)
+                .runConfigs(runConfigs)
+            .build()
+        };
     }
 
     public final Lazy<Optional<Project>> project = new Lazy<>(this::createProject);
@@ -123,7 +123,6 @@ class BuildscriptProject extends BaseJavaProject {
         return result;
     }
 
-    @Override
     public List<Path> getCompileDependencies() {
         return EntryGlobals.buildscriptClasspath;
     }

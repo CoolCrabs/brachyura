@@ -3,9 +3,9 @@ package io.github.coolcrabs.brachyura.fabric;
 import java.security.MessageDigest;
 import java.util.function.Consumer;
 
+import io.github.coolcrabs.accesswidener.AccessWidenerVisitor;
+import io.github.coolcrabs.accesswidener.AccessWidenerReader.AccessType;
 import io.github.coolcrabs.brachyura.util.MessageDigestUtil;
-import net.fabricmc.accesswidener.AccessWidenerVisitor;
-import net.fabricmc.accesswidener.AccessWidenerReader.AccessType;
 
 public class AccessWidenerHasher implements AccessWidenerVisitor {
     private final MessageDigest md;

@@ -1,7 +1,6 @@
 package io.github.coolcrabs.brachyura.minecraft;
 
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.Reader;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -16,17 +15,13 @@ import org.jetbrains.annotations.Nullable;
 
 import io.github.coolcrabs.brachyura.util.OsUtil;
 
-import static io.github.coolcrabs.brachyura.util.NetUtil.*;
-
 public class VersionMeta {
+    public final String version;
     JsonElement json;
 
-    VersionMeta(String url) {
-        new VersionMeta(inputStream(url(url)));
-    }
-
-    VersionMeta(InputStream stream) {
-        json = JsonParser.parseReader(new InputStreamReader(stream));
+    VersionMeta(Reader reader) {
+        json = JsonParser.parseReader(reader);
+        this.version = json.getAsJsonObject().get("id").getAsString();
     }
 
     VMDownload getDownload(String download) {

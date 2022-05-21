@@ -4,31 +4,28 @@ import io.github.coolcrabs.brachyura.compiler.java.JavaCompilation;
 import io.github.coolcrabs.brachyura.compiler.java.JavaCompilationResult;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 import java.nio.file.Path;
-import java.util.Collections;
-import java.util.List;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.function.Consumer;
 
 import io.github.coolcrabs.brachyura.ide.Ide;
-import io.github.coolcrabs.brachyura.ide.IdeProject;
-import io.github.coolcrabs.brachyura.ide.Intellijank;
-import io.github.coolcrabs.brachyura.processing.ProcessorChain;
+import io.github.coolcrabs.brachyura.ide.IdeModule;
 import io.github.coolcrabs.brachyura.processing.sinks.DirectoryProcessingSink;
 import io.github.coolcrabs.brachyura.project.Project;
 import io.github.coolcrabs.brachyura.project.Task;
+import io.github.coolcrabs.brachyura.util.ArrayUtil;
 import io.github.coolcrabs.brachyura.util.JvmUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import io.github.coolcrabs.brachyura.util.Util;
 import java.io.File;
 import java.nio.file.Files;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Objects;
 
 public abstract class BaseJavaProject extends Project {
-    public abstract IdeProject getIdeProject();
-
-    public int getJavaVersion() {
-        return 8;
-    }
+    public abstract IdeModule[] getIdeModules();
 
     @Override
     public void getTasks(Consumer<Task> p) {
@@ -40,45 +37,68 @@ public abstract class BaseJavaProject extends Project {
     public void getIdeTasks(Consumer<Task> p) {
         for (Ide ide : Ide.getIdes()) {
             p.accept(Task.of(ide.ideName(), () -> {
-                if (ide instanceof Intellijank && getBuildscriptProject() != null) {
-                    ((Intellijank)ide).updateProject(getProjectDir(), getIdeProject(), getBuildscriptProject());
+                if (getBuildscriptProject() != null) {
+                    ide.updateProject(getProjectDir(), ArrayUtil.join(IdeModule.class, getIdeModules(), getBuildscriptProject().getIdeModules()));
                 } else {
-                    ide.updateProject(getProjectDir(), getIdeProject());
+                    ide.updateProject(getProjectDir(), getIdeModules());
                 }
             }));
         }
     }
     
     public void getRunConfigTasks(Consumer<Task> p) {
-        IdeProject ideProject = getIdeProject();
-        for (IdeProject.RunConfig rc : ideProject.runConfigs) {
-            p.accept(Task.of("run" + rc.name.replace(" ", ""), () -> runRunConfig(ideProject, rc)));
+        IdeModule[] ms = getIdeModules();
+        for (IdeModule m : ms) {
+            for (IdeModule.RunConfig rc : m.runConfigs) {
+                String tname = ms.length == 1 ? "run" + rc.name.replace(" ", "") : m.name.replace(" ", "") + ":run" + rc.name.replace(" ", "");
+                p.accept(Task.of(tname, () -> runRunConfig(m, rc)));
+            }
         }
     }
     
-    public void runRunConfig(IdeProject ideProject, IdeProject.RunConfig rc) {
+    public void runRunConfig(IdeModule ideProject, IdeModule.RunConfig rc) {
         try {
-            JavaCompilation compilation = new JavaCompilation();
-            compilation.addOption(rc.args.get().toArray(new String[0]));
-            compilation.addOption(JvmUtil.compileArgs(JvmUtil.CURRENT_JAVA_VERSION, getJavaVersion()));
-            compilation.addOption("-proc:none");
-            for (JavaJarDependency dep : ideProject.dependencies.get()) {
-                compilation.addClasspath(dep.jar);
+            LinkedHashSet<IdeModule> toCompile = new LinkedHashSet<>();
+            Deque<IdeModule> a = new ArrayDeque<>();
+            a.add(ideProject);
+            a.addAll(rc.additionalModulesClasspath);
+            while (!a.isEmpty()) {
+                IdeModule m = a.pop();
+                if (!toCompile.contains(m)) {
+                    a.addAll(m.dependencyModules);
+                    toCompile.add(m);
+                }
             }
-            for (Path srcDir : ideProject.sourcePaths) {
-                compilation.addSourceDir(srcDir);
+            HashMap<IdeModule, Path> mmap = new HashMap<>();
+            for (IdeModule m : toCompile) {
+                JavaCompilation compilation = new JavaCompilation();
+                compilation.addOption(JvmUtil.compileArgs(JvmUtil.CURRENT_JAVA_VERSION, m.javaVersion));
+                compilation.addOption("-proc:none");
+                for (JavaJarDependency dep : m.dependencies.get()) {
+                    compilation.addClasspath(dep.jar);
+                }
+                for (IdeModule m0 : m.dependencyModules) {
+                    compilation.addClasspath(Objects.requireNonNull(mmap.get(m0), "Bad module dep " + m0.name));
+                }
+                for (Path srcDir : m.sourcePaths) {
+                    compilation.addSourceDir(srcDir);
+                }
+                Path outDir = Files.createTempDirectory("brachyurarun");
+                JavaCompilationResult result = compilation.compile();
+                Objects.requireNonNull(result);
+                result.getInputs(new DirectoryProcessingSink(outDir));
+                mmap.put(m, outDir);
             }
-            Path outDir = Files.createTempDirectory("brachyurarun");
-            JavaCompilationResult result = compilation.compile();
-            Objects.requireNonNull(result);
-            result.getInputs(new DirectoryProcessingSink(outDir));
             ArrayList<String> command = new ArrayList<>();
             command.add(JvmUtil.CURRENT_JAVA_EXECUTABLE);
             command.addAll(rc.vmArgs.get());
             command.add("-cp");
             ArrayList<Path> cp = new ArrayList<>(rc.classpath.get());
             cp.addAll(ideProject.resourcePaths);
-            cp.add(outDir);
+            cp.add(mmap.get(ideProject));
+            for (IdeModule m : rc.additionalModulesClasspath) {
+                cp.add(mmap.get(m));
+            }
             StringBuilder cpStr = new StringBuilder();
             for (Path p : cp) {
                 cpStr.append(p.toString());
@@ -96,14 +116,6 @@ public abstract class BaseJavaProject extends Project {
         } catch (Exception e) {
             throw Util.sneak(e);
         }
-    }
-    
-    public List<Path> getCompileDependencies() {
-        return Collections.emptyList();
-    }
-
-    public ProcessorChain resourcesProcessingChain() {
-        return new ProcessorChain();
     }
 
     public Path getBuildLibsDir() {

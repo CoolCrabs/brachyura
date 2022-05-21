@@ -26,7 +26,9 @@ class TinyTinyMappingsReader {
             while (line.charAt(indent) == '\t') {
                 indent++;
             }
-            String[] parts = line.substring(indent).split("\t");
+            // Important: Keep trailing empty strings
+            // See: https://stackoverflow.com/a/14602089
+            String[] parts = line.substring(indent).split("\t", -1);
             if (indent == 0 && parts[0].equals("c")) {
                 currentClass = new TinyClass();
                 currentClass.names = new String[r.namespaces.length];

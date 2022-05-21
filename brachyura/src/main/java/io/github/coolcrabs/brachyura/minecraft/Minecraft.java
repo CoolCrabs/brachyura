@@ -6,14 +6,17 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.net.URL;
+import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import com.google.gson.Gson;
 
@@ -32,6 +35,7 @@ import io.github.coolcrabs.brachyura.minecraft.VersionMeta.VMAssets;
 import io.github.coolcrabs.brachyura.minecraft.VersionMeta.VMDependency;
 import io.github.coolcrabs.brachyura.minecraft.VersionMeta.VMDownload;
 import io.github.coolcrabs.brachyura.util.AtomicFile;
+import io.github.coolcrabs.brachyura.util.FileSystemUtil;
 import io.github.coolcrabs.brachyura.util.MessageDigestUtil;
 import io.github.coolcrabs.brachyura.util.NetUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
@@ -66,15 +70,56 @@ public class Minecraft {
                     }
                 }
             }
-            return new VersionMeta(PathUtil.inputStream(versionJsonPath));
+            try (BufferedReader reader = Files.newBufferedReader(versionJsonPath)) {
+                return new VersionMeta(reader);
+            }
         } catch (Exception e) {
             throw Util.sneak(e);
         }
     }
 
-    public static Path getDownload(String version, VersionMeta meta, String download) {
+    /**
+     * Used for getting an experimental snapshot
+     * @param zipUrl eg: https://launcher.mojang.com/experiments/combat/52263d42a626b40c947e523128f7a195ec5af76a/1_15_combat-6.zip or
+     * https://launcher.mojang.com/v1/objects/b1e589c1d6ed73519797214bc796e53f5429ac46/1_19_deep_dark_experimental_snapshot-1.zip
+     */
+    public static VersionMeta getExperimentalVersion(String zipUrl) {
         try {
-            Path downloadPath = mcVersions().resolve(version).resolve(download);
+            MessageDigest md = MessageDigestUtil.messageDigest(MessageDigestUtil.SHA256);
+            MessageDigestUtil.update(md, zipUrl);
+            String urlHash = MessageDigestUtil.toHexHash(md.digest());
+            Path zip = PathUtil.resolveAndCreateDir(mcExp(), urlHash).resolve(zipUrl.substring(zipUrl.lastIndexOf('/') + 1));
+            if (!Files.isRegularFile(zip)) {
+                try (
+                    AtomicFile a = new AtomicFile(zip);
+                    InputStream is = NetUtil.inputStream(new URL(zipUrl))
+                ) {
+                    Files.copy(is, a.tempPath, StandardCopyOption.REPLACE_EXISTING);
+                    a.commit();
+                }
+            }
+            try (
+                FileSystem fs = FileSystemUtil.newJarFileSystem(zip);
+                Stream<Path> s = Files.walk(fs.getPath("/"));
+            ) {
+                for (Iterator<Path> it = s.iterator(); it.hasNext();) {
+                    Path p = it.next();
+                    if (p.toString().endsWith(".json")) {
+                        try (BufferedReader reader = Files.newBufferedReader(p)) {
+                            return new VersionMeta(reader);
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            throw Util.sneak(e);
+        }
+        throw new IllegalArgumentException("Unable to find experimental version json in requested url");
+    }
+
+    public static Path getDownload(VersionMeta meta, String download) {
+        try {
+            Path downloadPath = mcVersions().resolve(meta.version).resolve(download);
             if (!Files.isRegularFile(downloadPath)) {
                 VMDownload downloadDownload = meta.getDownload(download);
                 Path tempPath = PathUtil.tempFile(downloadPath);
@@ -106,12 +151,12 @@ public class Minecraft {
      * 
      * From obf to named. You likely want to merge this with intermediary
      */
-    public static MappingTree getMojmap(String version, VersionMeta meta) {
+    public static MappingTree getMojmap(VersionMeta meta) {
         try {
             MemoryMappingTree r = new MemoryMappingTree(true);
             try (
-                Reader a = Files.newBufferedReader(getDownload(version, meta, "client_mappings"));
-                Reader b = Files.newBufferedReader(getDownload(version, meta, "server_mappings"));
+                Reader a = Files.newBufferedReader(getDownload(meta, "client_mappings"));
+                Reader b = Files.newBufferedReader(getDownload(meta, "server_mappings"));
             ) {
                 MappingVisitor v = new MappingSourceNsSwitch(r, Namespaces.OBF);
                 ProGuardReader.read(a, Namespaces.NAMED, Namespaces.OBF, v);
@@ -278,6 +323,10 @@ public class Minecraft {
 
     public static Path assets() {
         return PathUtil.resolveAndCreateDir(mcCache(), "assets");
+    }
+
+    public static Path mcExp() {
+        return PathUtil.resolveAndCreateDir(mcCache(), "experimental");
     }
 
     public static Path mcCache() {

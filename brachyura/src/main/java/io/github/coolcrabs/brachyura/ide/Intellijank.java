@@ -14,11 +14,8 @@ import java.util.List;
 
 import javax.xml.stream.XMLStreamException;
 
-import org.jetbrains.annotations.Nullable;
-
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
-import io.github.coolcrabs.brachyura.ide.IdeProject.RunConfig;
-import io.github.coolcrabs.brachyura.project.java.BaseJavaProject;
+import io.github.coolcrabs.brachyura.ide.IdeModule.RunConfig;
 import io.github.coolcrabs.brachyura.util.JvmUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import io.github.coolcrabs.brachyura.util.Util;
@@ -49,13 +46,10 @@ public enum Intellijank implements Ide {
     }
 
     @Override
-    public void updateProject(Path projectDir, IdeProject ideProject) {
-        updateProject(projectDir, ideProject, null);
-    }
-
-    public void updateProject(Path projectDir, IdeProject ideProject, @Nullable BaseJavaProject buildscript) {
+    public void updateProject(Path projectRoot, IdeModule... ideModules) {
+        Ide.validate(ideModules);
         try {
-            Path ideaPath = projectDir.resolve(".idea");
+            Path ideaPath = projectRoot.resolve(".idea");
 
             if (Files.exists(ideaPath)) {
                 // Delete everything in .idea except for vcs.xml
@@ -72,7 +66,7 @@ public enum Intellijank implements Ide {
                 }
             }
 
-            Files.walkFileTree(projectDir, Collections.emptySet(), 1, new SimpleFileVisitor<Path>() {
+            Files.walkFileTree(projectRoot, Collections.emptySet(), 1, new SimpleFileVisitor<Path>() {
                 @Override
                 public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                     if (file.toString().endsWith(".iml")) {
@@ -81,29 +75,24 @@ public enum Intellijank implements Ide {
                     return FileVisitResult.CONTINUE;
                 }
             });
-            Path buildscriptDir = null;
-            String buildscriptName = null;
-            int maxJava = ideProject.javaVersion;
-            if (buildscript != null) {
-                IdeProject buildProject = buildscript.getIdeProject();
-                updateProject(buildscript.getProjectDir(), buildProject);
-                writeLibs(projectDir, buildProject.dependencies.get());
-                buildscriptDir = buildscript.getProjectDir();
-                buildscriptName = buildProject.name;
-                maxJava = Math.max(maxJava, buildProject.javaVersion);
+            int maxJava = 0;
+            for (IdeModule m : ideModules) {
+                maxJava = Math.max(maxJava, m.javaVersion);
             }
-            writeModules(projectDir, ideProject, buildscriptDir, buildscriptName);
+            writeModules(projectRoot, ideModules);
             writeMisc(ideaPath.resolve("misc.xml"), maxJava);
-            writeModule(projectDir, ideProject);
-            writeRunConfigurations(projectDir, ideProject);
-            writeLibs(projectDir, ideProject.dependencies.get());
+            for (IdeModule m : ideModules) {
+                writeModule(m);
+                writeRunConfigurations(projectRoot, m);
+                writeLibs(projectRoot, m.dependencies.get());
+            }
         } catch (Exception e) {
             throw Util.sneak(e);
         }
     }
 
-    void writeModules(Path projectDir, IdeProject ideProject, @Nullable Path buildscriptDir, @Nullable String buildscriptName) throws IOException, XMLStreamException {
-        try (FormattedXMLStreamWriter w = XmlUtil.newStreamWriter(Files.newBufferedWriter(PathUtil.resolveAndCreateDir(projectDir, ".idea").resolve("modules.xml")))) {
+    void writeModules(Path rootDir, IdeModule[] ideModules) throws IOException, XMLStreamException {
+        try (FormattedXMLStreamWriter w = XmlUtil.newStreamWriter(Files.newBufferedWriter(PathUtil.resolveAndCreateDir(rootDir, ".idea").resolve("modules.xml")))) {
             w.writeStartDocument("UTF-8", "1.0");
             w.newline();
             w.writeStartElement("project");
@@ -116,16 +105,17 @@ public enum Intellijank implements Ide {
                 w.newline();
                     w.writeStartElement("modules");
                     w.indent();
-                    w.newline();
-                        w.writeEmptyElement("module");
-                        w.writeAttribute("filueurl", "file://$PROJECT_DIR$/" + ideProject.name + ".iml");
-                        w.writeAttribute("filepath", "$PROJECT_DIR$/" + ideProject.name + ".iml");
-                        if (buildscriptDir != null && buildscriptName != null) {
+                        for (IdeModule m : ideModules) {
                             w.newline();
                             w.writeEmptyElement("module");
-                            String relIml = projectDir.relativize(buildscriptDir).resolve(buildscriptName + ".iml").toString();
-                            w.writeAttribute("filueurl", "file://$PROJECT_DIR$/" + relIml);
-                            w.writeAttribute("filepath", "$PROJECT_DIR$/" + relIml);
+                            String path;
+                            if (rootDir.equals(m.root)) {
+                                path = "$PROJECT_DIR$/" + m.name + ".iml";
+                            } else {
+                                path = "$PROJECT_DIR$/" + rootDir.relativize(m.root).resolve(m.name + ".iml");
+                            }
+                            w.writeAttribute("filueurl", "file://" + path);
+                            w.writeAttribute("filepath", path);
                         }
                         w.unindent();
                         w.newline();
@@ -141,8 +131,8 @@ public enum Intellijank implements Ide {
         }
     }
 
-    void writeModule(Path projectDir, IdeProject ideProject) throws IOException, XMLStreamException {
-        try (FormattedXMLStreamWriter w = XmlUtil.newStreamWriter(Files.newBufferedWriter(projectDir.resolve(ideProject.name + ".iml")))) {
+    void writeModule(IdeModule ideProject) throws IOException, XMLStreamException {
+        try (FormattedXMLStreamWriter w = XmlUtil.newStreamWriter(Files.newBufferedWriter(ideProject.root.resolve(ideProject.name + ".iml")))) {
             w.writeStartDocument("UTF-8", "1.0");
             w.newline();
             w.writeStartElement("module");
@@ -200,11 +190,12 @@ public enum Intellijank implements Ide {
         }
     }
 
-    void writeRunConfigurations(Path projectDir, IdeProject ideProject) throws IOException, XMLStreamException {
+    void writeRunConfigurations(Path projectDir, IdeModule ideProject) throws IOException, XMLStreamException {
         Path ideaPath = projectDir.resolve(".idea");
         Path runConfigPath = PathUtil.resolveAndCreateDir(ideaPath, "runConfigurations");
         for (RunConfig run : ideProject.runConfigs) {
-            try (FormattedXMLStreamWriter w = XmlUtil.newStreamWriter(Files.newBufferedWriter(runConfigPath.resolve(run.name + ".xml")))) {
+            String rcname = ideProject.name + " - " + run.name;
+            try (FormattedXMLStreamWriter w = XmlUtil.newStreamWriter(Files.newBufferedWriter(runConfigPath.resolve(rcname + ".xml")))) {
                 w.writeStartDocument("UTF-8", "1.0");
                 w.newline();
                 w.writeStartElement("component");
@@ -213,7 +204,7 @@ public enum Intellijank implements Ide {
                 w.newline();
                     w.writeStartElement("configuration");
                     w.writeAttribute("default", "false");
-                    w.writeAttribute("name", run.name);
+                    w.writeAttribute("name", rcname);
                     w.writeAttribute("type", "Application");
                     w.writeAttribute("nameIsGenerated", "false"); // Yeet
                     w.indent();
@@ -231,7 +222,12 @@ public enum Intellijank implements Ide {
                     vmParam.append(" -cp ");
                     ArrayList<Path> cp = new ArrayList<>(run.classpath.get());
                     cp.addAll(run.resourcePaths);
-                    cp.add(projectDir.resolve(".brachyura").resolve("ideaout").resolve("production").resolve(ideProject.name)); // ???
+                    ArrayList<IdeModule> modules = new ArrayList<>();
+                    modules.add(ideProject);
+                    modules.addAll(run.additionalModulesClasspath);
+                    for (IdeModule m : modules) {
+                        cp.add(projectDir.resolve(".brachyura").resolve("ideaout").resolve("production").resolve(m.name)); // ???
+                    }
                     StringBuilder cpbuilder = new StringBuilder();
                     for (Path cp0 : cp) {
                         cpbuilder.append(cp0.toString());

@@ -5,7 +5,7 @@ import javax.tools.DiagnosticListener;
 
 import org.tinylog.Logger;
 
-public enum BrachyuraDiagnosticListener implements DiagnosticListener {
+enum BrachyuraDiagnosticListener implements DiagnosticListener {
     INSTANCE;
 
     @Override

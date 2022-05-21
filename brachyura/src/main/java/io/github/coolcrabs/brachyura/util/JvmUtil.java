@@ -14,7 +14,10 @@ public class JvmUtil {
 
     static {
         // https://stackoverflow.com/a/2591122
-        String version = System.getProperty("java.version");
+        // Changed to java.specification.version to avoid -ea and other various odditites
+        // See https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/lang/System.html#getProperties()
+        // and https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/lang/Runtime.Version.html
+        String version = System.getProperty("java.specification.version");
         if (version.startsWith("1.")) {
             version = version.substring(2, 3);
         } else {
