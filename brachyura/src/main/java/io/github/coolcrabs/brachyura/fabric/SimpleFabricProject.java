@@ -211,6 +211,7 @@ public abstract class SimpleFabricProject extends BaseJavaProject {
     public void getTasks(Consumer<Task> p) {
         super.getTasks(p);
         p.accept(Task.of("build", this::build));
+        getPublishTasks(p);
     }
     
     public void getPublishTasks(Consumer<Task> p) {
