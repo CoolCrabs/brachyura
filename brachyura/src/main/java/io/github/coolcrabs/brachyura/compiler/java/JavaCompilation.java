@@ -119,7 +119,7 @@ public class JavaCompilation {
         return r;
     }
 
-    public @Nullable JavaCompilationResult compile() {
+    public JavaCompilationResult compile() throws CompilationFailedException {
         try {
             try (BrachyuraJavaFileManager fileManager = new BrachyuraJavaFileManager()) {
                 boolean success;
@@ -135,7 +135,7 @@ public class JavaCompilation {
                 if (success) {
                     return new JavaCompilationResult(fileManager);
                 }
-                return null;
+                throw new CompilationFailedException();
             }
         } catch (IOException e) {
             throw Util.sneak(e);

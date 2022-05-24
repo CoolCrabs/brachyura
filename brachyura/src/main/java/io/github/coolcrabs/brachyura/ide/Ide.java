@@ -28,6 +28,13 @@ public interface Ide {
                     if (!modules.contains(m1)) throw new IllegalArgumentException("Module " + m0.name + " references module " + m1.name + " not in ide project in a run config");
                 }
             }
+            // Fail early for lazies
+            m0.dependencies.get();
+            for (RunConfig rc : m0.runConfigs) {
+                rc.vmArgs.get();
+                rc.args.get();
+                rc.classpath.get();
+            }
         }
     } 
 

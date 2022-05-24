@@ -43,6 +43,7 @@ public enum Netbeans implements Ide {
 
     @Override
     public void updateProject(Path projectRoot, IdeModule... ideModules) {
+        Ide.validate(ideModules);
         for (IdeModule m : ideModules) {
             Path nb = PathUtil.resolveAndCreateDir(m.root, "netbeans");
             PathUtil.deleteDirectoryChildren(nb);

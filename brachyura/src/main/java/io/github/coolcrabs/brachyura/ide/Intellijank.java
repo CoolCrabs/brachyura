@@ -114,7 +114,7 @@ public enum Intellijank implements Ide {
                             } else {
                                 path = "$PROJECT_DIR$/" + rootDir.relativize(m.root).resolve(m.name + ".iml");
                             }
-                            w.writeAttribute("filueurl", "file://" + path);
+                            w.writeAttribute("fileurl", "file://" + path);
                             w.writeAttribute("filepath", path);
                         }
                         w.unindent();

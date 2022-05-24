@@ -4,8 +4,6 @@ import java.nio.file.FileSystem;
 import java.nio.file.Path;
 import java.util.Collections;
 
-import io.github.coolcrabs.brachyura.fabric.Intermediary;
-import io.github.coolcrabs.brachyura.mappings.MappingHelper;
 import io.github.coolcrabs.brachyura.mappings.Namespaces;
 import io.github.coolcrabs.brachyura.maven.Maven;
 import io.github.coolcrabs.brachyura.maven.MavenId;
@@ -47,21 +45,21 @@ public class QuiltMappings {
             intermediary.accept(new MappingNsRenamer(r, Collections.singletonMap(Namespaces.OBF, "official")));
             mappings.accept(r);
             int o = r.getNamespaceId("official");
-            int h = r.getNamespaceId("hashed");
-            int i = r.getNamespaceId(Namespaces.INTERMEDIARY);
-            // Fix noop mappings caused by adding jd to things
+            int n = r.getNamespaceId(Namespaces.NAMED);
+            // Intermediary maps some stuff hashed doesn't
+            // Merged qm doesn't have "holes"
             for (MappingTree.ClassMapping cls : r.getClasses()) {
-                if (cls.getName(o).equals(cls.getName(h))) {
-                    cls.setDstName(cls.getName(o), i);
+                if (cls.getName(n) == null) {
+                    cls.setDstName(cls.getName(o), n);
                 }
                 for (MappingTree.MethodMapping m : cls.getMethods()) {
-                    if (m.getName(o).equals(m.getName(h))) {
-                        m.setDstName(m.getName(o), i);
+                    if (m.getName(n) == null) {
+                        m.setDstName(m.getName(o), n);
                     }
                 }
                 for (MappingTree.FieldMapping m : cls.getFields()) {
-                    if (m.getName(o).equals(m.getName(h))) {
-                        m.setDstName(m.getName(o), i);
+                    if (m.getName(n) == null) {
+                        m.setDstName(m.getName(o), n);
                     }
                 }
             }

@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import io.github.coolcrabs.brachyura.decompiler.BrachyuraDecompiler;
@@ -17,7 +16,6 @@ import io.github.coolcrabs.brachyura.util.JvmUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import net.fabricmc.mappingio.tree.MappingTree;
 
-@Disabled("Quilt mappings merged jars are currently broken")
 public class QmQuiltProjectTest {
     SimpleQuiltProject proj = new SimpleQuiltProject() {
 
@@ -33,7 +31,7 @@ public class QmQuiltProjectTest {
 
         @Override
         public MappingTree createMappings() {
-            return QuiltMappings.ofMaven(QuiltMaven.URL, QuiltMaven.quiltMappings("1.18.2+build.23")).toIntermediary(this.context.get().intermediary.get());
+            return QuiltMappings.ofMaven(QuiltMaven.URL, QuiltMaven.quiltMappings("1.18.2+build.24")).toIntermediary(this.context.get().intermediary.get());
         }
 
         @Override
