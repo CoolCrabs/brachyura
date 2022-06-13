@@ -3,3 +3,9 @@ build
 .brachyura
 run
 netbeans
+*.iml
+.idea
+*.launch
+.project
+.classpath
+.settings

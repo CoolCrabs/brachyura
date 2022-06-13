@@ -162,6 +162,18 @@ public enum Intellijank implements Ide {
                             w.writeAttribute("url", jankFilePath(resourceDir));
                             w.writeAttribute("type", "java-resource");
                         }
+                        for (Path sourceDir : ideProject.testSourcePaths) {
+                            w.newline();
+                            w.writeEmptyElement("sourceFolder");
+                            w.writeAttribute("url", jankFilePath(sourceDir));
+                            w.writeAttribute("isTestSource", "true");
+                        }
+                        for (Path resourceDir : ideProject.testResourcePaths) {
+                            w.newline();
+                            w.writeEmptyElement("sourceFolder");
+                            w.writeAttribute("url", jankFilePath(resourceDir));
+                            w.writeAttribute("type", "java-test-resource");
+                        }
                     w.unindent();
                     w.newline();
                     w.writeEndElement();

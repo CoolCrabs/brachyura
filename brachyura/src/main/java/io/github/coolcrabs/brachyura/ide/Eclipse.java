@@ -1,5 +1,6 @@
 package io.github.coolcrabs.brachyura.ide;
 
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.file.FileVisitResult;
@@ -47,6 +48,7 @@ public enum Eclipse implements Ide {
             });
             for (IdeModule module : ideModules) {
                 if (Files.exists(module.root.resolve(".brachyura").resolve("eclipseout"))) PathUtil.deleteDirectoryChildren(module.root.resolve(".brachyura").resolve("eclipseout"));
+                if (Files.exists(module.root.resolve(".brachyura").resolve("eclipsetestout"))) PathUtil.deleteDirectoryChildren(module.root.resolve(".brachyura").resolve("eclipsetestout"));
                 writeModule(module);
                 writeClasspath(module);
                 writeLaunchConfigs(projectRoot, module);
@@ -108,6 +110,13 @@ public enum Eclipse implements Ide {
             w.newline();
             w.writeEndDocument();
         }
+        try (BufferedWriter prefs = Files.newBufferedWriter(PathUtil.resolveAndCreateDir(module.root, ".settings").resolve("org.eclipse.jdt.core.prefs"))) {
+            prefs.write("eclipse.preferences.version=1\n");
+            String j = JvmUtil.javaVersionString(module.javaVersion);
+            prefs.write("org.eclipse.jdt.core.compiler.codegen.targetPlatform="); prefs.write(j); prefs.write('\n');
+            prefs.write("org.eclipse.jdt.core.compiler.compliance="); prefs.write(j); prefs.write('\n');
+            prefs.write("org.eclipse.jdt.core.compiler.source="); prefs.write(j); prefs.write('\n');
+        }
     }
 
     void writeClasspath(IdeModule project) throws IOException, XMLStreamException {
@@ -121,8 +130,10 @@ public enum Eclipse implements Ide {
                 w.writeEmptyElement("classpathentry");
                 w.writeAttribute("kind", "con");
                 w.writeAttribute("path", "org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-" + JvmUtil.javaVersionString(project.javaVersion));
-                sourceClasspathEntryAttributes(w, project.root, project.sourcePaths);
-                sourceClasspathEntryAttributes(w, project.root, project.resourcePaths);
+                sourceClasspathEntryAttributes(w, project.root, project.sourcePaths, false);
+                sourceClasspathEntryAttributes(w, project.root, project.resourcePaths, false);
+                sourceClasspathEntryAttributes(w, project.root, project.testSourcePaths, true);
+                sourceClasspathEntryAttributes(w, project.root, project.testResourcePaths, true);
                 moduleDepClasspathEntries(w, project);
                 for (JavaJarDependency dep : project.dependencies.get()) {
                     w.newline();
@@ -280,12 +291,33 @@ public enum Eclipse implements Ide {
         w.writeAttribute("value", value);
     }
     
-    void sourceClasspathEntryAttributes(FormattedXMLStreamWriter w, Path projectDir, List<Path> paths) throws XMLStreamException {
+    void sourceClasspathEntryAttributes(FormattedXMLStreamWriter w, Path projectDir, List<Path> paths, boolean isTest) throws XMLStreamException {
         for (Path src : paths) {
             w.newline();
-            w.writeEmptyElement("classpathentry");
+            if (isTest) {
+                w.writeStartElement("classpathentry");
+            } else {
+                w.writeEmptyElement("classpathentry");
+            }
             w.writeAttribute("kind", "src");
             w.writeAttribute("path", projectDir.relativize(src).toString());
+            if (isTest) {
+                w.writeAttribute("output", ".brachyura/eclipsetestout");
+                w.indent();
+                w.newline();
+                w.writeStartElement("attributes");
+                w.indent();
+                w.newline();
+                w.writeEmptyElement("attribute");
+                w.writeAttribute("name", "test");
+                w.writeAttribute("value", "true");
+                w.unindent();
+                w.newline();
+                w.writeEndElement();
+                w.unindent();
+                w.newline();
+                w.writeEndElement();
+            }
         }
     }
 

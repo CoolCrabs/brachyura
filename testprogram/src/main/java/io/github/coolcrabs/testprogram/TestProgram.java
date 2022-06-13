@@ -1,4 +1,4 @@
-package io.github.coolcrabs.testprogram; 
+package io.github.coolcrabs.testprogram;
 
 public class TestProgram {
     public static void main(String[] args) {

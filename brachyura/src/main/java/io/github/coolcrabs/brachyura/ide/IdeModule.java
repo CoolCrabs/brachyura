@@ -19,9 +19,11 @@ public class IdeModule {
     public final List<RunConfig> runConfigs;
     public final List<Path> sourcePaths;
     public final List<Path> resourcePaths;
+    public final List<Path> testSourcePaths;
+    public final List<Path> testResourcePaths;
     public final int javaVersion;
 
-    IdeModule(String name, Path root, Supplier<List<JavaJarDependency>> dependencies, List<IdeModule> dependencyModules, List<RunConfigBuilder> runConfigs, List<Path> sourcePaths, List<Path> resourcePaths, int javaVersion) {
+    IdeModule(String name, Path root, Supplier<List<JavaJarDependency>> dependencies, List<IdeModule> dependencyModules, List<RunConfigBuilder> runConfigs, List<Path> sourcePaths, List<Path> resourcePaths, List<Path> testSourcePaths, List<Path> testResourcePaths, int javaVersion) {
         this.name = name;
         this.root = root;
         this.dependencies = new Lazy<>(dependencies);
@@ -32,6 +34,8 @@ public class IdeModule {
         }
         this.sourcePaths = sourcePaths;
         this.resourcePaths = resourcePaths;
+        this.testSourcePaths = testSourcePaths;
+        this.testResourcePaths = testResourcePaths;
         this.javaVersion = javaVersion;
     }
 
@@ -43,6 +47,8 @@ public class IdeModule {
         private List<RunConfigBuilder> runConfigs = Collections.emptyList();
         private List<Path> sourcePaths = Collections.emptyList();
         private List<Path> resourcePaths = Collections.emptyList();
+        private List<Path> testSourcePaths = Collections.emptyList();
+        private List<Path> testResourcePaths = Collections.emptyList();
         private int javaVersion = 8;
         
         public IdeModuleBuilder name(String name) {
@@ -115,6 +121,33 @@ public class IdeModule {
             this.resourcePaths = Arrays.asList(resourcePaths);
             return this;
         }
+
+        public IdeModuleBuilder testSourcePaths(Path... testSourcePaths) {
+            this.testSourcePaths = Arrays.asList(testSourcePaths);
+            return this; 
+        }
+
+        public IdeModuleBuilder testSourcePath(Path testSourcePath) {
+            this.testSourcePaths = new ArrayList<>();
+            testSourcePaths.add(testSourcePath);
+            return this;
+        }
+
+        public IdeModuleBuilder testResourcePaths(List<Path> testResourcePaths) {
+            this.testResourcePaths = testResourcePaths;
+            return this;
+        }
+
+        public IdeModuleBuilder testResourcePaths(Path... testResourcePaths) {
+            this.testResourcePaths = Arrays.asList(testResourcePaths);
+            return this;
+        }
+
+        public IdeModuleBuilder testResourcePath(Path testResourcePath) {
+            this.testResourcePaths = new ArrayList<>();
+            testResourcePaths.add(testResourcePath);
+            return this;
+        }
         
         public IdeModuleBuilder javaVersion(int javaVersion) {
             this.javaVersion = javaVersion;
@@ -124,7 +157,7 @@ public class IdeModule {
         public IdeModule build() {
             Objects.requireNonNull(name, "IdeModule missing name");
             Objects.requireNonNull(root, "IdeModule missing root");
-            return new IdeModule(name, root, dependencies, dependencyModules, runConfigs, sourcePaths, resourcePaths, javaVersion);
+            return new IdeModule(name, root, dependencies, dependencyModules, runConfigs, sourcePaths, resourcePaths, testSourcePaths, testResourcePaths, javaVersion);
         }
     }
 

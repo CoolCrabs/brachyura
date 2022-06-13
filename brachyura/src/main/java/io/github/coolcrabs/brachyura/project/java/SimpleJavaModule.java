@@ -29,7 +29,7 @@ public abstract class SimpleJavaModule extends BuildModule {
         List<JavaJarDependency> deps = dependencies.get();
         ArrayList<Path> result = new ArrayList<>(deps.size());
         for (int i = 0; i < deps.size(); i++) {
-            result.set(i, deps.get(i).jar);
+            result.add(deps.get(i).jar);
         }
         return result;
     }
