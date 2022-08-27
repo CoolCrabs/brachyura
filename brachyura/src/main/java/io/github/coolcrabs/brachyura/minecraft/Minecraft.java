@@ -34,13 +34,17 @@ import io.github.coolcrabs.brachyura.minecraft.Minecraft.AssetsIndex.SizeHash;
 import io.github.coolcrabs.brachyura.minecraft.VersionMeta.VMAssets;
 import io.github.coolcrabs.brachyura.minecraft.VersionMeta.VMDependency;
 import io.github.coolcrabs.brachyura.minecraft.VersionMeta.VMDownload;
+import io.github.coolcrabs.brachyura.util.ArchUtil;
 import io.github.coolcrabs.brachyura.util.AtomicFile;
 import io.github.coolcrabs.brachyura.util.FileSystemUtil;
 import io.github.coolcrabs.brachyura.util.MessageDigestUtil;
 import io.github.coolcrabs.brachyura.util.NetUtil;
+import io.github.coolcrabs.brachyura.util.OsUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import io.github.coolcrabs.brachyura.util.StreamUtil;
 import io.github.coolcrabs.brachyura.util.Util;
+import io.github.coolcrabs.brachyura.util.ArchUtil.Arch;
+import io.github.coolcrabs.brachyura.util.OsUtil.Os;
 import net.fabricmc.mappingio.MappingVisitor;
 import net.fabricmc.mappingio.adapter.MappingSourceNsSwitch;
 import net.fabricmc.mappingio.format.ProGuardReader;
@@ -173,6 +177,12 @@ public class Minecraft {
             List<VMDependency> dependencyDownloads = meta.getDependencies();
             ArrayList<Dependency> result = new ArrayList<>();
             for (VMDependency dependency : dependencyDownloads) {
+                MavenId mavenId = new MavenId(dependency.name);
+                // Work around for strange issue with Windows AMD drivers
+                // Not sure what is going on there
+                if (ArchUtil.ARCH == Arch.X86_64 && OsUtil.OS == Os.WINDOWS && "natives-windows-x86".equals(mavenId.classifier)) {
+                    continue;
+                }
                 Path artifactPath = null;
                 Path nativesPath = null;
                 Path sourcesPath = null;
@@ -222,7 +232,7 @@ public class Minecraft {
                     }
                 }
                 if (artifactPath != null) {
-                    result.add(new JavaJarDependency(artifactPath, sourcesPath, new MavenId(dependency.name)));
+                    result.add(new JavaJarDependency(artifactPath, sourcesPath, mavenId));
                 }
                 if (nativesPath != null) {
                     result.add(new NativesJarDependency(nativesPath));
