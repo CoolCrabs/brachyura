@@ -1,7 +1,11 @@
 package io.github.coolcrabs.brachyura.project;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -10,6 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -42,6 +47,36 @@ class BuildscriptProject extends BaseJavaProject {
         //noop
     }
 
+    public final Lazy<Properties> properties = new Lazy<>(this::createProperties);
+
+    Properties createProperties() {
+        try {
+            Path file = getProjectDir().resolve("buildscript.properties");
+            Properties properties0 = new Properties();
+            if (Files.exists(file)) {
+                try (BufferedReader r = Files.newBufferedReader(file)) {
+                    properties0.load(r);
+                }
+            } else {
+                Logger.info("Didn't find buildscript.properties; autogenerating it.");
+                properties0.setProperty("name", super.getProjectDir().getFileName().toString());
+                properties0.setProperty("javaVersion", "8");
+                try (BufferedWriter w = Files.newBufferedWriter(file)) {
+                    properties0.store(w, "Brachyura Buildscript Properties");
+                }
+            }
+            return properties0;
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    String getPropOrThrow(String property) {
+        String r = properties.get().getProperty(property);
+        if (r == null) throw new RuntimeException("Missing property " + property + " in buildscript.properties");
+        return r;
+    }
+
     @Override
     public IdeModule[] getIdeModules() {
         Tasks t = new Tasks();
@@ -50,6 +85,7 @@ class BuildscriptProject extends BaseJavaProject {
         ArrayList<RunConfigBuilder> runConfigs = new ArrayList<>(t.t.size());
         Path cwd = getProjectDir().resolve("run");
         PathUtil.createDirectories(cwd);
+        int javaVersion = Integer.parseInt(getPropOrThrow("javaVersion"));
         for (Map.Entry<String, Task> e : t.t.entrySet()) {
             runConfigs.add(
                 new RunConfigBuilder()
@@ -68,11 +104,12 @@ class BuildscriptProject extends BaseJavaProject {
         }
         return new IdeModule[] {
             new IdeModule.IdeModuleBuilder()
-                .name("Buildscript")
+                .name("BScript-" + getPropOrThrow("name"))
                 .root(getProjectDir())
                 .sourcePath(getSrcDir())
                 .dependencies(this::getIdeDependencies)
                 .runConfigs(runConfigs)
+                .javaVersion(javaVersion)
             .build()
         };
     }
@@ -98,11 +135,12 @@ class BuildscriptProject extends BaseJavaProject {
     }
 
     public ClassLoader getBuildscriptClassLoader() {
+        int javaVersion = Integer.parseInt(getPropOrThrow("javaVersion"));
         try {
             JavaCompilationResult compilation = new JavaCompilation()
                 .addSourceDir(getSrcDir())
                 .addClasspath(getCompileDependencies())
-                .addOption(JvmUtil.compileArgs(JvmUtil.CURRENT_JAVA_VERSION, 8))
+                .addOption(JvmUtil.compileArgs(JvmUtil.CURRENT_JAVA_VERSION, javaVersion))
                 .compile();
             BuildscriptClassloader r = new BuildscriptClassloader(BuildscriptProject.class.getClassLoader());
             compilation.getInputs(r);
