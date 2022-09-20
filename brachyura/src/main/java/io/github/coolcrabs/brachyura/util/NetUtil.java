@@ -39,6 +39,7 @@ public class NetUtil {
     public static InputStream inputStream(URL url) {
         try {
             URLConnection con = url.openConnection();
+            con.addRequestProperty("User-Agent", "brachyura");
             con.addRequestProperty("Accept-Encoding", "gzip");
             long size = con.getContentLengthLong();
             Logger.info("Downloading {} ({})", url, size == -1 ? "unknown size" : humanReadableByteCountSI(size));
