@@ -124,7 +124,9 @@ public class Buildscript {
             try (Stream<Path> s = Files.find(BRACHYURA.resolve("src").resolve("main").resolve("java"), Integer.MAX_VALUE, (p, bfa) -> bfa.isRegularFile())) {
                 s.forEach(p -> files.add(p.toFile()));
             }
-            ArrayList<String> args = new ArrayList<>(Arrays.asList("-d", buildPath.toString(), "-cp", deps.stream().map(Path::toString).collect(Collectors.joining(File.pathSeparator))));
+            Path tmpBuildDir = BUILD.resolve(String.valueOf(System.currentTimeMillis()));
+            Files.createDirectories(tmpBuildDir);
+            ArrayList<String> args = new ArrayList<>(Arrays.asList("-d", tmpBuildDir.toString(), "-cp", deps.stream().map(Path::toString).collect(Collectors.joining(File.pathSeparator))));
             Collections.addAll(args, compileArgs(CURRENT_JAVA_VERSION, 8));
             compiler.getTask(
                 null,
@@ -135,6 +137,7 @@ public class Buildscript {
                 fm.getJavaFileObjects(files.toArray(new File[0]))
             )
             .call();
+            Files.move(tmpBuildDir, buildPath, StandardCopyOption.ATOMIC_MOVE);
             System.out.println("Finished compiling");
         } else {
             System.out.println("Brachyura up to date");
