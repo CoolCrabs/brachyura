@@ -364,7 +364,7 @@ public class Buildscript extends BaseJavaProject {
 
         @Override
         protected List<JavaJarDependency> createDependencies() {
-            return Collections.singletonList(Maven.getMavenJarDep("https://repo.spongepowered.org/repository/maven-public/", new MavenId("org.spongepowered", "mixin", "0.8.3")));
+            return Collections.singletonList(Maven.getMavenJarDep("https://maven.fabricmc.net/", new MavenId("net.fabricmc", "sponge-mixin", "0.11.4+mixin.0.8.5")));
         }
 
         @Override
