@@ -3,6 +3,7 @@ package io.github.coolcrabs.brachyura;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
@@ -16,10 +17,7 @@ public class TestUtil {
     
     static {
         Path p = PathUtil.CWD;
-        while (!p.getFileName().toString().equals("brachyura")) {
-            p = p.getParent();
-        }
-        if (p.getParent().getFileName().toString().equals("brachyura")) {
+        while (!p.getFileName().toString().equals("brachyura") && !Files.exists(p.resolve(".brachyuradirmarker"))) {
             p = p.getParent();
         }
         ROOT = p;
