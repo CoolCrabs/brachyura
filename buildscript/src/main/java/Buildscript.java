@@ -457,6 +457,11 @@ public class Buildscript extends BaseJavaProject {
             ArrayList<JavaJarDependency> deps = new ArrayList<>();
             deps.addAll(junit.get());
             deps.add(Maven.getMavenJarDep(Maven.MAVEN_CENTRAL, new MavenId("org.kohsuke", "github-api", "1.131")));
+            deps.add(Maven.getMavenJarDep(Maven.MAVEN_CENTRAL, new MavenId("org.apache.commons", "commons-lang3", "3.9")));
+            deps.add(Maven.getMavenJarDep(Maven.MAVEN_CENTRAL, new MavenId("com.fasterxml.jackson.core", "jackson-databind", "2.13.4")));
+            deps.add(Maven.getMavenJarDep(Maven.MAVEN_CENTRAL, new MavenId("com.fasterxml.jackson.core", "jackson-core", "2.13.4")));
+            deps.add(Maven.getMavenJarDep(Maven.MAVEN_CENTRAL, new MavenId("com.fasterxml.jackson.core", "jackson-annotations", "2.13.4")));
+            deps.add(Maven.getMavenJarDep(Maven.MAVEN_CENTRAL, new MavenId("commons-io", "commons-io", "2.8.0")));
             return deps;
         }
     };
