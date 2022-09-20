@@ -16,10 +16,10 @@ import javax.tools.StandardLocation;
 import javax.tools.ToolProvider;
 import javax.tools.JavaCompiler.CompilationTask;
 
-import org.jetbrains.annotations.Nullable;
 import org.tinylog.Logger;
 
 import io.github.coolcrabs.brachyura.processing.ProcessingSource;
+import io.github.coolcrabs.brachyura.util.LoggerWriter;
 import io.github.coolcrabs.brachyura.util.Util;
 
 public class JavaCompilation {

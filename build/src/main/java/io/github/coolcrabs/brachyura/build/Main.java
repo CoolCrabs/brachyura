@@ -26,31 +26,6 @@ import org.kohsuke.github.GitHub;
 import org.kohsuke.github.GitHubBuilder;
 
 public class Main {
-    static String[] localLibs = new String[] {"fabricmerge", "cfr", "brachyura", "bootstrap", "brachyura-mixin-compile-extensions", "trieharder", "fernutil", "access-widener"};
-    static String[] mavenLibs = new String[] {
-        "https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.3/asm-9.3.jar",
-        "https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.3/asm-9.3-sources.jar",
-        "https://repo.maven.apache.org/maven2/org/ow2/asm/asm-analysis/9.3/asm-analysis-9.3.jar",
-        "https://repo.maven.apache.org/maven2/org/ow2/asm/asm-analysis/9.3/asm-analysis-9.3-sources.jar",
-        "https://repo.maven.apache.org/maven2/org/ow2/asm/asm-commons/9.3/asm-commons-9.3.jar",
-        "https://repo.maven.apache.org/maven2/org/ow2/asm/asm-commons/9.3/asm-commons-9.3-sources.jar",
-        "https://repo.maven.apache.org/maven2/org/ow2/asm/asm-tree/9.3/asm-tree-9.3.jar",
-        "https://repo.maven.apache.org/maven2/org/ow2/asm/asm-tree/9.3/asm-tree-9.3-sources.jar",
-        "https://repo.maven.apache.org/maven2/org/ow2/asm/asm-util/9.3/asm-util-9.3.jar",
-        "https://repo.maven.apache.org/maven2/org/ow2/asm/asm-util/9.3/asm-util-9.3-sources.jar",
-        "https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.9.0/gson-2.9.0.jar",
-        "https://repo.maven.apache.org/maven2/com/google/code/gson/gson/2.9.0/gson-2.9.0-sources.jar",
-        "https://repo.maven.apache.org/maven2/org/tinylog/tinylog-api/2.4.1/tinylog-api-2.4.1.jar",
-        "https://repo.maven.apache.org/maven2/org/tinylog/tinylog-api/2.4.1/tinylog-api-2.4.1-sources.jar",
-        "https://repo.maven.apache.org/maven2/org/tinylog/tinylog-impl/2.4.1/tinylog-impl-2.4.1.jar",
-        "https://repo.maven.apache.org/maven2/org/tinylog/tinylog-impl/2.4.1/tinylog-impl-2.4.1-sources.jar",
-        "https://maven.fabricmc.net/net/fabricmc/mapping-io/0.3.0/mapping-io-0.3.0.jar",
-        "https://maven.fabricmc.net/net/fabricmc/mapping-io/0.3.0/mapping-io-0.3.0-sources.jar",
-        "https://maven.fabricmc.net/net/fabricmc/tiny-remapper/0.8.2/tiny-remapper-0.8.2.jar",
-        "https://maven.fabricmc.net/net/fabricmc/tiny-remapper/0.8.2/tiny-remapper-0.8.2-sources.jar",
-        "https://repo.maven.apache.org/maven2/org/jetbrains/annotations/23.0.0/annotations-23.0.0.jar",
-        "https://repo.maven.apache.org/maven2/org/jetbrains/annotations/23.0.0/annotations-23.0.0-sources.jar"
-    };
     static boolean github = Boolean.parseBoolean(System.getenv("CI"));
     static String commit = github ? getCommitHash() : null;
     static final String GITHUB_TOKEN = System.getenv("GITHUB_TOKEN");
@@ -58,21 +33,21 @@ public class Main {
             System.getenv("GITHUB_REPOSITORY") != null ? System.getenv("GITHUB_REPOSITORY") : "CoolCrabs/brachyura";
     static GitHub gitHub2;
 
-    public static void main(String[] args) throws Exception {
+    public static void main(Path root, String[] localLibs, String[] mavenLibs) throws Exception {
         if (github) {
             gitHub2 = new GitHubBuilder().withOAuthToken(GITHUB_TOKEN).build();
         }
-        Path cwd = Paths.get("").toAbsolutePath();
+        Path cwd = root.toAbsolutePath();
         Path outDir = cwd.resolve("out");
         if (Files.isDirectory(outDir)) deleteDirectory(outDir);
         Files.createDirectories(outDir);
         try (BufferedWriter w = Files.newBufferedWriter(outDir.resolve("brachyurabootstrapconf.txt"))) {
             w.write(String.valueOf(0) + "\n");
             for (String lib : localLibs) {
-                Path a = cwd.getParent().resolve(lib).resolve("target");
+                Path a = cwd.getParent().resolve(lib).resolve("build").resolve("libs");
                 Stream<Path> b = Files.walk(a, 1);
                 Path jar = 
-                    b.filter(p -> p.toString().endsWith(".jar") && !p.toString().endsWith("-sources.jar") && !p.toString().endsWith("-javadoc.jar"))
+                    b.filter(p -> p.toString().endsWith(".jar") && !p.toString().endsWith("-sources.jar") && !p.toString().endsWith("-test.jar"))
                     .sorted(Comparator.comparingLong(p -> {
                         try {
                             return Files.getLastModifiedTime(p).toMillis();

@@ -1,5 +1,6 @@
 package io.github.coolcrabs.brachyura.project.java;
 
+import io.github.coolcrabs.brachyura.TestUtil;
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 import io.github.coolcrabs.brachyura.ide.IdeModule;
 import io.github.coolcrabs.brachyura.ide.IdeModule.RunConfigBuilder;
@@ -8,13 +9,11 @@ import io.github.coolcrabs.brachyura.maven.MavenId;
 
 import java.nio.file.Path;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
 
-import io.github.coolcrabs.brachyura.util.PathUtil;
 import org.junit.jupiter.api.Assertions;
 
 class SimpleJavaProjectTest {
@@ -33,7 +32,7 @@ class SimpleJavaProjectTest {
 
             @Override
             public Path getProjectDir() {
-                return PathUtil.CWD.getParent().resolve("testprogram");
+                return TestUtil.ROOT.resolve("testprogram");
             }
 
             @Override
@@ -47,7 +46,7 @@ class SimpleJavaProjectTest {
             public SimpleJavaModule createProjectModule() {
                 return new SimpleJavaProjectModule() {
                     @Override
-                    public IdeModule ideModule() {
+                    public IdeModule createIdeModule() {
                         return new IdeModule.IdeModuleBuilder()
                             .name(getModuleName())
                             .root(getModuleRoot())
@@ -57,7 +56,7 @@ class SimpleJavaProjectTest {
                             .testSourcePath(getModuleRoot().resolve("src").resolve("test").resolve("java"))
                             .testResourcePath(getModuleRoot().resolve("src").resolve("test").resolve("resources"))
                             .dependencies(dependencies.get())
-                            .dependencyModules(getModuleDependencies().stream().map(BuildModule::ideModule).collect(Collectors.toList()))
+                            .dependencyModules(getModuleDependencies().stream().map(m -> m.ideModule.get()).collect(Collectors.toList()))
                             .runConfigs(
                                 new RunConfigBuilder()
                                     .name("bruh")
@@ -75,7 +74,7 @@ class SimpleJavaProjectTest {
             if (p.name.equals("netbeans")) p.doTask(new String[]{});
             if (p.name.equals("idea")) p.doTask(new String[]{});
         });
-        Assertions.assertNotNull(project.build());
+        Assertions.assertNotNull(project.buildResult.get());
         project.getTasks(p -> {
             if (p.name.equals("publishToMavenLocal")) p.doTask(new String[]{});
         });

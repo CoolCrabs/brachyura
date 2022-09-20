@@ -191,6 +191,13 @@ public enum Intellijank implements Ide {
                         w.writeAttribute("name", dep.jar.getFileName().toString());
                         w.writeAttribute("level", "project");
                     }
+                    for (IdeModule dep : ideProject.dependencyModules) {
+                        w.newline();
+                        w.writeEmptyElement("orderEntry");
+                        w.writeAttribute("type", "module");
+                        w.writeAttribute("module-name", dep.name);
+                        w.writeAttribute("level", "project");
+                    }
                 w.unindent();
                 w.newline();
                 w.writeEndElement();

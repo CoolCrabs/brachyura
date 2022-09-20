@@ -10,7 +10,7 @@ import java.nio.file.Path;
 import java.util.Properties;
 import java.util.concurrent.ThreadLocalRandom;
 
-import org.benf.cfr.reader.util.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 import org.tinylog.Logger;
 
 import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;

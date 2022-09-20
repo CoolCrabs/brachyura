@@ -53,7 +53,7 @@ public abstract class SimpleJavaModule extends BuildModule {
     }
 
     @Override
-    public IdeModule ideModule() {
+    public IdeModule createIdeModule() {
         return new IdeModule.IdeModuleBuilder()
             .name(getModuleName())
             .root(getModuleRoot())
@@ -61,7 +61,7 @@ public abstract class SimpleJavaModule extends BuildModule {
             .sourcePaths(getSrcDirs())
             .resourcePaths(getResourceDirs())
             .dependencies(dependencies.get())
-            .dependencyModules(getModuleDependencies().stream().map(BuildModule::ideModule).collect(Collectors.toList()))
+            .dependencyModules(getModuleDependencies().stream().map(m -> m.ideModule.get()).collect(Collectors.toList()))
             .build();
     }
 }

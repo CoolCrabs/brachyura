@@ -1,2 +1,15 @@
 /testprogram/netbeans/NetbeansProject/nbproject/private/
 /testmod/netbeans/NetbeansProject/nbproject/private/
+Buildscript.class
+.buildscript
+.vscode
+build
+.brachyura
+run
+netbeans
+*.iml
+.idea
+*.launch
+.project
+.classpath
+.settings

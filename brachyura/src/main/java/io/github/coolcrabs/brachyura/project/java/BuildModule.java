@@ -20,5 +20,6 @@ public abstract class BuildModule {
     public final Lazy<ProcessingSource> compilationOutput = new Lazy<>(this::createCompilationOutput);
     protected abstract ProcessingSource createCompilationOutput();
 
-    public abstract IdeModule ideModule();
+    public final Lazy<IdeModule> ideModule = new Lazy<>(this::createIdeModule);
+    protected abstract IdeModule createIdeModule();
 }

@@ -6,11 +6,11 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 
-import javax.annotation.Nullable;
 import javax.tools.FileObject;
 import javax.tools.StandardLocation;
 import javax.tools.JavaFileManager.Location;
 
+import org.jetbrains.annotations.Nullable;
 import org.tinylog.Logger;
 
 import io.github.coolcrabs.brachyura.processing.ProcessingId;

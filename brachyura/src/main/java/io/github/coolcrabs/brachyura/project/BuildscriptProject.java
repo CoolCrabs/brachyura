@@ -8,6 +8,7 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -15,7 +16,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -42,10 +42,10 @@ class BuildscriptProject extends BaseJavaProject {
         return super.getProjectDir().resolve("buildscript");
     }
 
-    @Override
-    public void getRunConfigTasks(Consumer<Task> p) {
-        //noop
-    }
+    // @Override
+    // public void getRunConfigTasks(Consumer<Task> p) {
+    //     //noop
+    // }
 
     public final Lazy<Properties> properties = new Lazy<>(this::createProperties);
 
@@ -155,8 +155,16 @@ class BuildscriptProject extends BaseJavaProject {
         List<Path> compileDeps = getCompileDependencies();
         ArrayList<JavaJarDependency> result = new ArrayList<>(compileDeps.size());
         for (Path p : compileDeps) {
+            String pName = p.getFileName().toString();
             Path source = p.getParent().resolve(p.getFileName().toString().replace(".jar", "-sources.jar"));
-            if (!Files.exists(source)) source = null;
+            if (!Files.exists(source) || !pName.endsWith(".jar")) {
+                String bsrc = System.getProperty("brachyurasrcdir");
+                if (bsrc != null) {
+                    source = Paths.get(bsrc);
+                } else {
+                    source = null;
+                }
+            }
             result.add(new JavaJarDependency(p, source, null));
         }
         return result;

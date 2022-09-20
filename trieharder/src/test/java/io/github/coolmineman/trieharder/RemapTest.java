@@ -35,7 +35,7 @@ class RemapTest {
 
     @Test
     void test() throws IOException {
-        try (Reader in = new InputStreamReader(RemapTest.class.getResourceAsStream("/PlantInAJar1_16_Intermediary.java"))) {
+        try (Reader in = new InputStreamReader(RemapTest.class.getResourceAsStream("/PlantInAJar1_16_Intermediary.java.eclipsemoment"))) {
             long start = System.currentTimeMillis();
             StringWriter w = new StringWriter();
             remapper.remap(in, w);
@@ -51,7 +51,7 @@ class RemapTest {
 
     @Test
     void advancedTest() throws IOException {
-        try (Reader in = new InputStreamReader(RemapTest.class.getResourceAsStream("/Bruh.java"))) {
+        try (Reader in = new InputStreamReader(RemapTest.class.getResourceAsStream("/Bruh.java.eclipsemoment"))) {
             long start = System.currentTimeMillis();
             StringWriter w = new StringWriter();
             remapper.remap(in, w);
@@ -68,7 +68,7 @@ class RemapTest {
 
     @Test
     void bruh() throws IOException {
-        try (Reader in = new InputStreamReader(RemapTest.class.getResourceAsStream("/ModNioResourcePack.java"))) {
+        try (Reader in = new InputStreamReader(RemapTest.class.getResourceAsStream("/ModNioResourcePack.java.eclipsemoment"))) {
             long start = System.currentTimeMillis();
             StringWriter w = new StringWriter();
             remapper.remap(in, w);

@@ -21,14 +21,15 @@ class InputFiles {
     }
 
     Iterator<JavaFileObject> it(String packageName, Set<Kind> kinds, boolean recurse) {
+        String slashedPkg = packageName.replace('.', '/');
         return new Iterator<JavaFileObject>() {
-            Iterator<Entry<String, InputFile>> c = files.tailMap(packageName).entrySet().iterator();
+            Iterator<Entry<String, InputFile>> c = files.tailMap(slashedPkg).entrySet().iterator();
             InputFile next = advance();
 
             private InputFile advance() {
                 while (c.hasNext()) {
                     Entry<String, InputFile> e = c.next();
-                    if (!e.getKey().startsWith(packageName.replace('.', '/'))) {
+                    if (!e.getKey().startsWith(slashedPkg)) {
                         return null; // We've gone past this package
                     }
                     if (!recurse && e.getKey().lastIndexOf('/') > packageName.length()) {

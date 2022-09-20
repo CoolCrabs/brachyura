@@ -6,17 +6,17 @@ import java.nio.file.Path;
 
 import org.junit.jupiter.api.Test;
 
+import io.github.coolcrabs.brachyura.TestUtil;
 import io.github.coolcrabs.brachyura.compiler.java.JavaCompilation;
 import io.github.coolcrabs.brachyura.compiler.java.JavaCompilationResult;
 import io.github.coolcrabs.brachyura.maven.Maven;
 import io.github.coolcrabs.brachyura.maven.MavenId;
 import io.github.coolcrabs.brachyura.processing.sources.ProcessingSponge;
-import io.github.coolcrabs.brachyura.util.PathUtil;
 
 class CompilerTest {
     @Test
     void e() {
-        Path src = PathUtil.CWD.getParent().resolve("testprogram").resolve("src").resolve("main").resolve("java");
+        Path src = TestUtil.ROOT.resolve("testprogram").resolve("src").resolve("main").resolve("java");
         JavaCompilationResult compilation = new JavaCompilation()
             .addSourceDir(src)
             .compile();
@@ -33,7 +33,7 @@ class CompilerTest {
 
     @Test
     void mem() {
-        Path dir = PathUtil.CWD.getParent().resolve("test").resolve("compiler").resolve("java").resolve("memclass");
+        Path dir = TestUtil.ROOT.resolve("test").resolve("compiler").resolve("java").resolve("memclass");
         JavaCompilationResult compilationA = new JavaCompilation()
             .addSourceFile(dir.resolve("ClassA.java"))
             .addSourceFile(dir.resolve("coolpackage").resolve("CoolPackageClassA.java"))
@@ -56,7 +56,7 @@ class CompilerTest {
 
     @Test
     void immutables() {
-        Path dir = PathUtil.CWD.getParent().resolve("test").resolve("compiler").resolve("java").resolve("immutables");
+        Path dir = TestUtil.ROOT.resolve("test").resolve("compiler").resolve("java").resolve("immutables");
         JavaCompilationResult compilationA = new JavaCompilation()
             .addSourceDir(dir)
             .addClasspath(Maven.getMavenJarDep(Maven.MAVEN_CENTRAL, new MavenId("org.immutables:value:2.8.2")).jar)

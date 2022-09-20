@@ -12,6 +12,19 @@ import io.github.coolcrabs.brachyura.util.MessageDigestUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 
 public class TestUtil {
+    public static final Path ROOT;
+    
+    static {
+        Path p = PathUtil.CWD;
+        while (!p.getFileName().toString().equals("brachyura")) {
+            p = p.getParent();
+        }
+        if (p.getParent().getFileName().toString().equals("brachyura")) {
+            p = p.getParent();
+        }
+        ROOT = p;
+    }
+
     public static void assertSha256(Path file, String expected) {
         assertDoesNotThrow(() -> {
             MessageDigest md = MessageDigestUtil.messageDigest(MessageDigestUtil.SHA256);

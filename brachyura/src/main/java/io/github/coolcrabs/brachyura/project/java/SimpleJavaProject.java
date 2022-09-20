@@ -79,12 +79,12 @@ public abstract class SimpleJavaProject extends BaseJavaProject {
     @Override
     public void getTasks(Consumer<Task> p) {
         super.getTasks(p);
-        p.accept(Task.of("build", this::build));
+        p.accept(Task.of("build", this.buildResult::get));
         getPublishTasks(p);
     }
     
     public void getPublishTasks(Consumer<Task> p) {
-        createPublishTasks(p, this::build);
+        createPublishTasks(p, this.buildResult);
     }
     
     public static void createPublishTasks(Consumer<Task> p, Supplier<JavaJarDependency> build) {
@@ -94,10 +94,11 @@ public abstract class SimpleJavaProject extends BaseJavaProject {
 
     @Override
     public IdeModule[] getIdeModules() {
-        return new IdeModule[] {projectModule.get().ideModule()};
+        return new IdeModule[] {projectModule.get().ideModule.get()};
     }
 
-    public JavaJarDependency build() {
+    public Lazy<JavaJarDependency> buildResult = new Lazy<>(this::build);
+    protected JavaJarDependency build() {
         Path outjar = getBuildLibsDir().resolve(getJarBaseName() + ".jar");
         Path outjarsources = getBuildLibsDir().resolve(getJarBaseName() + "-sources.jar");
         try (
