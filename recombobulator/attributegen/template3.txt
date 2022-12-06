@@ -1,0 +1,15 @@
+package io.github.coolcrabs.brachyura.recombobulator.attribute;
+
+// GENERATED CLASS :)
+
+import java.util.HashMap;
+
+import io.github.coolcrabs.brachyura.recombobulator.Mutf8Slice;
+
+class GenAttributeMap {
+    static HashMap<Mutf8Slice, AttributeType> attributeMap = new HashMap<>();
+
+    static {
+&&&Bruh
+    }
+}

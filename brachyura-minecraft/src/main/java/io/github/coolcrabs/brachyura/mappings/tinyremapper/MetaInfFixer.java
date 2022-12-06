@@ -14,20 +14,22 @@ import java.util.jar.Manifest;
 import io.github.coolcrabs.brachyura.processing.ProcessingEntry;
 import io.github.coolcrabs.brachyura.processing.ProcessingSink;
 import io.github.coolcrabs.brachyura.processing.Processor;
+import io.github.coolcrabs.brachyura.recombobulator.Mutf8Slice;
+import io.github.coolcrabs.brachyura.recombobulator.remapper.Mappings;
 import io.github.coolcrabs.brachyura.util.ByteArrayOutputStreamEx;
-import net.fabricmc.tinyremapper.TinyRemapper;
 
 // https://github.com/FabricMC/tiny-remapper/blob/master/src/main/java/net/fabricmc/tinyremapper/MetaInfFixer.java
 // Rewritten since tr's is heavily nio tied atm
 public class MetaInfFixer implements Processor {
-    final TinyRemapper remapper;
+    final RemapperProcessor remapperp;
 
-    public MetaInfFixer(TrWrapper remapper) {
-        this.remapper = remapper.tr;
+    public MetaInfFixer(RemapperProcessor remapperp) {
+        this.remapperp = remapperp;
     }
 
     @Override
     public void process(Collection<ProcessingEntry> inputs, ProcessingSink sink) throws IOException {
+        Mappings remapper = remapperp.mappings;
         for (ProcessingEntry e : inputs) {
             if (e.id.path.startsWith("META-INF/")) {
                 int si = e.id.path.lastIndexOf('/');
@@ -61,11 +63,11 @@ public class MetaInfFixer implements Processor {
         }
     }
 
-    private static String mapFullyQualifiedClassName(String name, TinyRemapper tr) {
-        return tr.getEnvironment().getRemapper().map(name.replace('.', '/')).replace('/', '.');
+    private static String mapFullyQualifiedClassName(String name, Mappings tr) {
+        return tr.mapClass(new Mutf8Slice(name.replace('.', '/'))).toString().replace('/', '.');
     }
 
-    private static void fixManifest(Manifest manifest, TinyRemapper remapper) {
+    private static void fixManifest(Manifest manifest, Mappings remapper) {
         Attributes mainAttrs = manifest.getMainAttributes();
         if (remapper != null) {
             String val = mainAttrs.getValue(Attributes.Name.MAIN_CLASS);
@@ -89,7 +91,7 @@ public class MetaInfFixer implements Processor {
         }
     }
 
-    private static void fixServiceDecl(BufferedReader reader, Writer writer, TinyRemapper remapper) throws IOException {
+    private static void fixServiceDecl(BufferedReader reader, Writer writer, Mappings remapper) throws IOException {
         String line;
         while ((line = reader.readLine()) != null) {
             int end = line.indexOf('#');

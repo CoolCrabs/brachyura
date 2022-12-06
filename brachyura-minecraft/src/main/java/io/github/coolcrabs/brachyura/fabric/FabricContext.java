@@ -48,12 +48,8 @@ import io.github.coolcrabs.brachyura.fabric.AccessWidenerRemapper.FabricAwCollec
 import io.github.coolcrabs.brachyura.mappings.MappingHasher;
 import io.github.coolcrabs.brachyura.mappings.MappingHelper;
 import io.github.coolcrabs.brachyura.mappings.Namespaces;
-import io.github.coolcrabs.brachyura.mappings.tinyremapper.Jsr2JetbrainsMappingProvider;
-import io.github.coolcrabs.brachyura.mappings.tinyremapper.MappingTreeMappingProvider;
 import io.github.coolcrabs.brachyura.mappings.tinyremapper.MetaInfFixer;
 import io.github.coolcrabs.brachyura.mappings.tinyremapper.RemapperProcessor;
-import io.github.coolcrabs.brachyura.mappings.tinyremapper.TinyRemapperHelper;
-import io.github.coolcrabs.brachyura.mappings.tinyremapper.TrWrapper;
 import io.github.coolcrabs.brachyura.maven.Maven;
 import io.github.coolcrabs.brachyura.maven.MavenId;
 import io.github.coolcrabs.brachyura.minecraft.Minecraft;
@@ -71,6 +67,7 @@ import io.github.coolcrabs.brachyura.processing.sinks.ZipProcessingSink;
 import io.github.coolcrabs.brachyura.processing.sources.ProcessingSponge;
 import io.github.coolcrabs.brachyura.processing.sources.ZipProcessingSource;
 import io.github.coolcrabs.brachyura.project.java.BuildModule;
+import io.github.coolcrabs.brachyura.recombobulator.Recombobulator;
 import io.github.coolcrabs.brachyura.util.AtomicDirectory;
 import io.github.coolcrabs.brachyura.util.AtomicFile;
 import io.github.coolcrabs.brachyura.util.CloseableArrayList;
@@ -87,7 +84,6 @@ import io.github.coolmineman.trieharder.FindReplaceSourceRemapper;
 import net.fabricmc.mappingio.adapter.MappingSourceNsSwitch;
 import net.fabricmc.mappingio.tree.MappingTree;
 import net.fabricmc.mappingio.tree.MemoryMappingTree;
-import net.fabricmc.tinyremapper.TinyRemapper;
 
 public abstract class FabricContext {
     public final Lazy<VersionMeta> versionMeta = new Lazy<>(this::createMcVersion);
@@ -162,17 +158,17 @@ public abstract class FabricContext {
             });
             r.put(fm, s);
         }
-        try (TrWrapper trw = new TrWrapper(TinyRemapper.newRemapper().withMappings(new MappingTreeMappingProvider(compmappings, Namespaces.NAMED, Namespaces.INTERMEDIARY)))) {
-            new ProcessorChain(
-                new RemapperProcessor(
-                    trw,
-                    getCompileDependencies()
-                )
-            ).apply(
-                (in, id) -> sm.get(id).sink(in, id),
-                thonk
-            );
-        }
+        new ProcessorChain(
+            new RemapperProcessor(
+                getCompileDependencies(),
+                compmappings,
+                compmappings.getNamespaceId(Namespaces.NAMED),
+                compmappings.getNamespaceId(Namespaces.INTERMEDIARY)
+            )
+        ).apply(
+            (in, id) -> sm.get(id).sink(in, id),
+            thonk
+        );
         return r;
     }
 
@@ -332,10 +328,11 @@ public abstract class FabricContext {
         return 1;
     }
 
-    public ProcessorChain modRemapChainOverrideOnlyIfYouOverrideRemappedModsRootPathAndLogicVersion(TrWrapper trw, List<Path> cp, Map<ProcessingSource, MavenId> c) {
+    public ProcessorChain modRemapChainOverrideOnlyIfYouOverrideRemappedModsRootPathAndLogicVersion(MappingTree tree, String src, String dst, List<Path> cp, Map<ProcessingSource, MavenId> c) {
+        RemapperProcessor rp = new RemapperProcessor(cp, tree, tree.getNamespaceId(src), tree.getNamespaceId(dst));
         return new ProcessorChain(
-            new RemapperProcessor(trw, cp),
-            new MetaInfFixer(trw),
+            rp,
+            new MetaInfFixer(rp),
             JijRemover.INSTANCE,
             new AccessWidenerRemapper(mappings.get(), mappings.get().getNamespaceId(Namespaces.NAMED), FabricAwCollector.INSTANCE),
             new FmjGenerator(c)
@@ -366,7 +363,7 @@ public abstract class FabricContext {
             }
             dephasher.update(namedJar.get().mappingHash.getBytes(StandardCharsets.UTF_8));
             dephasher.update(intermediaryjar.get().mappingHash.getBytes(StandardCharsets.UTF_8));
-            MessageDigestUtil.update(dephasher, TinyRemapperHelper.VERSION);
+            MessageDigestUtil.update(dephasher, Recombobulator.getVersion());
             String dephash = MessageDigestUtil.toHexHash(dephasher.digest());
             Path depdir = remappedModsRootPath();
             Path resultdir = depdir.resolve(dephash);
@@ -391,9 +388,6 @@ public abstract class FabricContext {
                     PathUtil.deleteDirectoryChildren(depdir);
                 }
                 try (AtomicDirectory a = new AtomicDirectory(resultdir)) {
-                    TinyRemapper.Builder tr = TinyRemapper.newRemapper()
-                        .withMappings(new MappingTreeMappingProvider(mappings.get(), Namespaces.INTERMEDIARY, Namespaces.NAMED))
-                        .renameInvalidLocals(false);
                     ArrayList<Path> cp = new ArrayList<>();
                     cp.add(intermediaryjar.get().jar);
                     for (JavaJarDependency dep : mcClasspath.get()) {
@@ -412,12 +406,10 @@ public abstract class FabricContext {
                             c.put(s, ri.source.jarDependency.mavenId);
                         }
                         Logger.info("Remapping {} mods", b.size());
-                        try (TrWrapper trw = new TrWrapper(tr)) {
-                            modRemapChainOverrideOnlyIfYouOverrideRemappedModsRootPathAndLogicVersion(trw, cp, c).apply(
-                                (in, id) -> b.get(id.source).sink(in, id),
-                                b.keySet()
-                            );
-                        }
+                        modRemapChainOverrideOnlyIfYouOverrideRemappedModsRootPathAndLogicVersion(mappings.get(), Namespaces.INTERMEDIARY, Namespaces.NAMED, cp, c).apply(
+                            (in, id) -> b.get(id.source).sink(in, id),
+                            b.keySet()
+                        );
                     }
                     FindReplaceSourceRemapper sourceRemapper = new FindReplaceSourceRemapper(mappings.get(), mappings.get().getNamespaceId(Namespaces.INTERMEDIARY), mappings.get().getNamespaceId(Namespaces.NAMED));
                     for (ModDependency u : unmapped) { 
@@ -638,7 +630,7 @@ public abstract class FabricContext {
     protected RemappedJar createIntermediaryJar() {
             Path mergedJar = getMergedJar();
             String intermediaryHash = MappingHasher.hashSha256(intermediary.get());
-            Path result = fabricCache().resolve("intermediary").resolve(versionMeta.get().version + TinyRemapperHelper.getFileVersionTag() + "intermediary-" + intermediaryHash + ".jar");
+            Path result = fabricCache().resolve("intermediary").resolve(versionMeta.get().version + "-r" + Recombobulator.getVersion() + "-intermediary-" + intermediaryHash + ".jar");
             if (!Files.isRegularFile(result)) {
                 try (AtomicFile atomicFile = new AtomicFile(result)) {
                     remapJar(intermediary.get(), Namespaces.OBF, Namespaces.INTERMEDIARY, mergedJar, atomicFile.tempPath, mcClasspathPaths.get());
@@ -654,7 +646,7 @@ public abstract class FabricContext {
         MessageDigestUtil.update(md, intermediaryjar.get().mappingHash);
         MappingHasher.hash(md, mappings.get());
         String mappingHash = MessageDigestUtil.toHexHash(md.digest());
-        Path result = fabricCache().resolve("named").resolve(versionMeta.get().version + TinyRemapperHelper.getFileVersionTag() + "named-" + mappingHash + ".jar");
+        Path result = fabricCache().resolve("named").resolve(versionMeta.get().version + "-r" + Recombobulator.getVersion() + "-named-" + mappingHash + ".jar");
         if (!Files.isRegularFile(result)) {
             try (AtomicFile atomicFile = new AtomicFile(result)) {
                 remapJar(mappings.get(), Namespaces.INTERMEDIARY, Namespaces.NAMED, intermediaryjar.get().jar, atomicFile.tempPath, mcClasspathPaths.get());
@@ -674,7 +666,7 @@ public abstract class FabricContext {
             hp.hash(md);
         }
         String hash = MessageDigestUtil.toHexHash(md.digest());
-        Path result = getLocalBrachyuraPath().resolve("fabric").resolve("named").resolve(versionMeta.get().version + TinyRemapperHelper.getFileVersionTag() + "named-" + hash + ".jar");
+        Path result = getLocalBrachyuraPath().resolve("fabric").resolve("named").resolve(versionMeta.get().version + "-r" + Recombobulator.getVersion() + "-named-" + hash + ".jar");
         if (!Files.isRegularFile(result)) {
             try (
                 ZipProcessingSource s = new ZipProcessingSource(remappedNamedJar.get().jar);
@@ -704,17 +696,17 @@ public abstract class FabricContext {
         // Different Java Versions have different classes
         // This will lead to missing classes if ran on an older jdk and MC uses newer jdk
         // Adding the JVM version to the directory avoids this issue if you rerun with a newer jdk
-        Path resultDir = fabricCache().resolve("decompiled").resolve(decompiler.getName() + "-" + decompiler.getVersion()).resolve(versionMeta.get().version + TinyRemapperHelper.getFileVersionTag() + "named-" + named.mappingHash + "-J" + JvmUtil.CURRENT_JAVA_VERSION);
+        Path resultDir = fabricCache().resolve("decompiled").resolve(decompiler.getName() + "-" + decompiler.getVersion()).resolve(versionMeta.get().version + "-r" + Recombobulator.getVersion() + "-named-" + named.mappingHash + "-J" + JvmUtil.CURRENT_JAVA_VERSION);
         return decompiler.getDecompiled(named.jar, decompClasspath(), resultDir, mappings.get(), Namespaces.NAMED).toJavaJarDep(null);
     }
 
     public void remapJar(MappingTree mappings, String src, String dst, Path inputJar, Path outputJar, List<Path> classpath) {
-        TinyRemapper.Builder remapperBuilder = TinyRemapper.newRemapper()
-            .withMappings(new MappingTreeMappingProvider(mappings, src, dst))
-            .withMappings(Jsr2JetbrainsMappingProvider.INSTANCE)
-            .renameInvalidLocals(true)
-            .invalidLvNamePattern(Pattern.compile("\\$\\$\\d+"))
-            .rebuildSourceFilenames(true);
+        // TinyRemapper.Builder remapperBuilder = TinyRemapper.newRemapper()
+        //     .withMappings(new MappingTreeMappingProvider(mappings, src, dst))
+        //     .withMappings(Jsr2JetbrainsMappingProvider.INSTANCE)
+        //     .renameInvalidLocals(true)
+        //     .invalidLvNamePattern(Pattern.compile("\\$\\$\\d+"))
+        //     .rebuildSourceFilenames(true);
         try {
             Files.deleteIfExists(outputJar);
         } catch (IOException e) {
@@ -723,9 +715,8 @@ public abstract class FabricContext {
         try (
             ZipProcessingSource source = new ZipProcessingSource(inputJar);
             ZipProcessingSink sink = new ZipProcessingSink(outputJar);
-            TrWrapper trw = new TrWrapper(remapperBuilder);
         ) {
-            new ProcessorChain(new RemapperProcessor(trw, classpath)).apply(sink, source);
+            new ProcessorChain(new RemapperProcessor(classpath, mappings, mappings.getNamespaceId(src), mappings.getNamespaceId(dst))).apply(sink, source);
         }
     }
 

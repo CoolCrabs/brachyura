@@ -1,0 +1,9 @@
+package io.github.coolcrabs.brachyura.recombobulator;
+
+// GENERATED CLASS :)
+
+&&&Imports
+
+public interface RecombobulatorVisitor {
+&&&Methods
+}

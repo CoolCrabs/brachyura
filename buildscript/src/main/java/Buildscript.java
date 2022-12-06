@@ -23,6 +23,7 @@ import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 import io.github.coolcrabs.brachyura.ide.IdeModule;
 import io.github.coolcrabs.brachyura.maven.Maven;
 import io.github.coolcrabs.brachyura.maven.MavenId;
+import io.github.coolcrabs.brachyura.processing.ProcessingSource;
 import io.github.coolcrabs.brachyura.processing.ProcessorChain;
 import io.github.coolcrabs.brachyura.processing.sinks.AtomicZipProcessingSink;
 import io.github.coolcrabs.brachyura.processing.sources.DirectoryProcessingSource;
@@ -138,8 +139,8 @@ public class Buildscript extends BaseJavaProject {
             if (hasTests()) {
                 r.addSourceDir(getModuleRoot().resolve("src").resolve("test").resolve("java"));
             }
-            for (BuildModule m : getModuleDependencies()) {
-                r.addClasspath(m.compilationOutput.get());
+            for (ProcessingSource s : Lazy.getParallel(getModuleDependencies().stream().map(m -> m.compilationOutput).collect(Collectors.toList()))) {
+                r.addClasspath(s);
             }
             return r;
         }
@@ -271,6 +272,29 @@ public class Buildscript extends BaseJavaProject {
         }
     };
 
+    public final Lazy<JavaJarDependency> fastutil = new Lazy<>(() -> Maven.getMavenJarDep(Maven.MAVEN_CENTRAL, new MavenId("it.unimi.dsi", "fastutil", "8.5.8")));
+
+    public final BJavaModule recombobulator = new BJavaModule() {
+        @Override
+        MavenId getId() {
+            return new MavenId(GROUP, "recombobulator", "0.0.1");
+        }
+
+        @Override
+        protected List<JavaJarDependency> createDependencies() {
+            ArrayList<JavaJarDependency> deps = new ArrayList<>();
+            deps.add(mappingIo.get());
+            deps.addAll(junit.get());
+            deps.add(fastutil.get());
+            for (JavaJarDependency jjdep : bdeps.get()) {
+                if ("org.tinylog".equals(jjdep.mavenId.groupId) || "org.jetbrains".equals(jjdep.mavenId.groupId)) {
+                    deps.add(jjdep);
+                }
+            }
+            return deps;
+        }
+    };
+
     public final BJavaModule fernutil = new BJavaModule() {
         @Override
         public boolean hasTests() {
@@ -390,17 +414,15 @@ public class Buildscript extends BaseJavaProject {
         }
     };
 
-    Lazy<JavaJarDependency> tinyRemapper = new Lazy<>(() -> Maven.getMavenJarDep("https://maven.fabricmc.net/", new MavenId("net.fabricmc", "tiny-remapper", "0.8.2")));
-
     public final BJavaModule brachyuraMinecraft = new BJavaModule() {
         @Override
         MavenId getId() {
-            return new MavenId(GROUP, "brachyura-minecraft", "0.1");
+            return new MavenId(GROUP, "brachyura-minecraft", "0.2");
         }
 
         @Override
         protected List<BuildModule> getModuleDependencies() {
-            return Arrays.asList(brachyura, trieharder, fernutil, fabricmerge, cfr, mixinCompileExtensions, accessWidener);
+            return Arrays.asList(brachyura, trieharder, recombobulator, fernutil, fabricmerge, cfr, mixinCompileExtensions, accessWidener);
         }
 
         @Override
@@ -410,7 +432,7 @@ public class Buildscript extends BaseJavaProject {
             deps.addAll(asm.get());
             deps.addAll(bdeps.get());
             deps.add(mappingIo.get());
-            deps.add(tinyRemapper.get());
+            deps.add(fastutil.get());
             return deps;
         }
     };
@@ -466,8 +488,8 @@ public class Buildscript extends BaseJavaProject {
         }
     };
 
-    public final BJavaModule[] modules = {brachyura, trieharder, fernutil, fabricmerge, cfr, mixinCompileExtensions, accessWidener, brachyuraMinecraft, bootstrap, build};
-    public final BJavaModule[] publishModules = {brachyura, trieharder, fernutil, fabricmerge, cfr, mixinCompileExtensions, accessWidener, brachyuraMinecraft, bootstrap};
+    public final BJavaModule[] modules = {brachyura, trieharder, recombobulator, fernutil, fabricmerge, cfr, mixinCompileExtensions, accessWidener, brachyuraMinecraft, bootstrap, build};
+    public final BJavaModule[] publishModules = {brachyura, trieharder, recombobulator, fernutil, fabricmerge, cfr, mixinCompileExtensions, accessWidener, brachyuraMinecraft, bootstrap};
 
     @Override
     public IdeModule[] getIdeModules() {
@@ -479,9 +501,7 @@ public class Buildscript extends BaseJavaProject {
     }
 
     void build() {
-        for (BJavaModule javaModule : modules) {
-            javaModule.built.get();
-        }
+        Lazy.getParallel(Arrays.stream(modules).map(m -> m.built).collect(Collectors.toList()));
         if (!Boolean.getBoolean("skiptests")) {
             for (BJavaModule javaModule : modules) {
                 javaModule.test();
@@ -501,7 +521,7 @@ public class Buildscript extends BaseJavaProject {
             ArrayList<String> depJars = new ArrayList<>();
             for (JavaJarDependency jjd : bdeps.get()) appendUrls(depJars, Maven.MAVEN_CENTRAL, jjd);
             for (JavaJarDependency jjd : asm.get()) appendUrls(depJars, Maven.MAVEN_CENTRAL, jjd);
-            appendUrls(depJars, "https://maven.fabricmc.net/", tinyRemapper.get());
+            appendUrls(depJars, Maven.MAVEN_CENTRAL, fastutil.get());
             appendUrls(depJars, "https://maven.fabricmc.net/", mappingIo.get());
             try (URLClassLoader ucl = new URLClassLoader(cp.toArray(new URL[0]), ClassLoader.getSystemClassLoader().getParent())) {
                 Class<?> entry = Class.forName("io.github.coolcrabs.brachyura.build.Main", true, ucl);

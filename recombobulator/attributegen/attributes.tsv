@@ -1,0 +1,25 @@
+Attribute	Location	class file
+SourceFile	ClassFile	45.3
+InnerClasses	ClassFile	45.3
+EnclosingMethod	ClassFile	49
+SourceDebugExtension	ClassFile	49
+BootstrapMethods	ClassFile	51
+Module, ModulePackages, ModuleMainClass 	ClassFile	53
+NestHost, NestMembers 	ClassFile	55
+Record 	ClassFile	60
+PermittedSubclasses 	ClassFile	61
+ConstantValue	field_info	45.3
+Code	method_info	45.3
+Exceptions	method_info	45.3
+RuntimeVisibleParameterAnnotations, RuntimeInvisibleParameterAnnotations	method_info	49
+AnnotationDefault	method_info	49
+MethodParameters	method_info	52
+Synthetic	ClassFile, field_info, method_info	45.3
+Deprecated	ClassFile, field_info, method_info	45.3
+Signature	ClassFile, field_info, method_info, record_component_info 	49
+RuntimeVisibleAnnotations, RuntimeInvisibleAnnotations	ClassFile, field_info, method_info, record_component_info 	49
+LineNumberTable	Code	45.3
+LocalVariableTable	Code	45.3
+LocalVariableTypeTable	Code	49
+StackMapTable	Code	50
+RuntimeVisibleTypeAnnotations, RuntimeInvisibleTypeAnnotations	ClassFile, field_info, method_info, Code, record_component_info 	52

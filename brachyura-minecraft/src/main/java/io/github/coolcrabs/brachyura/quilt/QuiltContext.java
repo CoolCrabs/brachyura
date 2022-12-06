@@ -29,7 +29,6 @@ import io.github.coolcrabs.brachyura.fabric.FabricContext;
 import io.github.coolcrabs.brachyura.mappings.Namespaces;
 import io.github.coolcrabs.brachyura.mappings.tinyremapper.MetaInfFixer;
 import io.github.coolcrabs.brachyura.mappings.tinyremapper.RemapperProcessor;
-import io.github.coolcrabs.brachyura.mappings.tinyremapper.TrWrapper;
 import io.github.coolcrabs.brachyura.maven.MavenId;
 import io.github.coolcrabs.brachyura.processing.ProcessingEntry;
 import io.github.coolcrabs.brachyura.processing.ProcessingId;
@@ -42,6 +41,7 @@ import io.github.coolcrabs.brachyura.processing.sources.ZipProcessingSource;
 import io.github.coolcrabs.brachyura.util.GsonUtil;
 import io.github.coolcrabs.brachyura.util.PathUtil;
 import io.github.coolcrabs.brachyura.util.Util;
+import net.fabricmc.mappingio.tree.MappingTree;
 
 public abstract class QuiltContext extends FabricContext {
     @Override
@@ -84,10 +84,11 @@ public abstract class QuiltContext extends FabricContext {
     }
 
     @Override
-    public ProcessorChain modRemapChainOverrideOnlyIfYouOverrideRemappedModsRootPathAndLogicVersion(TrWrapper trw, List<Path> cp, Map<ProcessingSource, MavenId> c) {
+    public ProcessorChain modRemapChainOverrideOnlyIfYouOverrideRemappedModsRootPathAndLogicVersion(MappingTree tree, String src, String dst, List<Path> cp, Map<ProcessingSource, MavenId> c) {
+        RemapperProcessor rp = new RemapperProcessor(cp, tree, tree.getNamespaceId(src), tree.getNamespaceId(dst));
         return new ProcessorChain(
-            new RemapperProcessor(trw, cp),
-            new MetaInfFixer(trw),
+            rp,
+            new MetaInfFixer(rp),
             JijRemover.INSTANCE,
             new AccessWidenerRemapper(mappings.get(), mappings.get().getNamespaceId(Namespaces.NAMED), QuiltAwCollector.INSTANCE),
             new FmjGenerator(c)
