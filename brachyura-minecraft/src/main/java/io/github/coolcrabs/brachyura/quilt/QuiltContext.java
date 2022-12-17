@@ -85,7 +85,7 @@ public abstract class QuiltContext extends FabricContext {
 
     @Override
     public ProcessorChain modRemapChainOverrideOnlyIfYouOverrideRemappedModsRootPathAndLogicVersion(MappingTree tree, String src, String dst, List<Path> cp, Map<ProcessingSource, MavenId> c) {
-        RemapperProcessor rp = new RemapperProcessor(cp, tree, tree.getNamespaceId(src), tree.getNamespaceId(dst));
+        RemapperProcessor rp = new RemapperProcessor(cp, tree, tree.getNamespaceId(src), tree.getNamespaceId(dst), false);
         return new ProcessorChain(
             rp,
             new MetaInfFixer(rp),

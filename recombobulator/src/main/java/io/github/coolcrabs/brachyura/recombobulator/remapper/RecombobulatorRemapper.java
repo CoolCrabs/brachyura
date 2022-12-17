@@ -3,6 +3,7 @@ package io.github.coolcrabs.brachyura.recombobulator.remapper;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -12,6 +13,7 @@ import java.util.function.Supplier;
 
 import org.tinylog.Logger;
 
+import io.github.coolcrabs.brachyura.recombobulator.AccessFlags;
 import io.github.coolcrabs.brachyura.recombobulator.ByteBufferUtil;
 import io.github.coolcrabs.brachyura.recombobulator.ClassInfo;
 import io.github.coolcrabs.brachyura.recombobulator.ConstantClass;
@@ -117,6 +119,9 @@ public class RecombobulatorRemapper {
     Collection<Input> toRead = new ArrayList<>();
     Collection<OutputFile> toOutput = new ArrayList<>();
     Mappings mappings;
+    boolean replaceLvtAndParams;
+
+    static final Mutf8Slice THIS_STR = new Mutf8Slice("this");
 
     public void setClasses(Collection<Input> classes) {
         toRead = classes;
@@ -132,6 +137,10 @@ public class RecombobulatorRemapper {
 
     public void setOutput(RemapperOutputConsumer out) {
         this.output = out;
+    }
+
+    public void replaceLvtAndParams() {
+        this.replaceLvtAndParams = true;
     }
 
     public static class Input {
@@ -538,7 +547,7 @@ public class RecombobulatorRemapper {
 
         @Override
         public void visitEntryParameters(EntryParameters el) {
-            //noop
+            refs.ref(el.name_index, -1);
         }
 
         @Override
@@ -558,6 +567,7 @@ public class RecombobulatorRemapper {
 
         @Override
         public void visitEntryLocalVariableTypeTable(EntryLocalVariableTypeTable el) {
+            refs.ref(el.name_index, -1);
             refs.ref(el.signature_index, -1);
         }
 
@@ -583,6 +593,7 @@ public class RecombobulatorRemapper {
 
         @Override
         public void visitEntryLocalVariableTable(EntryLocalVariableTable el) {
+            refs.ref(el.name_index, -1);
             refs.ref(el.descriptor_index, -1);
         }
 
@@ -597,7 +608,7 @@ public class RecombobulatorRemapper {
         }
     }
 
-    public static class RemapVisitor implements RecombobulatorVisitor {
+    public class RemapVisitor implements RecombobulatorVisitor {
         final ConstantPool cp;
         final ConstantPool newCp;
         final Mappings mappings;
@@ -724,16 +735,55 @@ public class RecombobulatorRemapper {
             }
         }
 
+        AttributeMethodParameters params;
+        boolean isDynamic;
+        int[] lvtp;
+
         @Override
         public void visitMethodInfo(MethodInfo el) {
+            isDynamic = (el.access_flags & AccessFlags.ACC_STATIC) == 0;
             NameDescPair unmapped = new NameDescPair(utf8(cp, el.name_index), utf8(cp, el.descriptor_index));
             NameDescPair mapped = mappings.mapMethod(clsName, unmapped);
-            if (mapped == null) {
-                el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, unmapped.name);
-                el.descriptor_index = getUtf8Index(cp, newCp, utf8Map, openSlots, Mappings.remapMethodDescriptor(mappings, unmapped.desc));
+            el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, mapped.name);
+            el.descriptor_index = getUtf8Index(cp, newCp, utf8Map, openSlots, mapped.desc);
+            params = null;
+            for (Attribute a : el.attributes) {
+                if (a instanceof AttributeMethodParameters) params = (AttributeMethodParameters) a;
+            }
+            int pcount = countParams(mapped.desc);
+            int[] plvt = new int[pcount];
+            p2lvt(mapped.desc, plvt, isDynamic);
+            if (plvt.length == 0) {
+                lvtp = new int[0];
             } else {
-                el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, mapped.name);
-                el.descriptor_index = getUtf8Index(cp, newCp, utf8Map, openSlots, mapped.desc);
+                lvtp = new int[plvt[plvt.length - 1] + 1];
+                for (int i = 0; i < pcount; i++) {
+                    lvtp[plvt[i]] = i;
+                }
+            }
+            if (params == null)  {
+                ArrayList<EntryParameters> p = new ArrayList<>(pcount);
+                params = new AttributeMethodParameters(getUtf8Index(cp, newCp, utf8Map, openSlots, AttributeMethodParameters.NAME), p);
+                el.attributes.add(params);
+            }
+            while (params.parameters.size() < pcount) {
+                params.parameters.add(new EntryParameters(0, 0));
+            }
+            BitSet mappedp = new BitSet(params.parameters.size());
+            if (replaceLvtAndParams) {
+                for (int i = 0; i < pcount; i++) {
+                    int lvi = plvt[i];
+                    Mutf8Slice pm = mappings.mapParam(clsName, unmapped, lvi);
+                    if (pm == null) continue;
+                    mappedp.set(i);
+                    params.parameters.get(i).name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, pm);
+                }
+            }
+            for (int i = 0; i < params.parameters.size(); i++) {
+                if (!mappedp.get(i)) {
+                    EntryParameters ep = params.parameters.get(i);
+                    ep.name_index =  ep.name_index == 0 ? 0 : getUtf8Index(cp, newCp, utf8Map, openSlots, utf8(cp, ep.name_index));
+                }
             }
         }
 
@@ -1082,6 +1132,18 @@ public class RecombobulatorRemapper {
         @Override
         public void visitEntryLocalVariableTypeTable(EntryLocalVariableTypeTable el) {
             el.signature_index = getUtf8Index(cp, newCp, utf8Map, openSlots, Mappings.remapSignature(mappings, utf8(cp, el.signature_index)));
+            if (isDynamic && el.index == 0) {
+                el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, THIS_STR);
+            } else if (el.index < lvtp.length) {
+                el.name_index = params.parameters.get(lvtp[el.index]).name_index;
+                if (el.name_index == 0) {
+                    el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, new Mutf8Slice("param" + lvtp[el.index]));
+                }
+            } else if (replaceLvtAndParams) {
+                el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, new Mutf8Slice("lv" + el.index));
+            } else {
+                el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, utf8(cp, el.name_index));
+            }
         }
 
         @Override
@@ -1119,6 +1181,18 @@ public class RecombobulatorRemapper {
         @Override
         public void visitEntryLocalVariableTable(EntryLocalVariableTable el) {
             el.descriptor_index = getUtf8Index(cp, newCp, utf8Map, openSlots, Mappings.remapFieldDescriptor(mappings, utf8(cp, el.descriptor_index)));
+            if (isDynamic && el.index == 0) {
+                el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, THIS_STR);
+            } else if (el.index < lvtp.length) {
+                el.name_index = params.parameters.get(lvtp[el.index]).name_index;
+                if (el.name_index == 0) {
+                    el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, new Mutf8Slice("param" + lvtp[el.index]));
+                }
+            } else if (replaceLvtAndParams) {
+                el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, new Mutf8Slice("lv" + el.index));
+            } else {
+                el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, utf8(cp, el.name_index));
+            }
         }
 
         @Override
@@ -1228,5 +1302,100 @@ public class RecombobulatorRemapper {
 
     static Mutf8Slice utf8(ConstantPool pool, int index) {
         return ((ConstantUtf8)pool.getEntry(index)).slice;
+    }
+
+    static int countParams(Mutf8Slice desc) {
+        int r = 0;
+        ByteBuffer b = desc.b;
+        int start = b.position() + 1;
+        int end = b.limit();
+        for (int i = start; i < end; i++) {
+            byte character = b.get(i);
+            switch (character) {
+                case ')':
+                    return r;
+                case 'V':
+                case 'B':
+                case 'C':
+                case 'D':
+                case 'F':
+                case 'I':
+                case 'J':
+                case 'S':
+                case 'Z':
+                    r += 1;
+                    break;
+                case '[':
+                    break;
+                case 'L':
+                    int classEnd = -1;
+                    for (int j = i + 1; j < end; j++) {
+                        if (b.get(j) == ';') {
+                            classEnd = j;
+                            break;
+                        }
+                    }
+                    i = classEnd;
+                    r += 1;
+                    break;
+                default:
+                    throw new RuntimeException("Illegal desc: " + desc.toString() + " " + ((char)character));
+            }
+        }
+        throw new RuntimeException("Illegal desc: " + desc.toString());
+    }
+
+    static void p2lvt(Mutf8Slice desc, int[] p2lvt, boolean isDynamic) {
+        ByteBuffer b = desc.b;
+        int start = b.position() + 1;
+        int end = b.limit();
+        int ppos = 0;
+        int plvt = isDynamic ? 1 : 0;
+        boolean inArray = false;
+        for (int i = start; i < end; i++) {
+            byte character = b.get(i);
+            switch (character) {
+                case ')':
+                    return;
+                case 'V':
+                case 'B':
+                case 'C':
+                case 'F':
+                case 'I':
+                case 'S':
+                case 'Z':
+                    p2lvt[ppos++] = plvt++;
+                    inArray = false;
+                    break;
+                case 'D':
+                case 'J':
+                    if (inArray) {
+                        p2lvt[ppos++] = plvt++;
+                        inArray = false;
+                    } else {
+                        p2lvt[ppos++] = plvt;
+                        plvt += 2;
+                    }
+                    break;
+                case '[':
+                    inArray = true;
+                    break;
+                case 'L':
+                    int classEnd = -1;
+                    for (int j = i + 1; j < end; j++) {
+                        if (b.get(j) == ';') {
+                            classEnd = j;
+                            break;
+                        }
+                    }
+                    i = classEnd;
+                    p2lvt[ppos++] = plvt++;
+                    inArray = false;
+                    break;
+                default:
+                    throw new RuntimeException("Illegal desc: " + desc.toString() + " " + ((char)character));
+            }
+        }
+        throw new RuntimeException("Illegal desc: " + desc.toString());
     }
 }

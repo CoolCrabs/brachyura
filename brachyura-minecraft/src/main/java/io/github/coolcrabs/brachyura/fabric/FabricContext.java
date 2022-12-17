@@ -163,7 +163,8 @@ public abstract class FabricContext {
                 getCompileDependencies(),
                 compmappings,
                 compmappings.getNamespaceId(Namespaces.NAMED),
-                compmappings.getNamespaceId(Namespaces.INTERMEDIARY)
+                compmappings.getNamespaceId(Namespaces.INTERMEDIARY),
+                false
             )
         ).apply(
             (in, id) -> sm.get(id).sink(in, id),
@@ -329,7 +330,7 @@ public abstract class FabricContext {
     }
 
     public ProcessorChain modRemapChainOverrideOnlyIfYouOverrideRemappedModsRootPathAndLogicVersion(MappingTree tree, String src, String dst, List<Path> cp, Map<ProcessingSource, MavenId> c) {
-        RemapperProcessor rp = new RemapperProcessor(cp, tree, tree.getNamespaceId(src), tree.getNamespaceId(dst));
+        RemapperProcessor rp = new RemapperProcessor(cp, tree, tree.getNamespaceId(src), tree.getNamespaceId(dst), false);
         return new ProcessorChain(
             rp,
             new MetaInfFixer(rp),
@@ -633,7 +634,7 @@ public abstract class FabricContext {
             Path result = fabricCache().resolve("intermediary").resolve(versionMeta.get().version + "-r" + Recombobulator.getVersion() + "-intermediary-" + intermediaryHash + ".jar");
             if (!Files.isRegularFile(result)) {
                 try (AtomicFile atomicFile = new AtomicFile(result)) {
-                    remapJar(intermediary.get(), Namespaces.OBF, Namespaces.INTERMEDIARY, mergedJar, atomicFile.tempPath, mcClasspathPaths.get());
+                    remapJar(intermediary.get(), Namespaces.OBF, Namespaces.INTERMEDIARY, mergedJar, atomicFile.tempPath, mcClasspathPaths.get(), false);
                     atomicFile.commit();
                 }
             }
@@ -649,7 +650,7 @@ public abstract class FabricContext {
         Path result = fabricCache().resolve("named").resolve(versionMeta.get().version + "-r" + Recombobulator.getVersion() + "-named-" + mappingHash + ".jar");
         if (!Files.isRegularFile(result)) {
             try (AtomicFile atomicFile = new AtomicFile(result)) {
-                remapJar(mappings.get(), Namespaces.INTERMEDIARY, Namespaces.NAMED, intermediaryjar.get().jar, atomicFile.tempPath, mcClasspathPaths.get());
+                remapJar(mappings.get(), Namespaces.INTERMEDIARY, Namespaces.NAMED, intermediaryjar.get().jar, atomicFile.tempPath, mcClasspathPaths.get(), true);
                 atomicFile.commit();
             }
         }
@@ -700,7 +701,7 @@ public abstract class FabricContext {
         return decompiler.getDecompiled(named.jar, decompClasspath(), resultDir, mappings.get(), Namespaces.NAMED).toJavaJarDep(null);
     }
 
-    public void remapJar(MappingTree mappings, String src, String dst, Path inputJar, Path outputJar, List<Path> classpath) {
+    public void remapJar(MappingTree mappings, String src, String dst, Path inputJar, Path outputJar, List<Path> classpath, boolean replaceLvt) {
         // TinyRemapper.Builder remapperBuilder = TinyRemapper.newRemapper()
         //     .withMappings(new MappingTreeMappingProvider(mappings, src, dst))
         //     .withMappings(Jsr2JetbrainsMappingProvider.INSTANCE)
@@ -716,7 +717,7 @@ public abstract class FabricContext {
             ZipProcessingSource source = new ZipProcessingSource(inputJar);
             ZipProcessingSink sink = new ZipProcessingSink(outputJar);
         ) {
-            new ProcessorChain(new RemapperProcessor(classpath, mappings, mappings.getNamespaceId(src), mappings.getNamespaceId(dst))).apply(sink, source);
+            new ProcessorChain(new RemapperProcessor(classpath, mappings, mappings.getNamespaceId(src), mappings.getNamespaceId(dst), replaceLvt)).apply(sink, source);
         }
     }
 

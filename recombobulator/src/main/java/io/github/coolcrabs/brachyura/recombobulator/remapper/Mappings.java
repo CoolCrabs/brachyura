@@ -2,17 +2,25 @@ package io.github.coolcrabs.brachyura.recombobulator.remapper;
 
 import java.nio.ByteBuffer;
 
+import org.jetbrains.annotations.Nullable;
+
 import io.github.coolcrabs.brachyura.recombobulator.ByteBufferUtil;
 import io.github.coolcrabs.brachyura.recombobulator.Mutf8Slice;
 import it.unimi.dsi.fastutil.bytes.ByteArrayList;
 
 public interface Mappings {
     Mutf8Slice mapClass(Mutf8Slice srcCls);
+
     default NameDescPair mapField(Mutf8Slice srcCls, NameDescPair srcField) {
         return new NameDescPair(srcField.name, remapFieldDescriptor(this, srcField.desc));
     }
+
     default NameDescPair mapMethod(Mutf8Slice srcCls, NameDescPair srcMethod) {
         return new NameDescPair(srcMethod.name, remapMethodDescriptor(this, srcMethod.desc));
+    }
+
+    default @Nullable Mutf8Slice mapParam(Mutf8Slice srcCls, NameDescPair srcMethod, int lvtIndex) {
+        return null;
     }
 
     public static Mutf8Slice remapFieldDescriptor(Mappings mappings, Mutf8Slice desc) {

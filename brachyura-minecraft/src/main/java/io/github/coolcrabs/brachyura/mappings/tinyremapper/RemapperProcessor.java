@@ -47,12 +47,14 @@ public class RemapperProcessor implements Processor {
     final MappingTree mappingTree;
     final int src;
     final int dst;
+    final boolean replaceLvt;
 
-    public RemapperProcessor(List<Path> classpath, MappingTree mappingTree, int src, int dst) {
+    public RemapperProcessor(List<Path> classpath, MappingTree mappingTree, int src, int dst, boolean replaceLvt) {
         this.classpath = classpath;
         this.mappingTree = mappingTree;
         this.src = src;
         this.dst = dst;
+        this.replaceLvt = replaceLvt;
     }
 
     @Override
@@ -114,6 +116,9 @@ public class RemapperProcessor implements Processor {
             RecombobulatorRemapper remapper = new RecombobulatorRemapper();
             remapper.setClasses(ins);
             remapper.setMappings(mappings);
+            if (replaceLvt) {
+                remapper.replaceLvtAndParams();
+            }
             ConcurrentLinkedQueue<ProcessingEntry> o = new ConcurrentLinkedQueue<>();
             remapper.setOutput(new RemapperOutputConsumer() {
                 public void outputClass(String path, ClassInfo ci, Object tag) {

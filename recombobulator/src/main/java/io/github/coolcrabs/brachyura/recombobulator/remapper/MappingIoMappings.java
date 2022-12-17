@@ -19,15 +19,20 @@ import org.tinylog.Logger;
 import io.github.coolcrabs.brachyura.recombobulator.AccessFlags;
 import io.github.coolcrabs.brachyura.recombobulator.Mutf8Slice;
 import io.github.coolcrabs.brachyura.recombobulator.remapper.InheritanceMap.InheritanceGroup;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.fabricmc.mappingio.tree.MappingTree;
 import net.fabricmc.mappingio.tree.MappingTree.ClassMapping;
 import net.fabricmc.mappingio.tree.MappingTree.FieldMapping;
+import net.fabricmc.mappingio.tree.MappingTree.MethodArgMapping;
 import net.fabricmc.mappingio.tree.MappingTree.MethodMapping;
 
 public class MappingIoMappings implements Mappings {
+    public static final boolean LOG_PARAM_CONFLICS = Boolean.getBoolean("recombobulator.logparamconflicts");
+
     private final Map<Mutf8Slice, Mutf8Slice> classMap;
     final Int2ObjectOpenHashMap<NameDescPair> methodMap;
+    final Int2ObjectOpenHashMap<Int2ObjectOpenHashMap<Mutf8Slice>> methodArgMap;
     private final InheritanceMap inheritanceMap;
     private final ConcurrentHashMap<Mutf8Slice, HashMap<NameDescPair, NameDescPair>> fieldMap;
 
@@ -73,9 +78,11 @@ public class MappingIoMappings implements Mappings {
         class IntNameDescPairPair {
             int key;
             NameDescPair value;
+            Int2ObjectOpenHashMap<Mutf8Slice> params;
         }
         int size = inheritanceMap.curId;
         methodMap = new Int2ObjectOpenHashMap<>(size);
+        methodArgMap = new Int2ObjectOpenHashMap<>(size);
         boolean conflict = false;
         ArrayList<Future<List<IntNameDescPairPair>>> futures1 = new ArrayList<>(size);
         for (ClassMapping c : tree.getClasses()) {
@@ -102,6 +109,19 @@ public class MappingIoMappings implements Mappings {
                     IntNameDescPairPair indpp = new IntNameDescPairPair();
                     indpp.key = igroup.id;
                     indpp.value = mdst;
+                    int s = 0;
+                    for (MethodArgMapping mam : m.getArgs()) {
+                        if (mam.getName(dst) != null) s++;
+                    }
+                    if (s > 0) {
+                        indpp.params = new Int2ObjectOpenHashMap<>(s);
+                        for (MethodArgMapping mam : m.getArgs()) {
+                            String mamn = mam.getName(dst);
+                            if (mamn != null) {
+                                indpp.params.put(mam.getLvIndex(), new Mutf8Slice(mamn));
+                            }
+                        }
+                    }
                     r.add(indpp);
                 }
                 return r;
@@ -113,8 +133,21 @@ public class MappingIoMappings implements Mappings {
                 for (IntNameDescPairPair indpp : indpps) {
                     NameDescPair old = methodMap.put(indpp.key, indpp.value);
                     if (old != null && !old.equals(indpp.value)) {
-                        Logger.error("Method mapping confllict {} {} {}", indpp.key, old, indpp.value);
+                        Logger.error("Method mapping confllict {} {} {}", indpp.value, old, indpp.value);
                         conflict = true;
+                    }
+                    if (indpp.params != null) {
+                        methodArgMap.compute(indpp.key, (k, v) -> {
+                            if (v == null) return indpp.params;
+                            for (Int2ObjectMap.Entry<Mutf8Slice> e : indpp.params.int2ObjectEntrySet()) {
+                                Mutf8Slice o = v.put(e.getIntKey(), e.getValue());
+                                if (o != null && !o.equals(e.getValue())) {
+                                    if (LOG_PARAM_CONFLICS) Logger.warn("Param conflict {} {} {}", indpp.value, o, e.getValue());
+                                    v.put(e.getIntKey(), o.compareTo(e.getValue()) > 0 ? o : e.getValue());
+                                }
+                            }
+                            return v;
+                        });
                     }
                 }
             } catch (InterruptedException | ExecutionException e) {
@@ -191,5 +224,16 @@ public class MappingIoMappings implements Mappings {
             b = b0;
         }
         return new NameDescPair(srcField.name, Mappings.remapFieldDescriptor(this, srcField.desc));
+    }
+
+    @Override
+    public @Nullable Mutf8Slice mapParam(Mutf8Slice srcCls, NameDescPair srcMethod, int lvtIndex) {
+        InheritanceGroup ig = mapMethod0(srcCls, srcMethod, true);
+        if (ig != null) {
+            Int2ObjectOpenHashMap<Mutf8Slice> r1 = methodArgMap.get(ig.id);
+            if (r1 == null) return null;
+            return r1.get(lvtIndex);
+        }
+        return null;
     }
 }
