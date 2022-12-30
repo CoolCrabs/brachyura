@@ -55,6 +55,7 @@ class FabricProjectTest {
             jij(d.addMaven(FabricMaven.URL, new MavenId(FabricMaven.GROUP_ID + ".fabric-api", "fabric-game-rule-api-v1", "1.0.13+d7c144a860"), ModDependencyFlag.RUNTIME, ModDependencyFlag.COMPILE));
             jij(d.addMaven(FabricMaven.URL, new MavenId(FabricMaven.GROUP_ID + ".fabric-api", "fabric-registry-sync-v0", "0.9.8+0d9ab37260"), ModDependencyFlag.RUNTIME, ModDependencyFlag.COMPILE));
             jij(d.addMaven(Maven.MAVEN_CENTRAL, new MavenId("org.ini4j:ini4j:0.5.4"), ModDependencyFlag.RUNTIME, ModDependencyFlag.COMPILE));
+            d.addMaven(Maven.MAVEN_CENTRAL, new MavenId("org.antlr:antlr4-runtime:4.11.1"), ModDependencyFlag.COMPILE, ModDependencyFlag.RUNTIME);
         };
 
         @Override

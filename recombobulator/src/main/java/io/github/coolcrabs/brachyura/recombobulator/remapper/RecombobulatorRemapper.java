@@ -111,6 +111,8 @@ import io.github.coolcrabs.brachyura.recombobulator.attribute.VerificationTypeNo
 import io.github.coolcrabs.brachyura.recombobulator.attribute.VerificationTypeObject;
 import io.github.coolcrabs.brachyura.recombobulator.attribute.VerificationTypeUninitialized;
 import io.github.coolcrabs.brachyura.recombobulator.util.ConstantPoolRefCounter;
+import it.unimi.dsi.fastutil.ints.Int2IntRBTreeMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectRBTreeMap;
 import it.unimi.dsi.fastutil.ints.IntArrayFIFOQueue;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 
@@ -120,6 +122,7 @@ public class RecombobulatorRemapper {
     Collection<OutputFile> toOutput = new ArrayList<>();
     Mappings mappings;
     boolean replaceLvtAndParams;
+    boolean fixSourceFiles;
 
     static final Mutf8Slice THIS_STR = new Mutf8Slice("this");
 
@@ -141,6 +144,10 @@ public class RecombobulatorRemapper {
 
     public void replaceLvtAndParams() {
         this.replaceLvtAndParams = true;
+    }
+
+    public void fixSourceFiles() {
+        this.fixSourceFiles = true;
     }
 
     public static class Input {
@@ -173,7 +180,7 @@ public class RecombobulatorRemapper {
     static final Mutf8Slice STRING_CONCAT_FACTORY = new Mutf8Slice("java/lang/invoke/StringConcatFactory");
     static final Mutf8Slice OBJECT_METHODS = new Mutf8Slice("java/lang/runtime/ObjectMethods");
 
-    public static class DerefVisitor implements RecombobulatorVisitor {
+    public class DerefVisitor implements RecombobulatorVisitor {
         final ConstantPoolRefCounter refs;
         final ConstantPool cp;
         int utf8Size = 0;
@@ -532,7 +539,7 @@ public class RecombobulatorRemapper {
 
         @Override
         public void visitAttributeSourceFile(AttributeSourceFile el) {
-            //noop
+            if (fixSourceFiles) refs.ref(el.sourcefile_index, -1);
         }
 
         @Override
@@ -615,16 +622,18 @@ public class RecombobulatorRemapper {
         final Object2IntOpenHashMap<Mutf8Slice> utf8Map;
         final Object2IntOpenHashMap<NameDescPair> nameAndTypeMap;
         final IntArrayFIFOQueue openSlots;
+        final ConstantPoolRefCounter refs;
 
         Mutf8Slice clsName;
 
-        public RemapVisitor(ConstantPool cp, ConstantPool newCp, Mappings mappings, Object2IntOpenHashMap<Mutf8Slice> utf8Map, Object2IntOpenHashMap<NameDescPair> nameAndTypeMap, IntArrayFIFOQueue openSlots) {
+        public RemapVisitor(ConstantPool cp, ConstantPool newCp, Mappings mappings, Object2IntOpenHashMap<Mutf8Slice> utf8Map, Object2IntOpenHashMap<NameDescPair> nameAndTypeMap, IntArrayFIFOQueue openSlots, ConstantPoolRefCounter refs) {
             this.cp = cp;
             this.newCp = newCp;
             this.mappings = mappings;
             this.utf8Map = utf8Map;
             this.nameAndTypeMap = nameAndTypeMap;
             this.openSlots = openSlots;
+            this.refs = refs;
         }
 
         @Override
@@ -640,6 +649,7 @@ public class RecombobulatorRemapper {
                 }
             }
             for (int i = 1; i <= cp.size(); i++) {
+                if (refs.getRef(i) == 0) continue;
                 ConstantPoolEntry e = cp.getEntry(i);
                 if (e instanceof ConstantFieldref) {
                     ConstantFieldref o = (ConstantFieldref) e;
@@ -738,6 +748,7 @@ public class RecombobulatorRemapper {
         AttributeMethodParameters params;
         boolean isDynamic;
         int[] lvtp;
+        Int2ObjectRBTreeMap<Mutf8Slice> lvtTypeMap;
 
         @Override
         public void visitMethodInfo(MethodInfo el) {
@@ -747,8 +758,20 @@ public class RecombobulatorRemapper {
             el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, mapped.name);
             el.descriptor_index = getUtf8Index(cp, newCp, utf8Map, openSlots, mapped.desc);
             params = null;
+            lvtTypeMap = new Int2ObjectRBTreeMap<>();
             for (Attribute a : el.attributes) {
                 if (a instanceof AttributeMethodParameters) params = (AttributeMethodParameters) a;
+                if (a instanceof AttributeCode) {
+                    AttributeCode c = (AttributeCode) a;
+                    for (Attribute a0 : c.attributes) {
+                        if (a0 instanceof AttributeLocalVariableTable) {
+                            AttributeLocalVariableTable alvt = (AttributeLocalVariableTable) a0;
+                            for (EntryLocalVariableTable elvt : alvt.local_variable_table) {
+                                lvtTypeMap.put(elvt.index, Mappings.remapFieldDescriptor(mappings, utf8(cp, elvt.descriptor_index)));
+                            }
+                        }
+                    }
+                }
             }
             int pcount = countParams(mapped.desc);
             int[] plvt = new int[pcount];
@@ -1096,7 +1119,36 @@ public class RecombobulatorRemapper {
 
         @Override
         public void visitAttributeSourceFile(AttributeSourceFile el) {
-            //noop
+            if (!fixSourceFiles) return;
+            Mutf8Slice mcls = mappings.mapClass(clsName);
+            ByteBuffer bb = mcls.b;
+            int start = bb.position();
+            int a = bb.limit() - 1;
+            for (; a > start; a--) {
+                byte c = bb.get(a);
+                if (c == (byte) '/') {
+                    ++a;
+                    break;
+                }
+            }
+            int b = a;
+            for (; b < bb.limit(); b++) {
+                byte c = bb.get(b);
+                if (c == (byte) '$') {
+                    break;
+                }
+            }
+            int size = b - a;
+            byte[] r = new byte[size + 5];
+            for (int i = 0; i < size; i++) {
+                r[i] = bb.get(a + i);
+            }
+            r[size] = '.';
+            r[size + 1] = 'j';
+            r[size + 2] = 'a';
+            r[size + 3] = 'v';
+            r[size + 4] = 'a';
+            el.sourcefile_index = getUtf8Index(cp, newCp, utf8Map, openSlots, new Mutf8Slice(ByteBuffer.wrap(r)));
         }
 
         @Override
@@ -1132,15 +1184,15 @@ public class RecombobulatorRemapper {
         @Override
         public void visitEntryLocalVariableTypeTable(EntryLocalVariableTypeTable el) {
             el.signature_index = getUtf8Index(cp, newCp, utf8Map, openSlots, Mappings.remapSignature(mappings, utf8(cp, el.signature_index)));
-            if (isDynamic && el.index == 0) {
+            if (replaceLvtAndParams && isDynamic && el.index == 0) {
                 el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, THIS_STR);
-            } else if (el.index < lvtp.length) {
+            } else if (replaceLvtAndParams && el.index < lvtp.length) {
                 el.name_index = params.parameters.get(lvtp[el.index]).name_index;
                 if (el.name_index == 0) {
-                    el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, new Mutf8Slice("param" + lvtp[el.index]));
+                    el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, new Mutf8Slice("p" + getLvNameTypeThing(lvtTypeMap.get(el.index)) + lvtp[el.index]));
                 }
             } else if (replaceLvtAndParams) {
-                el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, new Mutf8Slice("lv" + el.index));
+                el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, new Mutf8Slice("lv" + getLvNameTypeThing(lvtTypeMap.get(el.index)) + el.index));
             } else {
                 el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, utf8(cp, el.name_index));
             }
@@ -1180,16 +1232,17 @@ public class RecombobulatorRemapper {
 
         @Override
         public void visitEntryLocalVariableTable(EntryLocalVariableTable el) {
-            el.descriptor_index = getUtf8Index(cp, newCp, utf8Map, openSlots, Mappings.remapFieldDescriptor(mappings, utf8(cp, el.descriptor_index)));
-            if (isDynamic && el.index == 0) {
+            Mutf8Slice desc = Mappings.remapFieldDescriptor(mappings, utf8(cp, el.descriptor_index));
+            el.descriptor_index = getUtf8Index(cp, newCp, utf8Map, openSlots, desc);
+            if (replaceLvtAndParams && isDynamic && el.index == 0) {
                 el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, THIS_STR);
-            } else if (el.index < lvtp.length) {
+            } else if (replaceLvtAndParams && el.index < lvtp.length) {
                 el.name_index = params.parameters.get(lvtp[el.index]).name_index;
                 if (el.name_index == 0) {
-                    el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, new Mutf8Slice("param" + lvtp[el.index]));
+                    el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, new Mutf8Slice("p" + getLvNameTypeThing(desc) + lvtp[el.index]));
                 }
             } else if (replaceLvtAndParams) {
-                el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, new Mutf8Slice("lv" + el.index));
+                el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, new Mutf8Slice("lv" + getLvNameTypeThing(desc) + el.index));
             } else {
                 el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, utf8(cp, el.name_index));
             }
@@ -1215,38 +1268,43 @@ public class RecombobulatorRemapper {
         for (Input in : toRead) {
             futures.add(
                 threadpool.submit(() -> {
-                    ClassInfo ci = in.readSup.get();
-                    ConstantPool cp = ci.pool;
-                    ConstantPoolRefCounter refs = new ConstantPoolRefCounter(cp);
-                    ci.accept(refs);
-                    DerefVisitor drefv = new DerefVisitor(cp, refs);
-                    ci.accept(drefv);
-                    // Build maps & freelist
-                    Object2IntOpenHashMap<Mutf8Slice> utf8Map = new Object2IntOpenHashMap<>(drefv.utf8Size);
-                    Object2IntOpenHashMap<NameDescPair> nameAndTypeMap = new Object2IntOpenHashMap<>(drefv.nameAndTypeSize);
-                    IntArrayFIFOQueue openSlots = new IntArrayFIFOQueue(drefv.utf8Size + drefv.nameAndTypeSize); // TODO is this a reasonable sizing
-                    for (int i = 1; i <= cp.size(); i++) {
-                        if (refs.getRef(i) == 0) {
-                            openSlots.enqueue(i);
-                        } else {
-                            ConstantPoolEntry e = cp.getEntry(i);
-                            if (e instanceof ConstantUtf8) {
-                                utf8Map.put(((ConstantUtf8)e).slice, i);
-                            } else if (e instanceof ConstantNameAndType) {
-                                ConstantNameAndType o = (ConstantNameAndType) e;
-                                nameAndTypeMap.put(new NameDescPair(utf8(cp, o.name_index), utf8(cp, o.descriptor_index)), i);
+                    try {
+                        ClassInfo ci = in.readSup.get();
+                        ConstantPool cp = ci.pool;
+                        ConstantPoolRefCounter refs = new ConstantPoolRefCounter(cp);
+                        ci.accept(refs);
+                        DerefVisitor drefv = new DerefVisitor(cp, refs);
+                        ci.accept(drefv);
+                        // Build maps & freelist
+                        Object2IntOpenHashMap<Mutf8Slice> utf8Map = new Object2IntOpenHashMap<>(drefv.utf8Size);
+                        Object2IntOpenHashMap<NameDescPair> nameAndTypeMap = new Object2IntOpenHashMap<>(drefv.nameAndTypeSize);
+                        IntArrayFIFOQueue openSlots = new IntArrayFIFOQueue(drefv.utf8Size + drefv.nameAndTypeSize); // TODO is this a reasonable sizing
+                        for (int i = 1; i <= cp.size(); i++) {
+                            if (refs.getRef(i) == 0) {
+                                openSlots.enqueue(i);
+                            } else {
+                                ConstantPoolEntry e = cp.getEntry(i);
+                                if (e instanceof ConstantUtf8) {
+                                    utf8Map.put(((ConstantUtf8)e).slice, i);
+                                } else if (e instanceof ConstantNameAndType) {
+                                    ConstantNameAndType o = (ConstantNameAndType) e;
+                                    nameAndTypeMap.put(new NameDescPair(utf8(cp, o.name_index), utf8(cp, o.descriptor_index)), i);
+                                }
                             }
                         }
+                        // Remap everything
+                        ConstantPool newCp = cp.duplicate();
+                        RemapVisitor remapVisitor = new RemapVisitor(cp, newCp, mappings, utf8Map, nameAndTypeMap, openSlots, refs);
+                        ci.accept(remapVisitor);
+                        while (!openSlots.isEmpty()) {
+                            newCp.setEntry(openSlots.dequeueInt(), new ConstantInteger(1337)); // B)
+                        }
+                        ci.pool = newCp;
+                        output.outputClass(cls2Utf8(newCp, ci.this_class) + ".class", ci, in.tag);
+                    } catch (Exception e) {
+                        Logger.error("Error remapping {}", in.path);
+                        throw e;
                     }
-                    // Remap everything
-                    ConstantPool newCp = cp.duplicate();
-                    RemapVisitor remapVisitor = new RemapVisitor(cp, newCp, mappings, utf8Map, nameAndTypeMap, openSlots);
-                    ci.accept(remapVisitor);
-                    while (!openSlots.isEmpty()) {
-                        newCp.setEntry(openSlots.dequeueInt(), new ConstantInteger(1337)); // B)
-                    }
-                    ci.pool = newCp;
-                    output.outputClass(cls2Utf8(newCp, ci.this_class) + ".class", ci, in.tag);
                 })
             );
         }
@@ -1263,6 +1321,81 @@ public class RecombobulatorRemapper {
             } catch (InterruptedException | ExecutionException e) {
                 throw new RuntimeException(e);
             }
+        }
+    }
+
+    static String getLvNameTypeThing(Mutf8Slice desc) {
+        if (desc == null) {
+            return "";
+        }
+        ByteBuffer b = desc.b;
+        int start = b.position();
+        int end = b.limit();
+        int arraycnt = 0;
+        String typeStr = null;
+        loop:
+        for (int i = start; i < end; i++) {
+            byte character = b.get(i);
+            switch (character) {
+                case '[':
+                    arraycnt += 1;
+                    break;
+                case 'B':
+                    typeStr = "Byte";
+                    break loop;
+                case 'C':
+                    typeStr = "Char";
+                    break loop;
+                case 'D':
+                    typeStr = "Double";
+                    break loop;
+                case 'F':
+                    typeStr = "Float";
+                    break loop;
+                case 'I':
+                    typeStr = "Int";
+                    break loop;
+                case 'J':
+                    typeStr = "Long";
+                    break loop;
+                case 'S':
+                    typeStr = "Short";
+                    break loop;
+                case 'Z':
+                    typeStr = "Boolean";
+                    break loop;
+                case 'L':
+                    int simpleClassStart = i + 1;
+                    int classEnd = -1;
+                    for (int j = i + 1; j < end; j++) {
+                        byte c = b.get(j); 
+                        if (c == ';') {
+                            classEnd = j;
+                            break;
+                        } else if (c == '/') {
+                            simpleClassStart = j + 1;
+                        }
+                    }
+                    String typeStr0 = new Mutf8Slice(ByteBufferUtil.slice(b, simpleClassStart, classEnd)).toString();
+                    StringBuilder sb = new StringBuilder(typeStr0.length());
+                    for (int j = 0; j < typeStr0.length(); j++) {
+                        char c = typeStr0.charAt(j);
+                        if (Character.isJavaIdentifierPart(c)) {
+                            sb.append(c);
+                        }
+                    }
+                    typeStr = sb.toString();
+                    break loop;
+                default:
+                    throw new RuntimeException("Illegal desc: " + desc.toString() + " " + ((char)character));
+            }
+        }
+        if (arraycnt == 0) {
+            return typeStr;
+        } else if (arraycnt == 1) {
+            return typeStr + "Array";
+        } else {
+            return arraycnt + "D" + typeStr + "Array";
         }
     }
 

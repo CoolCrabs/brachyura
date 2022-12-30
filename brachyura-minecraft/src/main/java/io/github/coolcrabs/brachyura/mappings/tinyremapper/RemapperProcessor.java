@@ -47,14 +47,14 @@ public class RemapperProcessor implements Processor {
     final MappingTree mappingTree;
     final int src;
     final int dst;
-    final boolean replaceLvt;
+    final boolean isNamedMc;
 
-    public RemapperProcessor(List<Path> classpath, MappingTree mappingTree, int src, int dst, boolean replaceLvt) {
+    public RemapperProcessor(List<Path> classpath, MappingTree mappingTree, int src, int dst, boolean isNamedMc) {
         this.classpath = classpath;
         this.mappingTree = mappingTree;
         this.src = src;
         this.dst = dst;
-        this.replaceLvt = replaceLvt;
+        this.isNamedMc = isNamedMc;
     }
 
     @Override
@@ -116,8 +116,13 @@ public class RemapperProcessor implements Processor {
             RecombobulatorRemapper remapper = new RecombobulatorRemapper();
             remapper.setClasses(ins);
             remapper.setMappings(mappings);
-            if (replaceLvt) {
+            if (isNamedMc) {
                 remapper.replaceLvtAndParams();
+                remapper.fixSourceFiles();
+                MappingIoMappings mim = (MappingIoMappings) mappings;
+                mim.addClassMapping(new Mutf8Slice("javax/annotation/Nullable"), new Mutf8Slice("org/jetbrains/annotations/Nullable"));
+                mim.addClassMapping(new Mutf8Slice("javax/annotation/Nonnull"), new Mutf8Slice("org/jetbrains/annotations/NotNull"));
+                mim.addClassMapping(new Mutf8Slice("javax/annotation/concurrent/Immutable"), new Mutf8Slice("org/jetbrains/annotations/Unmodifiable"));
             }
             ConcurrentLinkedQueue<ProcessingEntry> o = new ConcurrentLinkedQueue<>();
             remapper.setOutput(new RemapperOutputConsumer() {

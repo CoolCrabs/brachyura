@@ -24,7 +24,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -158,9 +157,14 @@ public abstract class FabricContext {
             });
             r.put(fm, s);
         }
+        ArrayList<Path> remapDeps = new ArrayList<>();
+        remapDeps.add(namedJar.get().jar);
+        for (ModDependency dep : remappedModDependencies.get()) {
+            if (dep.flags.contains(ModDependencyFlag.COMPILE)) remapDeps.add(dep.jarDependency.jar);
+        }
         new ProcessorChain(
             new RemapperProcessor(
-                getCompileDependencies(),
+                remapDeps,
                 compmappings,
                 compmappings.getNamespaceId(Namespaces.NAMED),
                 compmappings.getNamespaceId(Namespaces.INTERMEDIARY),
@@ -391,9 +395,6 @@ public abstract class FabricContext {
                 try (AtomicDirectory a = new AtomicDirectory(resultdir)) {
                     ArrayList<Path> cp = new ArrayList<>();
                     cp.add(intermediaryjar.get().jar);
-                    for (JavaJarDependency dep : mcClasspath.get()) {
-                        cp.add(dep.jar);
-                    }
                     HashMap<ProcessingSource, ZipProcessingSink> b = new HashMap<>();
                     HashMap<ProcessingSource, MavenId> c = new HashMap<>();
                     try (CloseableArrayList toClose = new CloseableArrayList()) {

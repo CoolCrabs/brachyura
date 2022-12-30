@@ -157,6 +157,11 @@ public class MappingIoMappings implements Mappings {
         if (conflict) throw new RuntimeException("Mapping conflict");
     }
 
+    //3am hack
+    public void addClassMapping(Mutf8Slice src, Mutf8Slice dst) {
+        classMap.put(src, dst);
+    }
+
     @Override
     public Mutf8Slice mapClass(Mutf8Slice srcCls) {
         return classMap.getOrDefault(srcCls, srcCls);

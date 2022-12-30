@@ -16,6 +16,7 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.stream.Stream;
 
@@ -48,13 +49,13 @@ public class Main {
                 Stream<Path> b = Files.walk(a, 1);
                 Path jar = 
                     b.filter(p -> p.toString().endsWith(".jar") && !p.toString().endsWith("-sources.jar") && !p.toString().endsWith("-test.jar"))
-                    .sorted(Comparator.comparingLong(p -> {
+                    .sorted(Collections.reverseOrder(Comparator.comparingLong(p -> {
                         try {
                             return Files.getLastModifiedTime(p).toMillis();
                         } catch (IOException e) {
                             throw new RuntimeException(e);
                         }
-                    })).findFirst()
+                    }))).findFirst()
                     .orElseThrow(() -> new RuntimeException(lib));
                 b.close();
                 Path sources = jar.getParent().resolve(jar.getFileName().toString().replace(".jar", "-sources.jar"));
