@@ -66,7 +66,7 @@ class J8FabricProjectTest {
             long s2 = System.currentTimeMillis() - s;
             System.out.println(s2);
             if (JvmUtil.CURRENT_JAVA_VERSION == 8) // TestMod.java produces different cp order in j8 and j17
-                TestUtil.assertSha256(b.jar, "daad101c55eaedccbe8b9650666c63f1e6a5541911c9e202aa71184a2366e4ad");
+                TestUtil.assertSha256(b.jar, "ad51e8ff297d02d7388ddc28f64f85bd5e960ab9120a1172ace969aa9a785835");
         } catch (Exception e) {
             e.printStackTrace();
             throw e;

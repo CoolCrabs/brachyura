@@ -13,6 +13,7 @@ import io.github.coolcrabs.brachyura.dependency.JavaJarDependency;
 import io.github.coolcrabs.brachyura.fabric.FabricContext.ModDependencyCollector;
 import io.github.coolcrabs.brachyura.minecraft.Minecraft;
 import io.github.coolcrabs.brachyura.minecraft.VersionMeta;
+import io.github.coolcrabs.brachyura.util.JvmUtil;
 import net.fabricmc.mappingio.tree.MappingTree;
 
 public class NoMixinProjectTest {
@@ -56,8 +57,8 @@ public class NoMixinProjectTest {
             JavaJarDependency b = fabricProject.build();
             long s2 = System.currentTimeMillis() - s;
             System.out.println(s2);
-            // Seems to work accross java versions for now
-            TestUtil.assertSha256(b.jar, "51f89d5ffdbae7c6a861168d12f7a4b852dbbd2ad2778342fe97224b12da454b");
+            if (JvmUtil.CURRENT_JAVA_VERSION == 8)
+                TestUtil.assertSha256(b.jar, "28752bdbdc185ee2629ccb79667737ca08bdcb3fef679fceac61564350689b69");
         } catch (Exception e) {
             e.printStackTrace();
             throw e;
