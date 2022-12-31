@@ -58,7 +58,7 @@ public class NoMixinProjectTest {
             long s2 = System.currentTimeMillis() - s;
             System.out.println(s2);
             if (JvmUtil.CURRENT_JAVA_VERSION == 8)
-                TestUtil.assertSha256(b.jar, "28752bdbdc185ee2629ccb79667737ca08bdcb3fef679fceac61564350689b69");
+                TestUtil.assertSha256(b.jar, "680f6122e8ef0a9f8f42f14189d7ca7e2c0bf252674af89614c5762366d7f748");
         } catch (Exception e) {
             e.printStackTrace();
             throw e;

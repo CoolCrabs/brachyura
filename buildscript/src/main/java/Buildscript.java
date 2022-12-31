@@ -277,7 +277,7 @@ public class Buildscript extends BaseJavaProject {
     public final BJavaModule recombobulator = new BJavaModule() {
         @Override
         MavenId getId() {
-            return new MavenId(GROUP, "recombobulator", "0.0.1");
+            return new MavenId(GROUP, "recombobulator", "0.0.2");
         }
 
         @Override
@@ -417,7 +417,7 @@ public class Buildscript extends BaseJavaProject {
     public final BJavaModule brachyuraMinecraft = new BJavaModule() {
         @Override
         MavenId getId() {
-            return new MavenId(GROUP, "brachyura-minecraft", "0.2");
+            return new MavenId(GROUP, "brachyura-minecraft", "0.3");
         }
 
         @Override

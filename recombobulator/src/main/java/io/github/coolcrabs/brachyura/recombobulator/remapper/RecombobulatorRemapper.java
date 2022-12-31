@@ -5,6 +5,8 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.TreeMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
@@ -111,9 +113,10 @@ import io.github.coolcrabs.brachyura.recombobulator.attribute.VerificationTypeNo
 import io.github.coolcrabs.brachyura.recombobulator.attribute.VerificationTypeObject;
 import io.github.coolcrabs.brachyura.recombobulator.attribute.VerificationTypeUninitialized;
 import io.github.coolcrabs.brachyura.recombobulator.util.ConstantPoolRefCounter;
-import it.unimi.dsi.fastutil.ints.Int2IntRBTreeMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectRBTreeMap;
 import it.unimi.dsi.fastutil.ints.IntArrayFIFOQueue;
+import it.unimi.dsi.fastutil.ints.IntIntImmutablePair;
+import it.unimi.dsi.fastutil.ints.IntIntPair;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 
 public class RecombobulatorRemapper {
@@ -748,7 +751,7 @@ public class RecombobulatorRemapper {
         AttributeMethodParameters params;
         boolean isDynamic;
         int[] lvtp;
-        Int2ObjectRBTreeMap<Mutf8Slice> lvtTypeMap;
+        HashMap<IntIntImmutablePair, Mutf8Slice> lvtTypeMap;
 
         @Override
         public void visitMethodInfo(MethodInfo el) {
@@ -758,7 +761,7 @@ public class RecombobulatorRemapper {
             el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, mapped.name);
             el.descriptor_index = getUtf8Index(cp, newCp, utf8Map, openSlots, mapped.desc);
             params = null;
-            lvtTypeMap = new Int2ObjectRBTreeMap<>();
+            lvtTypeMap = new HashMap<>();
             for (Attribute a : el.attributes) {
                 if (a instanceof AttributeMethodParameters) params = (AttributeMethodParameters) a;
                 if (a instanceof AttributeCode) {
@@ -767,7 +770,7 @@ public class RecombobulatorRemapper {
                         if (a0 instanceof AttributeLocalVariableTable) {
                             AttributeLocalVariableTable alvt = (AttributeLocalVariableTable) a0;
                             for (EntryLocalVariableTable elvt : alvt.local_variable_table) {
-                                lvtTypeMap.put(elvt.index, Mappings.remapFieldDescriptor(mappings, utf8(cp, elvt.descriptor_index)));
+                                lvtTypeMap.put(new IntIntImmutablePair(elvt.start_pc, elvt.index), Mappings.remapFieldDescriptor(mappings, utf8(cp, elvt.descriptor_index)));
                             }
                         }
                     }
@@ -784,11 +787,12 @@ public class RecombobulatorRemapper {
                     lvtp[plvt[i]] = i;
                 }
             }
-            if (params == null)  {
+            if (params == null && replaceLvtAndParams && pcount > 0)  {
                 ArrayList<EntryParameters> p = new ArrayList<>(pcount);
                 params = new AttributeMethodParameters(getUtf8Index(cp, newCp, utf8Map, openSlots, AttributeMethodParameters.NAME), p);
                 el.attributes.add(params);
             }
+            if (params == null) return;
             while (params.parameters.size() < pcount) {
                 params.parameters.add(new EntryParameters(0, 0));
             }
@@ -1187,12 +1191,12 @@ public class RecombobulatorRemapper {
             if (replaceLvtAndParams && isDynamic && el.index == 0) {
                 el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, THIS_STR);
             } else if (replaceLvtAndParams && el.index < lvtp.length) {
-                el.name_index = params.parameters.get(lvtp[el.index]).name_index;
+                el.name_index = params == null ? 0 : params.parameters.get(lvtp[el.index]).name_index;
                 if (el.name_index == 0) {
-                    el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, new Mutf8Slice("p" + getLvNameTypeThing(lvtTypeMap.get(el.index)) + lvtp[el.index]));
+                    el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, new Mutf8Slice("p" + getLvNameTypeThing(lvtTypeMap.get(new IntIntImmutablePair(el.start_pc, el.index))) + lvtp[el.index]));
                 }
             } else if (replaceLvtAndParams) {
-                el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, new Mutf8Slice("lv" + getLvNameTypeThing(lvtTypeMap.get(el.index)) + el.index));
+                el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, new Mutf8Slice("lv" + getLvNameTypeThing(lvtTypeMap.get(new IntIntImmutablePair(el.start_pc, el.index))) + el.index));
             } else {
                 el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, utf8(cp, el.name_index));
             }
@@ -1237,7 +1241,7 @@ public class RecombobulatorRemapper {
             if (replaceLvtAndParams && isDynamic && el.index == 0) {
                 el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, THIS_STR);
             } else if (replaceLvtAndParams && el.index < lvtp.length) {
-                el.name_index = params.parameters.get(lvtp[el.index]).name_index;
+                el.name_index = params == null ? 0 : params.parameters.get(lvtp[el.index]).name_index;
                 if (el.name_index == 0) {
                     el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, new Mutf8Slice("p" + getLvNameTypeThing(desc) + lvtp[el.index]));
                 }
