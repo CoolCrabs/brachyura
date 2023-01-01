@@ -62,6 +62,8 @@ public class RemapperProcessor implements Processor {
         LinkedList<Entry<Mutf8Slice, Supplier<ClassInfo>>> inherClasses = new LinkedList<>();
         ArrayList<Input> ins = new ArrayList<>(inputs.size());
         RecombobulatorOptions options = new RecombobulatorOptions();
+        RecombobulatorOptions cpoptions = new RecombobulatorOptions();
+        cpoptions.lazyAttributes = true;
         try (CloseableArrayList toClose = new CloseableArrayList()) {
             for (Path j : classpath) {
                 Path root;
@@ -85,7 +87,7 @@ public class RemapperProcessor implements Processor {
                             b.setLength(b.length() - 7);
                             inherClasses.add(new AbstractMap.SimpleImmutableEntry<>(new Mutf8Slice(b.toString()), () -> {
                                 try {
-                                    return new ClassInfo(ByteBuffer.wrap(Files.readAllBytes(file)), options);
+                                    return new ClassInfo(ByteBuffer.wrap(Files.readAllBytes(file)), cpoptions);
                                 } catch (IOException e) {
                                     throw Util.sneak(e);
                                 }

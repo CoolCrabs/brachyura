@@ -79,6 +79,7 @@ public class MappingIoMappings implements Mappings {
             int key;
             NameDescPair value;
             Int2ObjectOpenHashMap<Mutf8Slice> params;
+            NameDescPair src;
         }
         int size = inheritanceMap.curId;
         methodMap = new Int2ObjectOpenHashMap<>(size);
@@ -109,6 +110,7 @@ public class MappingIoMappings implements Mappings {
                     IntNameDescPairPair indpp = new IntNameDescPairPair();
                     indpp.key = igroup.id;
                     indpp.value = mdst;
+                    indpp.src = msrc;
                     int s = 0;
                     for (MethodArgMapping mam : m.getArgs()) {
                         if (mam.getName(dst) != null) s++;
@@ -133,8 +135,15 @@ public class MappingIoMappings implements Mappings {
                 for (IntNameDescPairPair indpp : indpps) {
                     NameDescPair old = methodMap.put(indpp.key, indpp.value);
                     if (old != null && !old.equals(indpp.value)) {
-                        Logger.error("Method mapping confllict {} {} {}", indpp.value, old, indpp.value);
-                        conflict = true;
+                        boolean oldNoop = old.name.equals(indpp.src.name);
+                        boolean newNoop = indpp.value.name.equals(indpp.src.name);
+                        if (oldNoop || newNoop) {
+                            Logger.warn("Working around broken mappings for {}", oldNoop ? old : indpp.value);
+                            methodMap.put(indpp.key, oldNoop ? indpp.value : old);
+                        } else {
+                            Logger.error("Method mapping confllict {} {} {}", indpp.value, old, indpp.value);
+                            conflict = true;
+                        }
                     }
                     if (indpp.params != null) {
                         methodArgMap.compute(indpp.key, (k, v) -> {

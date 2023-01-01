@@ -113,10 +113,8 @@ import io.github.coolcrabs.brachyura.recombobulator.attribute.VerificationTypeNo
 import io.github.coolcrabs.brachyura.recombobulator.attribute.VerificationTypeObject;
 import io.github.coolcrabs.brachyura.recombobulator.attribute.VerificationTypeUninitialized;
 import io.github.coolcrabs.brachyura.recombobulator.util.ConstantPoolRefCounter;
-import it.unimi.dsi.fastutil.ints.Int2ObjectRBTreeMap;
 import it.unimi.dsi.fastutil.ints.IntArrayFIFOQueue;
 import it.unimi.dsi.fastutil.ints.IntIntImmutablePair;
-import it.unimi.dsi.fastutil.ints.IntIntPair;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 
 public class RecombobulatorRemapper {
