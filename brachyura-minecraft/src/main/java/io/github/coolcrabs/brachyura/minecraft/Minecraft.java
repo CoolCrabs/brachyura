@@ -277,7 +277,7 @@ public class Minecraft {
         Path objects = assets().resolve("objects");
         for (Map.Entry<String, SizeHash> entry : assetsIndex.objects.entrySet()) {
             String a = entry.getValue().hash.substring(0, 2); // first 2 chars
-            URL url = NetUtil.url("http://resources.download.minecraft.net/" + a + "/" + entry.getValue().hash);
+            URL url = NetUtil.url("https://resources.download.minecraft.net/" + a + "/" + entry.getValue().hash);
             Path target = objects.resolve(a).resolve(entry.getValue().hash);
             if (!Files.isRegularFile(target)) {
                 try (AtomicFile atomicFile = new AtomicFile(target)) {

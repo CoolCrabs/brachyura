@@ -417,7 +417,7 @@ public class Buildscript extends BaseJavaProject {
     public final BJavaModule brachyuraMinecraft = new BJavaModule() {
         @Override
         MavenId getId() {
-            return new MavenId(GROUP, "brachyura-minecraft", "0.3");
+            return new MavenId(GROUP, "brachyura-minecraft", "0.4");
         }
 
         @Override
