@@ -43,7 +43,7 @@ public class LoggerErrWriter extends Writer {
     @Override
     public void close() {
         if (data.length() > 0) {
-            Logger.info(data.toString());
+            Logger.error(data.toString());
         }
     }
     

@@ -47,9 +47,20 @@ public class MappingIoMappings implements Mappings {
         for (ClassMapping c : classes) {
             String srcn = c.getName(src);
             String dstn = c.getName(dst);
-            if (srcn == null) continue;
-            Mutf8Slice ssrcn = new Mutf8Slice(srcn);
-            if (dstn != null) classMap.put(ssrcn, new Mutf8Slice(dstn));
+            Mutf8Slice ssrcn;
+            if (srcn == null) {
+                if (dstn == null) {
+                    continue;
+                } else {
+                    srcn = dstn;
+                }
+                ssrcn = new Mutf8Slice(srcn);
+            } else {
+                ssrcn = new Mutf8Slice(srcn);
+                if (dstn != null) {
+                    classMap.put(ssrcn, new Mutf8Slice(dstn));
+                }
+            }
             runs.add(() -> {
                 Collection<? extends FieldMapping> fmaps = c.getFields();
                 HashMap<NameDescPair, NameDescPair> m = new HashMap<>(fmaps.size());
@@ -89,6 +100,7 @@ public class MappingIoMappings implements Mappings {
         for (ClassMapping c : tree.getClasses()) {
             futures1.add(threadpool.submit(() -> {
                 String name = c.getName(src);
+                if (name == null) name = c.getName(dst);
                 if (name == null) return Collections.emptyList();
                 Map<NameDescPair, InheritanceGroup> igroups = inheritanceMap.inheritanceMap.get(new Mutf8Slice(name));
                 if (igroups == null) {
