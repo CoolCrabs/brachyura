@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -749,7 +751,7 @@ public class RecombobulatorRemapper {
         AttributeMethodParameters params;
         boolean isDynamic;
         int[] lvtp;
-        HashMap<IntIntImmutablePair, Mutf8Slice> lvtTypeMap;
+        LinkedHashMap<IntIntImmutablePair, Mutf8Slice> lvtTypeMap;
 
         @Override
         public void visitMethodInfo(MethodInfo el) {
@@ -759,7 +761,7 @@ public class RecombobulatorRemapper {
             el.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, mapped.name);
             el.descriptor_index = getUtf8Index(cp, newCp, utf8Map, openSlots, mapped.desc);
             params = null;
-            lvtTypeMap = new HashMap<>();
+            lvtTypeMap = new LinkedHashMap<>();
             for (Attribute a : el.attributes) {
                 if (a instanceof AttributeMethodParameters) params = (AttributeMethodParameters) a;
                 if (a instanceof AttributeCode) {
@@ -804,10 +806,31 @@ public class RecombobulatorRemapper {
                     params.parameters.get(i).name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, pm);
                 }
             }
+            Mutf8Slice[] paramTypes = null;
             for (int i = 0; i < params.parameters.size(); i++) {
                 if (!mappedp.get(i)) {
                     EntryParameters ep = params.parameters.get(i);
-                    ep.name_index =  ep.name_index == 0 ? 0 : getUtf8Index(cp, newCp, utf8Map, openSlots, utf8(cp, ep.name_index));
+                    Mutf8Slice name = null;
+                    if (ep.name_index != 0) name = utf8(cp, ep.name_index);
+                    if (name == null) {
+                        if (paramTypes == null) {
+                            paramTypes = new Mutf8Slice[pcount];
+                            int[] startpcs = new int[pcount];
+                            for (Map.Entry<IntIntImmutablePair, Mutf8Slice> e : lvtTypeMap.entrySet()) {
+                                int index = e.getKey().valueInt();
+                                if (index < lvtp.length) {
+                                    int k = lvtp[index];
+                                    if (paramTypes[k] == null || e.getKey().keyInt() < startpcs[k]) {
+                                        paramTypes[k] = e.getValue();
+                                        startpcs[k] = e.getKey().keyInt();
+                                    }
+                                }
+                            }
+                        }
+                        Mutf8Slice type = paramTypes[i];
+                        name = new Mutf8Slice("p" + getLvNameTypeThing(type) + i);
+                    }
+                    ep.name_index = getUtf8Index(cp, newCp, utf8Map, openSlots, name);
                 }
             }
         }
@@ -1305,6 +1328,7 @@ public class RecombobulatorRemapper {
                         output.outputClass(cls2Utf8(newCp, ci.this_class) + ".class", ci, in.tag);
                     } catch (Exception e) {
                         Logger.error("Error remapping {}", in.path);
+                        Logger.error(e);
                         throw e;
                     }
                 })

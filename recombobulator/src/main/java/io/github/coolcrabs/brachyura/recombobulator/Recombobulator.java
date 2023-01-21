@@ -4,6 +4,6 @@ public class Recombobulator {
     private Recombobulator() { }
 
     public static String getVersion() {
-        return "0.4";
+        return "0.5";
     }
 }
