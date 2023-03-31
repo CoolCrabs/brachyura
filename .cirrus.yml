@@ -1,0 +1,27 @@
+build_task:
+    macos_instance:
+        image: ghcr.io/cirruslabs/macos-ventura-base:latest
+    java_cache:
+        folder: java_cache/jdk8u362-b09
+        fingerprint_key: jdk8u362-b09
+        populate_script:
+            - mkdir java_cache
+            - curl -L https://github.com/adoptium/temurin8-binaries/releases/download/jdk8u362-b09/OpenJDK8U-jdk_x64_mac_hotspot_8u362b09.tar.gz | tar xz -C java_cache
+    build_script:
+        - java_cache/jdk8u362-b09/Contents/Home/bin/javac Buildscript.java
+        - java_cache/jdk8u362-b09/Contents/Home/bin/java Buildscript build
+    
+        
+    matrix:
+        - name: Publish
+            only_if: $CIRRUS_BRANCH == $CIRRUS_DEFAULT_BRANCH && $CIRRUS_REPO_OWNER == 'CoolCrabs'
+            env:
+                GITHUB_TOKEN: ENCRYPTED[!6234bb7ca63ced43e91122cfe5a657b4784a9da8131117ff54cb2a36419cde57d7a10aa9da15a95d3a8c905f919e5f1c!]
+            publish_script:
+                - java_cache/jdk8u362-b09/Contents/Home/bin/javac Buildscript.java
+                - java_cache/jdk8u362-b09/Contents/Home/bin/java Buildscript publish
+        - name: Build
+            only_if: $CIRRUS_BRANCH != $CIRRUS_DEFAULT_BRANCH || $CIRRUS_REPO_OWNER != 'CoolCrabs'
+            publish_script:
+                - java_cache/jdk8u362-b09/Contents/Home/bin/javac Buildscript.java
+                - java_cache/jdk8u362-b09/Contents/Home/bin/java Buildscript build
