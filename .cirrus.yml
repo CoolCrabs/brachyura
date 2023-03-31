@@ -15,7 +15,7 @@ build_task:
                 GITHUB_TOKEN: ENCRYPTED[!6234bb7ca63ced43e91122cfe5a657b4784a9da8131117ff54cb2a36419cde57d7a10aa9da15a95d3a8c905f919e5f1c!]
             publish_script:
                 - java_cache/zulu8.68.0.21-ca-jdk8.0.362-macosx_aarch64/zulu-8.jdk/Contents/Home/bin/javac Buildscript.java
-                - java_cache/zulu8.68.0.21-ca-jdk8.0.362-macosx_aarch64/zulu-8.jdk/jdk8u362-b09/Contents/Home/bin/java Buildscript publish
+                - java_cache/zulu8.68.0.21-ca-jdk8.0.362-macosx_aarch64/zulu-8.jdk/Contents/Home/bin/java Buildscript publish
         -
             name: Build
             only_if: $CIRRUS_BRANCH != $CIRRUS_DEFAULT_BRANCH || $CIRRUS_REPO_OWNER != 'CoolCrabs'
