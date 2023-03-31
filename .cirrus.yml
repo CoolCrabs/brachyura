@@ -6,12 +6,7 @@ build_task:
         fingerprint_key: zulu8.68.0.21-ca-jdk8.0.362-macosx_aarch64
         populate_script:
             - mkdir java_cache
-            - curl -L https://cdn.azul.com/zulu/bin/zulu8.68.0.21-ca-jdk8.0.362-macosx_aarch64.tar.gz | tar xz -C java_cache
-    build_script:
-        - java_cache/jdk8u362-b09/Contents/Home/bin/javac Buildscript.java
-        - java_cache/jdk8u362-b09/Contents/Home/bin/java Buildscript build
-    
-        
+            - curl -L https://cdn.azul.com/zulu/bin/zulu8.68.0.21-ca-jdk8.0.362-macosx_aarch64.tar.gz | tar xz -C java_cache 
     matrix:
         -
             name: Publish
