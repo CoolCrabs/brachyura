@@ -13,14 +13,16 @@ build_task:
     
         
     matrix:
-        - name: Publish
+        -
+            name: Publish
             only_if: $CIRRUS_BRANCH == $CIRRUS_DEFAULT_BRANCH && $CIRRUS_REPO_OWNER == 'CoolCrabs'
             env:
                 GITHUB_TOKEN: ENCRYPTED[!6234bb7ca63ced43e91122cfe5a657b4784a9da8131117ff54cb2a36419cde57d7a10aa9da15a95d3a8c905f919e5f1c!]
             publish_script:
                 - java_cache/jdk8u362-b09/Contents/Home/bin/javac Buildscript.java
                 - java_cache/jdk8u362-b09/Contents/Home/bin/java Buildscript publish
-        - name: Build
+        -
+            name: Build
             only_if: $CIRRUS_BRANCH != $CIRRUS_DEFAULT_BRANCH || $CIRRUS_REPO_OWNER != 'CoolCrabs'
             publish_script:
                 - java_cache/jdk8u362-b09/Contents/Home/bin/javac Buildscript.java
