@@ -55,7 +55,7 @@ public enum Intellijank implements Ide {
                 // Delete everything in .idea except for vcs.xml and icon.png/svg
                 // We skip these since otherwise we'll reset people's configurations
                 try (DirectoryStream<Path> files = Files.newDirectoryStream(ideaPath,
-                        file -> file.getFileName().toString().equals("vcs.xml") || file.getFileName().toString().startsWith("icon."))) {
+                        file -> !(file.getFileName().toString().equals("vcs.xml") || file.getFileName().toString().startsWith("icon.")))) {
                     for (Path file : files) {
                         if (Files.isDirectory(file)) {
                             PathUtil.deleteDirectory(file);
