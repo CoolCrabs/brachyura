@@ -52,10 +52,10 @@ public enum Intellijank implements Ide {
             Path ideaPath = projectRoot.resolve(".idea");
 
             if (Files.exists(ideaPath)) {
-                // Delete everything in .idea except for vcs.xml
-                // We skip vcs.xml since otherwise we'll reset people's Git configurations
+                // Delete everything in .idea except for vcs.xml and icon.png/svg
+                // We skip these since otherwise we'll reset people's configurations
                 try (DirectoryStream<Path> files = Files.newDirectoryStream(ideaPath,
-                        file -> !"vcs.xml".equals(file.getFileName().toString()))) {
+                        file -> !(file.getFileName().toString().equals("vcs.xml") || file.getFileName().toString().startsWith("icon.")))) {
                     for (Path file : files) {
                         if (Files.isDirectory(file)) {
                             PathUtil.deleteDirectory(file);
