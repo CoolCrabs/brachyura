@@ -243,7 +243,7 @@ public class Buildscript extends BaseJavaProject {
     public final BJavaModule brachyura = new BJavaModule() {
         @Override
         MavenId getId() {
-            return new MavenId(GROUP, "brachyura", "0.95");
+            return new MavenId(GROUP, "brachyura", "0.96");
         }
 
         @Override
