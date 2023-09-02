@@ -2,11 +2,11 @@ package io.github.coolcrabs.brachyura.recombobulator.remapper;
 
 import io.github.coolcrabs.brachyura.recombobulator.Mutf8Slice;
 
-class NameDescPair {
+public class NameDescPair {
     Mutf8Slice name;
     Mutf8Slice desc;
 
-    NameDescPair(Mutf8Slice name, Mutf8Slice desc) {
+    public NameDescPair(Mutf8Slice name, Mutf8Slice desc) {
         this.name = name;
         this.desc = desc;
     }

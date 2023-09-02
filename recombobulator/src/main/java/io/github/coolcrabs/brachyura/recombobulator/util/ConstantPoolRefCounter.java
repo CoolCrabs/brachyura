@@ -21,6 +21,7 @@ import io.github.coolcrabs.brachyura.recombobulator.ConstantPackage;
 import io.github.coolcrabs.brachyura.recombobulator.ConstantPool;
 import io.github.coolcrabs.brachyura.recombobulator.ConstantPoolEntry;
 import io.github.coolcrabs.brachyura.recombobulator.ConstantString;
+import io.github.coolcrabs.brachyura.recombobulator.ConstantUtf8;
 import io.github.coolcrabs.brachyura.recombobulator.FieldInfo;
 import io.github.coolcrabs.brachyura.recombobulator.MethodInfo;
 import io.github.coolcrabs.brachyura.recombobulator.RecombobulatorVisitor;
@@ -89,6 +90,7 @@ import io.github.coolcrabs.brachyura.recombobulator.attribute.TargetEmpty;
 import io.github.coolcrabs.brachyura.recombobulator.attribute.TargetFormalParameter;
 import io.github.coolcrabs.brachyura.recombobulator.attribute.TargetLocalvar;
 import io.github.coolcrabs.brachyura.recombobulator.attribute.TargetLocalvar.LocalvarTableEntry;
+import io.github.coolcrabs.brachyura.recombobulator.remapper.NameDescPair;
 import io.github.coolcrabs.brachyura.recombobulator.attribute.TargetOffset;
 import io.github.coolcrabs.brachyura.recombobulator.attribute.TargetSupertype;
 import io.github.coolcrabs.brachyura.recombobulator.attribute.TargetThrows;
@@ -181,10 +183,13 @@ public class ConstantPoolRefCounter implements RecombobulatorVisitor {
         }
     }
 
+    MethodInfo meth;
+
     @Override
     public void visitMethodInfo(MethodInfo el) {
         ref(el.name_index);
         ref(el.descriptor_index);
+        meth = el;
     }
 
     @Override
@@ -411,10 +416,10 @@ public class ConstantPoolRefCounter implements RecombobulatorVisitor {
                 case (byte) 0xC9:
                     pos += 4;
                     break;
-                case (byte) 0xC4:
+                case (byte) 0xC4: // wide
                     byte op = b.get(offset + pos);
                     pos += 1;
-                    if (op == 0x84) {
+                    if (op == (byte) 0x84) {
                         pos += 4;
                     } else {
                         pos += 2;
@@ -643,7 +648,7 @@ public class ConstantPoolRefCounter implements RecombobulatorVisitor {
                 case (byte) 0x5F:                    
                     break;
                 default:
-                    throw new ClassDecodeException("Unknown opcode 0x" + Integer.toHexString(opcode & 0xFF) + " at position " + (pos - b.position() - 1));
+                    throw new ClassDecodeException("Unknown opcode 0x" + Integer.toHexString(opcode & 0xFF) + " at position " + (pos - 1) + " in method " + new NameDescPair(((ConstantUtf8)pool.getEntry(meth.name_index)).slice, ((ConstantUtf8)pool.getEntry(meth.descriptor_index)).slice));
             }
         }
     }

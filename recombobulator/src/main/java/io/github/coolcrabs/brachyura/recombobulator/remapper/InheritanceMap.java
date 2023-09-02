@@ -5,16 +5,13 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 import io.github.coolcrabs.brachyura.recombobulator.AccessFlags;
@@ -28,7 +25,6 @@ import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 public class InheritanceMap {
     public ConcurrentHashMap<Mutf8Slice, Map<NameDescPair, InheritanceGroup>> inheritanceMap;
     public ConcurrentHashMap<Mutf8Slice, Object2IntMap<NameDescPair>> inheritanceInfoMap;
-    public ConcurrentHashMap<Mutf8Slice, ConcurrentLinkedQueue<Mutf8Slice>> aboveMap;
     public ConcurrentHashMap<Mutf8Slice, Collection<Mutf8Slice>> belowMap;
 
     public int curId = 1;
@@ -37,7 +33,6 @@ public class InheritanceMap {
         if (inheritanceMap == null) {
             inheritanceMap = new ConcurrentHashMap<>(size);
             inheritanceInfoMap = new ConcurrentHashMap<>(size);
-            aboveMap = new ConcurrentHashMap<>(size);
             belowMap = new ConcurrentHashMap<>(size);
         }
     }
@@ -65,15 +60,12 @@ public class InheritanceMap {
                     }
                     
                     belowMap.put(name, Arrays.asList(below));
-                    for (Mutf8Slice b : below) {
-                        aboveMap.computeIfAbsent(b, k -> new ConcurrentLinkedQueue<>()).add(name);
-                    }
                     Object2IntMap<NameDescPair> iinfo = new Object2IntOpenHashMap<>(ci.methods.size());
                     HashMap<NameDescPair, InheritanceGroup> imap = new HashMap<>(ci.methods.size());
                     for (MethodInfo mi : ci.methods) {
                         NameDescPair ndp = new NameDescPair(RecombobulatorRemapper.utf8(ci.pool, mi.name_index), RecombobulatorRemapper.utf8(ci.pool, mi.descriptor_index));
                         iinfo.put(ndp, mi.access_flags);
-                        imap.put(ndp, new InheritanceGroup());
+                        imap.put(ndp, new InheritanceGroup(name, ndp));
                     }
                     inheritanceInfoMap.compute(name, (k, v) -> {
                         if (v == null) {
@@ -113,35 +105,29 @@ public class InheritanceMap {
                     for (MethodInfo methodInfo : ci.methods) {
                         NameDescPair methodKey = new NameDescPair(RecombobulatorRemapper.utf8(ci.pool, methodInfo.name_index), RecombobulatorRemapper.utf8(ci.pool, methodInfo.descriptor_index));
                         InheritanceGroup igroup = mIgroupMap.get(methodKey);
-                        if (igroup == null) {
-                            System.out.println("SAD!");
-                        }
                         int acc = mIinfoMap.getInt(methodKey); // Will always be present
                         if (canPropogate(acc)) { // Can propogate    
-                            ConcurrentHashMap<Mutf8Slice, ? extends Collection<Mutf8Slice>> directionMap = aboveMap;
-                            for (int i = 0; i < 2; i++) { // Loop twice once for up once for down
-                                ArrayList<Mutf8Slice> la = new ArrayList<>();
-                                ArrayList<Mutf8Slice> lb = new ArrayList<>();
-                                la.add(clsName);
-                                while (!la.isEmpty()) {
-                                    for (Mutf8Slice lai : la) {
-                                        Collection<Mutf8Slice> nextInDirection = directionMap.get(lai);
-                                        if (nextInDirection != null) lb.addAll(nextInDirection);
-                                    }
-                                    ArrayList<Mutf8Slice> temp = la;
-                                    la = lb;
-                                    lb = temp;
-                                    lb.clear();
-                                    for (Mutf8Slice lai : la) {
-                                        Object2IntMap<NameDescPair> laiIinfoMap = getIInfoMap(lai);
-                                        Map<NameDescPair, InheritanceGroup> laiIgroupMap = inheritanceMap.getOrDefault(lai, Collections.emptyMap());
-                                        int laiAcc = laiIinfoMap.getOrDefault(methodKey, AccessFlags.ACC_PRIVATE); // private can't propogate so use as default
-                                        if (canPropogate(laiAcc)) {
-                                            igroup.join(laiIgroupMap.get(methodKey));
-                                        }
+                            ConcurrentHashMap<Mutf8Slice, ? extends Collection<Mutf8Slice>> directionMap = belowMap;
+                            ArrayList<Mutf8Slice> la = new ArrayList<>();
+                            ArrayList<Mutf8Slice> lb = new ArrayList<>();
+                            la.add(clsName);
+                            while (!la.isEmpty()) {
+                                for (Mutf8Slice lai : la) {
+                                    Collection<Mutf8Slice> nextInDirection = directionMap.get(lai);
+                                    if (nextInDirection != null) lb.addAll(nextInDirection);
+                                }
+                                ArrayList<Mutf8Slice> temp = la;
+                                la = lb;
+                                lb = temp;
+                                lb.clear();
+                                for (Mutf8Slice lai : la) {
+                                    Object2IntMap<NameDescPair> laiIinfoMap = getIInfoMap(lai);
+                                    Map<NameDescPair, InheritanceGroup> laiIgroupMap = inheritanceMap.getOrDefault(lai, Collections.emptyMap());
+                                    int laiAcc = laiIinfoMap.getOrDefault(methodKey, AccessFlags.ACC_PRIVATE); // private can't propogate so use as default
+                                    if (canPropogate(laiAcc)) {
+                                        igroup.join(laiIgroupMap.get(methodKey));
                                     }
                                 }
-                                directionMap = belowMap;
                             }
                         }
                     }
@@ -157,17 +143,17 @@ public class InheritanceMap {
         }
         for (Map<NameDescPair, InheritanceGroup> a : inheritanceMap.values()) {
             for (InheritanceGroup b : a.values()) {
-                if (b.id == 0) {
-                    setId(curId++, b);
+                InheritanceGroup c = b;
+                while (c.id == 0 && c.parent != null) {
+                    c = c.parent;
+                }
+                int id = c.id == 0 ? curId++ : c.id;
+                c = b;
+                while (c != null && c.id == 0) {
+                    c.id = id;
+                    c = c.parent;
                 }
             }
-        }
-    }
-
-    static void setId(int id, InheritanceGroup g) {
-        g.id = id;
-        for (InheritanceGroup g0 : g.children) {
-            setId(id, g0);
         }
     }
     
@@ -182,38 +168,48 @@ public class InheritanceMap {
     public static class InheritanceGroup {
         public int id;
         public boolean canRemap;
-        InheritanceGroup parent;
-        AtomicBoolean lock = new AtomicBoolean();
-        //todo evaluate data structure
-        LinkedList<InheritanceGroup> children = new LinkedList<>();
+
+        final Mutf8Slice cls;
+        final NameDescPair method;
+
+        public InheritanceGroup(Mutf8Slice cls, NameDescPair method) {
+            this.cls = cls;
+            this.method = method;
+        }
+
+        volatile InheritanceGroup parent;
 
         public void join(InheritanceGroup o) {
             InheritanceGroup a = o;
             InheritanceGroup b = this;
-            // If there is a better way to do this without spin locks I couldn't find it
+            // Establish a "canonical ordering" through sorting by class and method
+            // This should avoid deadlocks without needing to spin lock in userspace (bad)
+            // In practice there is no significant performance improvment over the spinning version
+            // https://dzone.com/articles/deadlock-free-synchronization-in-java
             for (;;) {
                 a = getTop(a);
                 b = getTop(b);
                 if (a == b) return;
-                AtomicBoolean al = a.lock;
-                AtomicBoolean bl = b.lock;
-                boolean alock = al.compareAndSet(false, true);
-                if (alock) {
-                    try {
-                        boolean block = bl.compareAndSet(false, true);
-                        if (block) {
-                            try {
-                                if (a.parent == null && b.parent == null) {
-                                    b.parent = a;
-                                    a.children.add(b);
-                                    break;
-                                }
-                            } finally {
-                                bl.set(false);
+                InheritanceGroup high;
+                InheritanceGroup low;
+                int c = a.cls.compareTo(b.cls);
+                if (c == 0) c = a.method.name.compareTo(b.method.name);
+                if (c == 0) c = a.method.desc.compareTo(b.method.desc);
+                if (c == 0) throw new RuntimeException("Duplicate class and method " + a.cls + " " + a.method);
+                if (c > 0) {
+                    high = a;
+                    low = b;
+                } else {
+                    high = b;
+                    low = a;
+                }
+                synchronized (high) {
+                    if (high.parent == null) {
+                        synchronized (low) {
+                            if (low.parent == null) {
+                                low.parent = high;
                             }
                         }
-                    } finally {
-                        al.set(false);
                     }
                 }
             }
