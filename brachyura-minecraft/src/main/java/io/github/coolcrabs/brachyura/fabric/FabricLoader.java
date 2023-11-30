@@ -16,6 +16,7 @@ public class FabricLoader {
     public final JavaJarDependency[] clientDeps;
     public final JavaJarDependency[] commonDeps;
     public final JavaJarDependency[] serverDeps;
+    public final JavaJarDependency[] developmentDeps;
 
     public FabricLoader(String mavenRepo, MavenId id) {
         try {
@@ -40,6 +41,11 @@ public class FabricLoader {
                 FloaderMeta.Dep dep = floaderMeta.libraries.server[i];
                 serverDeps[i] = Maven.getMavenJarDep(dep.url, new MavenId(dep.name));
             }
+            developmentDeps = new JavaJarDependency[floaderMeta.libraries.development.length];
+            for (int i = 0; i < floaderMeta.libraries.development.length; i++) {
+                FloaderMeta.Dep dep = floaderMeta.libraries.development[i];
+                developmentDeps[i] = Maven.getMavenJarDep(dep.url, new MavenId(dep.name));
+            }
         } catch (Exception e) {
             throw Util.sneak(e);
         }
@@ -52,6 +58,7 @@ public class FabricLoader {
             Dep[] client;
             Dep[] common;
             Dep[] server;
+            Dep[] development;
         }
 
         class Dep {
