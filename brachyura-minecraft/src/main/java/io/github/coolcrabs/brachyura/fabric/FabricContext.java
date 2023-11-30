@@ -581,6 +581,7 @@ public abstract class FabricContext {
         Collections.addAll(result, floader.commonDeps);
         Collections.addAll(result, floader.serverDeps);
         Collections.addAll(result, floader.clientDeps);
+        Collections.addAll(result, floader.developmentDeps);
         return result;
     }
 
