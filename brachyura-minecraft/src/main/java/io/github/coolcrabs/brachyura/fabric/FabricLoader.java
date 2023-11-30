@@ -41,10 +41,14 @@ public class FabricLoader {
                 FloaderMeta.Dep dep = floaderMeta.libraries.server[i];
                 serverDeps[i] = Maven.getMavenJarDep(dep.url, new MavenId(dep.name));
             }
-            developmentDeps = new JavaJarDependency[floaderMeta.libraries.development.length];
-            for (int i = 0; i < floaderMeta.libraries.development.length; i++) {
-                FloaderMeta.Dep dep = floaderMeta.libraries.development[i];
-                developmentDeps[i] = Maven.getMavenJarDep(dep.url, new MavenId(dep.name));
+            if (floaderMeta.libraries.development != null) {
+                developmentDeps = new JavaJarDependency[floaderMeta.libraries.development.length];
+                for (int i = 0; i < floaderMeta.libraries.development.length; i++) {
+                    FloaderMeta.Dep dep = floaderMeta.libraries.development[i];
+                    developmentDeps[i] = Maven.getMavenJarDep(dep.url, new MavenId(dep.name));
+                }
+            } else {
+                developmentDeps = new JavaJarDependency[0];
             }
         } catch (Exception e) {
             throw Util.sneak(e);
